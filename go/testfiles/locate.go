@@ -25,22 +25,27 @@ import (
 	"path/filepath"
 )
 
-// Locate returns a file path that came from $VTROOT/data/test.
-func Locate(filename string) string {
+func getRootDir() string {
+	runfilesDir := os.Getenv("RUNFILES_DIR")
+	if runfilesDir != "" {
+		return path.Join(runfilesDir, "__main__", "data", "test")
+	}
+
 	vtroot := os.Getenv("VTROOT")
 	if vtroot == "" {
 		panic(fmt.Errorf("VTROOT is not set"))
 	}
-	return path.Join(vtroot, "data", "test", filename)
+	return path.Join(vtroot, "data", "test")
+}
+
+// Locate returns a file path that came from $VTROOT/data/test.
+func Locate(filename string) string {
+	return path.Join(getRootDir(), filename)
 }
 
 // Glob returns all files matching a pattern in $VTROOT/data/test.
 func Glob(pattern string) []string {
-	vtroot := os.Getenv("VTROOT")
-	if vtroot == "" {
-		panic(fmt.Errorf("VTROOT is not set"))
-	}
-	dir := path.Join(vtroot, "data", "test")
+	dir := getRootDir()
 	if exists, err := exists(dir); !exists {
 		panic(err)
 	}

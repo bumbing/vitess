@@ -4,6 +4,11 @@
 # For mac users
 .DS_Store
 
+# Output from bazel builds
+bazel-*
+go_repos.bzl
+**/BUILD.bazel
+
 # Produced by yacc
 *.output
 

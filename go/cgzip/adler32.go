@@ -18,6 +18,7 @@ package cgzip
 
 /*
 #cgo CFLAGS: -Werror=implicit
+#cgo LDFLAGS: -lz
 #cgo pkg-config: zlib
 
 #include "zlib.h"
