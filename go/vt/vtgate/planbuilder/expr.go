@@ -113,6 +113,9 @@ func findOrigin(expr sqlparser.Expr, bldr builder) (origin columnOriginator, err
 			subroutes = append(subroutes, subroute)
 			return false, nil
 		case *sqlparser.FuncExpr:
+			if node.Name.EqualString("get_lock") {
+				return false, errors.New("unsupported: GET_LOCK is disallowed until we can ensure RELEASE_LOCK() safety")
+			}
 			// If it's last_insert_id, ensure it's a single unsharded route.
 			if !node.Name.EqualString("last_insert_id") {
 				return true, nil

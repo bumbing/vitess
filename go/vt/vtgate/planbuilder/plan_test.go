@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -122,6 +123,11 @@ func TestPlan(t *testing.T) {
 	testFile(t, "unsupported_cases.txt", vschema)
 	testFile(t, "vindex_func_cases.txt", vschema)
 	testFile(t, "wireup_cases.txt", vschema)
+	{
+		defer flag.Set("merge_keyspace_joins_to_single_shard", "false")
+		flag.Set("merge_keyspace_joins_to_single_shard", "true")
+		testFile(t, "pinterest_cases.txt", vschema)
+	}
 }
 
 func TestOne(t *testing.T) {

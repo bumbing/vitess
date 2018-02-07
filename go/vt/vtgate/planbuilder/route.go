@@ -18,6 +18,7 @@ package planbuilder
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"strings"
 
@@ -25,6 +26,28 @@ import (
 	"github.com/youtube/vitess/go/vt/sqlparser"
 	"github.com/youtube/vitess/go/vt/vtgate/engine"
 	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+)
+
+var (
+	// TODO(dweitzman): This is a lazy solution for pinterest. It would be nice to generalize something we
+	// can contribute back to open source. We might also be able to do something using
+	// https://github.com/youtube/vitess/pull/3600 after it lands: create vindexes for all local IDs which
+	// are unique (cause isSameRoute() to return true) but have scatter_if_absent and are always absent.
+	//
+	// The basic idea here is that we know that
+	// "select * from pin_promotions pp left join pin_promotion_specs pps on pp.spec_id = pps.id where <...>"
+	// can run in a single shard, but vitess doesn't make this assumption because a column like spec_id
+	// doesn't have a unique vindex so vitess generously assumes that it might not be unique across
+	// shards and the safe thing is to do a multi-shard join. That would be slow and complicated, to start
+	// with, and it won't even necessarily support the particular SQL features or where clauses we might want
+	// to use.
+	//
+	// We can set this flag in our pinterest vtgates to tell it that joins should always be executed within
+	// a single shard.
+	//
+	// https://jira.pinadmin.com/browse/STERLING-3684
+	alwaysMergeKeyspaceRoutes = flag.Bool("merge_keyspace_joins_to_single_shard", false,
+		"whether joins within a keyspace should be executed in a single shard even without a unique vindex on the join column")
 )
 
 var _ builder = (*route)(nil)
@@ -217,6 +240,10 @@ func (rb *route) merge(rhs *route, ajoin *sqlparser.JoinTableExpr) (builder, err
 // mergeable by unique vindex. The constraint has to be an equality
 // like a.id = b.id where both columns have the same unique vindex.
 func (rb *route) isSameRoute(rhs *route, filter sqlparser.Expr) bool {
+	if *alwaysMergeKeyspaceRoutes {
+		return true
+	}
+
 	filter = skipParenthesis(filter)
 	comparison, ok := filter.(*sqlparser.ComparisonExpr)
 	if !ok {
