@@ -1,0 +1,6 @@
+#!/bin/bash
+
+mkdir -p /mnt/vtdataroot
+chown prod: /mnt/vtdataroot
+
+configure-serviceset -c teletraan/config/serviceset.${STAGE_NAME}.conf
