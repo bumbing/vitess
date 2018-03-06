@@ -617,6 +617,12 @@
 			"revisionTime": "2016-08-24T21:06:00Z"
 		},
 		{
+			"checksumSHA1": "uCYJ03EPZ6KBJifI+NzaIZ3F8K4=",
+			"path": "github.com/pinterest/knox",
+			"revision": "084e20c00cae39fb078c1be6f3d2b42a53cbff9d",
+			"revisionTime": "2018-03-03T21:27:53Z"
+		},
+		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
 			"path": "github.com/pmezard/go-difflib/difflib",
 			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",

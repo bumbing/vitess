@@ -30,6 +30,7 @@ import (
 
 	log "github.com/golang/glog"
 	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/mysql/knoxauth"
 )
 
 var (
@@ -124,6 +125,26 @@ func WithCredentials(cp *mysql.ConnParams) (mysql.ConnParams, error) {
 	return result, err
 }
 
+// knoxCredentialsServer is an implementation of CredentialsServer that takes credentials
+// from knox using the golang knox client.
+type knoxCredentialsServer struct {
+	knoxClient *knoxauth.KnoxMultiClient
+}
+
+// GetUserAndPassword is part of the CredentialsServer interface
+func (kcs *knoxCredentialsServer) GetUserAndPassword(user string) (string, string, error) {
+	password, err := kcs.knoxClient.GetPrimaryPassword(user)
+	if err != nil {
+		return "", "", err
+	}
+	return user, password, nil
+}
+
 func init() {
 	AllCredentialsServers["file"] = &FileCredentialsServer{}
+
+	knoxClient := knoxauth.InitKnoxMultiClient()
+	AllCredentialsServers["knox"] = &knoxCredentialsServer{
+		knoxClient: knoxClient,
+	}
 }
