@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/sqltypes"
 )
 
 func TestPreview(t *testing.T) {
@@ -45,9 +45,13 @@ func TestPreview(t *testing.T) {
 		{"\n\t begin ", StmtBegin},
 		{"... begin ", StmtUnknown},
 		{"begin ...", StmtUnknown},
+		{"begin /* ... */", StmtBegin},
+		{"begin /* ... *//*test*/", StmtBegin},
 		{"start transaction", StmtBegin},
 		{"commit", StmtCommit},
+		{"commit /*...*/", StmtCommit},
 		{"rollback", StmtRollback},
+		{"rollback /*...*/", StmtRollback},
 		{"create", StmtDDL},
 		{"alter", StmtDDL},
 		{"rename", StmtDDL},
@@ -61,7 +65,7 @@ func TestPreview(t *testing.T) {
 		{"explain", StmtOther},
 		{"repair", StmtOther},
 		{"optimize", StmtOther},
-		{"truncate", StmtOther},
+		{"truncate", StmtDDL},
 		{"unknown", StmtUnknown},
 
 		{"/* leading comment */ select ...", StmtSelect},

@@ -1,4 +1,39 @@
-# vindex func read
+# vindex func read all cols
+"select id, keyspace_id, range_start, range_end from user_index where id = :id"
+{
+  "Original": "select id, keyspace_id, range_start, range_end from user_index where id = :id",
+  "Instructions": {
+    "Opcode": "VindexMap",
+    "Fields": [
+      {
+        "name": "id",
+        "type": 10262
+      },
+      {
+        "name": "keyspace_id",
+        "type": 10262
+      },
+      {
+        "name": "range_start",
+        "type": 10262
+      },
+      {
+        "name": "range_end",
+        "type": 10262
+      }
+    ],
+    "Cols": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "Vindex": "user_index",
+    "Value": ":id"
+  }
+}
+
+# vindex func read with id repeated
 "select id, keyspace_id, id from user_index where id = :id"
 {
   "Original": "select id, keyspace_id, id from user_index where id = :id",
@@ -158,10 +193,7 @@
         "Sharded": false
       },
       "Query": "select unsharded.id from unsharded where unsharded.id = :user_index_id",
-      "FieldQuery": "select unsharded.id from unsharded where 1 != 1",
-      "JoinVars": {
-        "user_index_id": {}
-      }
+      "FieldQuery": "select unsharded.id from unsharded where 1 != 1"
     },
     "Cols": [
       -1,
@@ -206,10 +238,7 @@
         "Sharded": false
       },
       "Query": "select unsharded.id from unsharded where unsharded.id = :user_index_id",
-      "FieldQuery": "select unsharded.id from unsharded where 1 != 1",
-      "JoinVars": {
-        "user_index_id": {}
-      }
+      "FieldQuery": "select unsharded.id from unsharded where 1 != 1"
     },
     "Cols": [
       -1,
@@ -253,10 +282,7 @@
         "Sharded": false
       },
       "Query": "select unsharded.id from unsharded where unsharded.id = :ui_id",
-      "FieldQuery": "select unsharded.id from unsharded where 1 != 1",
-      "JoinVars": {
-        "ui_id": {}
-      }
+      "FieldQuery": "select unsharded.id from unsharded where 1 != 1"
     },
     "Cols": [
       -1,

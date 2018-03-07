@@ -21,19 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/youtube/vitess/go/vt/topo/topoproto"
-	"github.com/youtube/vitess/go/vt/wrangler"
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/vt/topo/topoproto"
+	"vitess.io/vitess/go/vt/wrangler"
 
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-)
-
-var (
-	// DisableActiveReparents is a flag to disable active
-	// reparents for safety reasons. It is used in vtctld so it can be
-	// exported to the UI (different package, that's why it's exported).
-	// That way we can disable menu items there, using features.
-	DisableActiveReparents = flag.Bool("disable_active_reparents", false, "if set, do not allow active reparents. Use this to protect a cluster using external reparents.")
+	"vitess.io/vitess/go/vt/mysqlctl"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 func init() {
@@ -61,7 +54,7 @@ func init() {
 }
 
 func commandReparentTablet(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	if *DisableActiveReparents {
+	if *mysqlctl.DisableActiveReparents {
 		return fmt.Errorf("active reparent commands disabled (unset the -disable_active_reparents flag to enable)")
 	}
 
@@ -79,7 +72,7 @@ func commandReparentTablet(ctx context.Context, wr *wrangler.Wrangler, subFlags 
 }
 
 func commandInitShardMaster(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	if *DisableActiveReparents {
+	if *mysqlctl.DisableActiveReparents {
 		return fmt.Errorf("active reparent commands disabled (unset the -disable_active_reparents flag to enable)")
 	}
 
@@ -103,7 +96,7 @@ func commandInitShardMaster(ctx context.Context, wr *wrangler.Wrangler, subFlags
 }
 
 func commandPlannedReparentShard(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	if *DisableActiveReparents {
+	if *mysqlctl.DisableActiveReparents {
 		return fmt.Errorf("active reparent commands disabled (unset the -disable_active_reparents flag to enable)")
 	}
 
@@ -146,7 +139,7 @@ func commandPlannedReparentShard(ctx context.Context, wr *wrangler.Wrangler, sub
 }
 
 func commandEmergencyReparentShard(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	if *DisableActiveReparents {
+	if *mysqlctl.DisableActiveReparents {
 		return fmt.Errorf("active reparent commands disabled (unset the -disable_active_reparents flag to enable)")
 	}
 

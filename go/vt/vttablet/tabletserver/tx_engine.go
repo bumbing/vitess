@@ -23,15 +23,16 @@ import (
 	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/timer"
-	"github.com/youtube/vitess/go/vt/concurrency"
-	"github.com/youtube/vitess/go/vt/dbconfigs"
-	"github.com/youtube/vitess/go/vt/dtids"
-	"github.com/youtube/vitess/go/vt/proto/query"
-	"github.com/youtube/vitess/go/vt/vtgate/vtgateconn"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/connpool"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/tabletenv"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/txlimiter"
+	"vitess.io/vitess/go/timer"
+	"vitess.io/vitess/go/vt/concurrency"
+	"vitess.io/vitess/go/vt/dbconfigs"
+	"vitess.io/vitess/go/vt/dtids"
+	"vitess.io/vitess/go/vt/vtgate/vtgateconn"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/connpool"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/txlimiter"
+
+	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
 // TxEngine handles transactions.
@@ -70,6 +71,7 @@ func NewTxEngine(checker connpool.MySQLChecker, config tabletenv.TabletConfig) *
 		config.FoundRowsPoolSize,
 		time.Duration(config.TransactionTimeout*1e9),
 		time.Duration(config.IdleTimeout*1e9),
+		config.TxPoolWaiterCap,
 		checker,
 		limiter,
 	)
@@ -223,7 +225,7 @@ outer:
 		if txid > maxid {
 			maxid = txid
 		}
-		conn, err := te.txPool.LocalBegin(ctx, false, query.ExecuteOptions_DEFAULT)
+		conn, err := te.txPool.LocalBegin(ctx, &querypb.ExecuteOptions{})
 		if err != nil {
 			allErr.RecordError(err)
 			continue

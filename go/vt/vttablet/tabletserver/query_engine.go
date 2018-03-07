@@ -27,27 +27,29 @@ import (
 	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/acl"
-	"github.com/youtube/vitess/go/cache"
-	"github.com/youtube/vitess/go/mysql"
-	"github.com/youtube/vitess/go/stats"
-	"github.com/youtube/vitess/go/streamlog"
-	"github.com/youtube/vitess/go/sync2"
-	"github.com/youtube/vitess/go/trace"
-	"github.com/youtube/vitess/go/vt/dbconfigs"
-	"github.com/youtube/vitess/go/vt/dbconnpool"
-	"github.com/youtube/vitess/go/vt/logutil"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/tableacl"
-	tacl "github.com/youtube/vitess/go/vt/tableacl/acl"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/connpool"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/planbuilder"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/rules"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/schema"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/tabletenv"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/txserializer"
+	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/cache"
+	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/streamlog"
+	"vitess.io/vitess/go/sync2"
+	"vitess.io/vitess/go/trace"
+	"vitess.io/vitess/go/vt/dbconfigs"
+	"vitess.io/vitess/go/vt/dbconnpool"
+	"vitess.io/vitess/go/vt/logutil"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/tableacl"
+	tacl "vitess.io/vitess/go/vt/tableacl/acl"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/connpool"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/planbuilder"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/rules"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/schema"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/txserializer"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 //_______________________________________________
@@ -56,9 +58,10 @@ import (
 // and track stats.
 type TabletPlan struct {
 	*planbuilder.Plan
-	Fields     []*querypb.Field
-	Rules      *rules.Rules
-	Authorized *tableacl.ACLResult
+	Fields           []*querypb.Field
+	Rules            *rules.Rules
+	LegacyAuthorized *tableacl.ACLResult
+	Authorized       []*tableacl.ACLResult
 
 	mu         sync.Mutex
 	QueryCount int64
@@ -96,6 +99,14 @@ func (ep *TabletPlan) Stats() (queryCount int64, duration, mysqlTime time.Durati
 	return
 }
 
+// buildAuthorized builds 'Authorized', which is the runtime part for 'Permissions'.
+func (ep *TabletPlan) buildAuthorized() {
+	ep.Authorized = make([]*tableacl.ACLResult, len(ep.Permissions))
+	for i, perm := range ep.Permissions {
+		ep.Authorized[i] = tableacl.Authorized(perm.TableName, perm.Role)
+	}
+}
+
 //_______________________________________________
 
 // QueryEngine implements the core functionality of tabletserver.
@@ -130,14 +141,17 @@ type QueryEngine struct {
 	streamQList  *QueryList
 
 	// Vars
-	binlogFormat     connpool.BinlogFormat
-	autoCommit       sync2.AtomicBool
-	maxResultSize    sync2.AtomicInt64
-	warnResultSize   sync2.AtomicInt64
-	maxDMLRows       sync2.AtomicInt64
-	passthroughDMLs  sync2.AtomicBool
-	allowUnsafeDMLs  bool
-	streamBufferSize sync2.AtomicInt64
+	connTimeout        sync2.AtomicDuration
+	queryPoolWaiters   sync2.AtomicInt64
+	queryPoolWaiterCap sync2.AtomicInt64
+	binlogFormat       connpool.BinlogFormat
+	autoCommit         sync2.AtomicBool
+	maxResultSize      sync2.AtomicInt64
+	warnResultSize     sync2.AtomicInt64
+	maxDMLRows         sync2.AtomicInt64
+	passthroughDMLs    sync2.AtomicBool
+	allowUnsafeDMLs    bool
+	streamBufferSize   sync2.AtomicInt64
 	// tableaclExemptCount count the number of accesses allowed
 	// based on membership in the superuser ACL
 	tableaclExemptCount  sync2.AtomicInt64
@@ -161,10 +175,11 @@ var (
 // You must call this only once.
 func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tabletenv.TabletConfig) *QueryEngine {
 	qe := &QueryEngine{
-		se:               se,
-		tables:           make(map[string]*schema.Table),
-		plans:            cache.NewLRUCache(int64(config.QueryPlanCacheSize)),
-		queryRuleSources: rules.NewMap(),
+		se:                 se,
+		tables:             make(map[string]*schema.Table),
+		plans:              cache.NewLRUCache(int64(config.QueryPlanCacheSize)),
+		queryRuleSources:   rules.NewMap(),
+		queryPoolWaiterCap: sync2.NewAtomicInt64(int64(config.QueryPoolWaiterCap)),
 	}
 
 	qe.conns = connpool.New(
@@ -173,6 +188,8 @@ func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tab
 		time.Duration(config.IdleTimeout*1e9),
 		checker,
 	)
+	qe.connTimeout.Set(time.Duration(config.QueryPoolTimeout * 1e9))
+
 	qe.streamConns = connpool.New(
 		config.PoolNamePrefix+"StreamConnPool",
 		config.StreamPoolSize,
@@ -222,6 +239,7 @@ func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tab
 		stats.Publish("MaxDMLRows", stats.IntFunc(qe.maxDMLRows.Get))
 		stats.Publish("StreamBufferSize", stats.IntFunc(qe.streamBufferSize.Get))
 		stats.Publish("TableACLExemptCount", stats.IntFunc(qe.tableaclExemptCount.Get))
+		stats.Publish("QueryPoolWaiters", stats.IntFunc(qe.queryPoolWaiters.Get))
 
 		stats.Publish("QueryCacheLength", stats.IntFunc(qe.plans.Length))
 		stats.Publish("QueryCacheSize", stats.IntFunc(qe.plans.Size))
@@ -314,10 +332,11 @@ func (qe *QueryEngine) GetPlan(ctx context.Context, logStats *tabletenv.LogStats
 	}
 	plan := &TabletPlan{Plan: splan}
 	plan.Rules = qe.queryRuleSources.FilterByPlan(sql, plan.PlanID, plan.TableName().String())
-	plan.Authorized = tableacl.Authorized(plan.TableName().String(), plan.PlanID.MinRole())
+	plan.LegacyAuthorized = tableacl.Authorized(plan.TableName().String(), plan.PlanID.MinRole())
+	plan.buildAuthorized()
 	if plan.PlanID.IsSelect() {
 		if plan.FieldQuery != nil {
-			conn, err := qe.conns.Get(ctx)
+			conn, err := qe.getQueryConn(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -341,6 +360,29 @@ func (qe *QueryEngine) GetPlan(ctx context.Context, logStats *tabletenv.LogStats
 	return plan, nil
 }
 
+// getQueryConn returns a connection from the query pool using either
+// the conn pool timeout if configured, or the original context query timeout
+func (qe *QueryEngine) getQueryConn(ctx context.Context) (*connpool.DBConn, error) {
+	waiterCount := qe.queryPoolWaiters.Add(1)
+	defer qe.queryPoolWaiters.Add(-1)
+
+	if waiterCount > qe.queryPoolWaiterCap.Get() {
+		return nil, vterrors.New(vtrpcpb.Code_RESOURCE_EXHAUSTED, "query pool waiter count exceeded")
+	}
+
+	timeout := qe.connTimeout.Get()
+	if timeout != 0 {
+		ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		conn, err := qe.conns.Get(ctxTimeout)
+		if err != nil {
+			return nil, vterrors.Errorf(vtrpcpb.Code_RESOURCE_EXHAUSTED, "query pool wait time exceeded")
+		}
+		return conn, err
+	}
+	return qe.conns.Get(ctx)
+}
+
 // GetStreamPlan is similar to GetPlan, but doesn't use the cache
 // and doesn't enforce a limit. It just returns the parsed query.
 func (qe *QueryEngine) GetStreamPlan(sql string) (*TabletPlan, error) {
@@ -352,7 +394,8 @@ func (qe *QueryEngine) GetStreamPlan(sql string) (*TabletPlan, error) {
 	}
 	plan := &TabletPlan{Plan: splan}
 	plan.Rules = qe.queryRuleSources.FilterByPlan(sql, plan.PlanID, plan.TableName().String())
-	plan.Authorized = tableacl.Authorized(plan.TableName().String(), plan.PlanID.MinRole())
+	plan.LegacyAuthorized = tableacl.Authorized(plan.TableName().String(), plan.PlanID.MinRole())
+	plan.buildAuthorized()
 	return plan, nil
 }
 
@@ -366,7 +409,8 @@ func (qe *QueryEngine) GetMessageStreamPlan(name string) (*TabletPlan, error) {
 	}
 	plan := &TabletPlan{Plan: splan}
 	plan.Rules = qe.queryRuleSources.FilterByPlan("stream from "+name, plan.PlanID, plan.TableName().String())
-	plan.Authorized = tableacl.Authorized(plan.TableName().String(), plan.PlanID.MinRole())
+	plan.LegacyAuthorized = tableacl.Authorized(plan.TableName().String(), plan.PlanID.MinRole())
+	plan.buildAuthorized()
 	return plan, nil
 }
 
@@ -560,19 +604,6 @@ func (qe *QueryEngine) handleHTTPQueryRules(response http.ResponseWriter, reques
 
 // ServeHTTP lists the most recent, cached queries and their count.
 func (qe *QueryEngine) handleHTTPConsolidations(response http.ResponseWriter, request *http.Request) {
-	if *streamlog.RedactDebugUIQueries {
-		response.Write([]byte(`
-	<!DOCTYPE html>
-	<html>
-	<body>
-	<h1>Redacted</h1>
-	<p>/debug/consolidations has been redacted for your protection</p>
-	</body>
-	</html>
-		`))
-		return
-	}
-
 	if err := acl.CheckAccessHTTP(request, acl.DEBUGGING); err != nil {
 		acl.SendError(response, err)
 		return
@@ -585,6 +616,12 @@ func (qe *QueryEngine) handleHTTPConsolidations(response http.ResponseWriter, re
 	}
 	response.Write([]byte(fmt.Sprintf("Length: %d\n", len(items))))
 	for _, v := range items {
-		response.Write([]byte(fmt.Sprintf("%v: %s\n", v.Count, v.Query)))
+		var query string
+		if *streamlog.RedactDebugUIQueries {
+			query, _ = sqlparser.RedactSQLQuery(v.Query)
+		} else {
+			query = v.Query
+		}
+		response.Write([]byte(fmt.Sprintf("%v: %s\n", v.Count, query)))
 	}
 }

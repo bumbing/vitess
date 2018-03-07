@@ -41,17 +41,27 @@ import (
 	"bytes"
 
 	log "github.com/golang/glog"
-	"github.com/youtube/vitess/go/mysql"
-	"github.com/youtube/vitess/go/stats"
-	"github.com/youtube/vitess/go/vt/dbconfigs"
-	"github.com/youtube/vitess/go/vt/dbconnpool"
-	vtenv "github.com/youtube/vitess/go/vt/env"
-	"github.com/youtube/vitess/go/vt/hook"
-	"github.com/youtube/vitess/go/vt/mysqlctl/mysqlctlclient"
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/vt/dbconfigs"
+	"vitess.io/vitess/go/vt/dbconnpool"
+	vtenv "vitess.io/vitess/go/vt/env"
+	"vitess.io/vitess/go/vt/hook"
+	"vitess.io/vitess/go/vt/mysqlctl/mysqlctlclient"
 )
 
 var (
+	// DisableActiveReparents is a flag to disable active
+	// reparents for safety reasons. It is used in three places:
+	// 1. in this file to skip registering the commands.
+	// 2. in vtctld so it can be exported to the UI (different
+	// package, that's why it's exported). That way we can disable
+	// menu items there, using features.
+	// 3. prevents the vtworker from updating replication topology
+	// after restarting replication after a split clone/diff.
+	DisableActiveReparents = flag.Bool("disable_active_reparents", false, "if set, do not allow active reparents. Use this to protect a cluster using external reparents.")
+
 	dbaPoolSize    = flag.Int("dba_pool_size", 20, "Size of the connection pool for dba connections")
 	dbaIdleTimeout = flag.Duration("dba_idle_timeout", time.Minute, "Idle timeout for dba connections")
 	appPoolSize    = flag.Int("app_pool_size", 40, "Size of the connection pool for app connections")
@@ -637,7 +647,18 @@ func getMycnfTemplates(root string) []string {
 // RefreshConfig attempts to recreate the my.cnf from templates, and log and
 // swap in to place if it's updated. It keeps a copy of the last version in case fallback is required.
 // Should be called from a stable replica, server_id is not regenerated.
-func (mysqld *Mysqld) RefreshConfig() error {
+func (mysqld *Mysqld) RefreshConfig(ctx context.Context) error {
+	// Execute as remote action on mysqlctld if requested.
+	if *socketFile != "" {
+		log.Infof("executing Mysqld.RefreshConfig() remotely via mysqlctld server: %v", *socketFile)
+		client, err := mysqlctlclient.New("unix", *socketFile)
+		if err != nil {
+			return fmt.Errorf("can't dial mysqlctld: %v", err)
+		}
+		defer client.Close()
+		return client.RefreshConfig(ctx)
+	}
+
 	log.Info("Checking for updates to my.cnf")
 	root, err := vtenv.VtRoot()
 	if err != nil {

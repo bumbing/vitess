@@ -30,29 +30,30 @@ import (
 	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/acl"
-	"github.com/youtube/vitess/go/cache"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/stats"
-	"github.com/youtube/vitess/go/vt/sqlannotation"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/srvtopo"
-	"github.com/youtube/vitess/go/vt/topo"
-	"github.com/youtube/vitess/go/vt/topo/topoproto"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vtgate/engine"
-	"github.com/youtube/vitess/go/vt/vtgate/planbuilder"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/cache"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/vt/key"
+	"vitess.io/vitess/go/vt/sqlannotation"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/srvtopo"
+	"vitess.io/vitess/go/vt/topo"
+	"vitess.io/vitess/go/vt/topo/topoproto"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vtgate/engine"
+	"vitess.io/vitess/go/vt/vtgate/planbuilder"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vschemapb "github.com/youtube/vitess/go/vt/proto/vschema"
-	vtgatepb "github.com/youtube/vitess/go/vt/proto/vtgate"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 var (
-	errNoKeyspace     = vterrors.Errorf(vtrpcpb.Code_FAILED_PRECONDITION, "no keyspace in database name specified. Supported database name format: keyspace[:shard][@type]")
+	errNoKeyspace     = vterrors.Errorf(vtrpcpb.Code_FAILED_PRECONDITION, "no keyspace in database name specified. Supported database name format (items in <> are optional): keyspace<:shard><@type> or keyspace<[range]><@type>")
 	defaultTabletType topodatapb.TabletType
 )
 
@@ -212,12 +213,32 @@ func (e *Executor) execute(ctx context.Context, safeSession *SafeSession, sql st
 }
 
 func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql string, bindVars map[string]*querypb.BindVariable, target querypb.Target, logStats *LogStats) (*sqltypes.Result, error) {
-	if target.Shard != "" {
-		// V1 mode or V3 mode with a forced shard target
+	keyRange, err := parseRange(safeSession.TargetString)
+	if err != nil {
+		return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "could not parse target %s (%s)", safeSession.TargetString, err.Error())
+	}
+
+	if keyRange != nil || target.Shard != "" {
+		// V1 mode or V3 mode with a forced shard or range target
 		// TODO(sougou): change this flow to go through V3 functions
 		// which will allow us to benefit from the autocommitable flag.
-		sql = sqlannotation.AnnotateIfDML(sql, nil)
+		if target.Keyspace == "" {
+			return nil, errNoKeyspace
+		}
 
+		var destination key.Destination
+		if keyRange != nil {
+			stmtType := sqlparser.Preview(sql)
+			if stmtType == sqlparser.StmtInsert {
+				return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "range queries not supported for inserts: %s", safeSession.TargetString)
+			}
+			destination = key.DestinationExactKeyRange{KeyRange: keyRange}
+		} else {
+			destination = key.DestinationShard(target.Shard)
+		}
+
+		execStart := time.Now()
+		sql = sqlannotation.AnnotateIfDML(sql, nil)
 		if e.normalize {
 			query, comments := sqlparser.SplitTrailingComments(sql)
 			stmt, err := sqlparser.Parse(query)
@@ -228,18 +249,11 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 			normalized := sqlparser.String(stmt)
 			sql = normalized + comments
 		}
-
+		logStats.PlanTime = execStart.Sub(logStats.StartTime)
 		logStats.SQL = sql
 		logStats.BindVariables = bindVars
-
-		execStart := time.Now()
-		logStats.PlanTime = execStart.Sub(logStats.StartTime)
-
-		result, err := e.shardExec(ctx, safeSession, sql, bindVars, target, logStats)
+		result, err := e.destinationExec(ctx, safeSession, sql, bindVars, target, destination, logStats)
 		logStats.ExecuteTime = time.Now().Sub(execStart)
-
-		logStats.ShardQueries = 1
-
 		return result, err
 	}
 
@@ -262,7 +276,7 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 		return nil, err
 	}
 
-	qr, err := plan.Instructions.Execute(vcursor, bindVars, make(map[string]*querypb.BindVariable), true)
+	qr, err := plan.Instructions.Execute(vcursor, bindVars, true)
 	logStats.ExecuteTime = time.Since(execStart)
 	var errCount uint64
 	if err != nil {
@@ -283,11 +297,16 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 	return qr, err
 }
 
-func (e *Executor) shardExec(ctx context.Context, safeSession *SafeSession, sql string, bindVars map[string]*querypb.BindVariable, target querypb.Target, logStats *LogStats) (*sqltypes.Result, error) {
-	f := func(keyspace string) (string, []string, error) {
-		return keyspace, []string{target.Shard}, nil
+func (e *Executor) destinationExec(ctx context.Context, safeSession *SafeSession, sql string, bindVars map[string]*querypb.BindVariable, target querypb.Target, destination key.Destination, logStats *LogStats) (*sqltypes.Result, error) {
+	f := func() ([]*srvtopo.ResolvedShard, error) {
+		rss, err := e.resolver.resolver.ResolveDestination(ctx, target.Keyspace, target.TabletType, destination)
+		if err != nil {
+			return nil, err
+		}
+		logStats.ShardQueries = uint32(len(rss))
+		return rss, nil
 	}
-	return e.resolver.Execute(ctx, sql, bindVars, target.Keyspace, target.TabletType, safeSession.Session, f, false /* notInTransaction */, safeSession.Options, logStats)
+	return e.resolver.Execute(ctx, sql, bindVars, target.TabletType, safeSession.Session, f, false /* notInTransaction */, safeSession.Options, logStats)
 }
 
 func (e *Executor) handleDDL(ctx context.Context, safeSession *SafeSession, sql string, bindVars map[string]*querypb.BindVariable, target querypb.Target, logStats *LogStats) (*sqltypes.Result, error) {
@@ -295,30 +314,23 @@ func (e *Executor) handleDDL(ctx context.Context, safeSession *SafeSession, sql 
 		return nil, errNoKeyspace
 	}
 
-	f := func(keyspace string) (string, []string, error) {
-		var shards []string
-		if target.Shard == "" {
-			ks, _, allShards, err := srvtopo.GetKeyspaceShards(ctx, e.serv, e.cell, keyspace, target.TabletType)
-			if err != nil {
-				return "", nil, err
-			}
-			// The usual keyspace resolution rules are applied.
-			// This means that the keyspace can be remapped to a new one
-			// if vertical resharding is in progress.
-			keyspace = ks
-			for _, shard := range allShards {
-				shards = append(shards, shard.Name)
-			}
-		} else {
-			shards = []string{target.Shard}
-		}
-		logStats.ShardQueries = uint32(len(shards))
-		return keyspace, shards, nil
+	keyRange, err := parseRange(safeSession.TargetString)
+	if err != nil {
+		return nil, errNoKeyspace
+	}
+
+	var destination key.Destination
+	if keyRange != nil {
+		destination = key.DestinationExactKeyRange{KeyRange: keyRange}
+	} else if target.Shard != "" {
+		destination = key.DestinationShard(target.Shard)
+	} else {
+		destination = key.DestinationAllShards{}
 	}
 
 	execStart := time.Now()
 	logStats.PlanTime = execStart.Sub(logStats.StartTime)
-	result, err := e.resolver.Execute(ctx, sql, bindVars, target.Keyspace, target.TabletType, safeSession.Session, f, false /* notInTransaction */, safeSession.Options, logStats)
+	result, err := e.destinationExec(ctx, safeSession, sql, bindVars, target, destination, logStats)
 	logStats.ExecuteTime = time.Since(execStart)
 	return result, err
 }
@@ -521,7 +533,7 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 
 	switch show.Type {
 	case sqlparser.KeywordString(sqlparser.DATABASES), sqlparser.KeywordString(sqlparser.VITESS_KEYSPACES):
-		keyspaces, err := srvtopo.GetAllKeyspaces(ctx, e.serv, e.cell)
+		keyspaces, err := e.resolver.resolver.GetAllKeyspaces(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -537,14 +549,14 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 			RowsAffected: uint64(len(rows)),
 		}, nil
 	case sqlparser.KeywordString(sqlparser.VITESS_SHARDS):
-		keyspaces, err := srvtopo.GetAllKeyspaces(ctx, e.serv, e.cell)
+		keyspaces, err := e.resolver.resolver.GetAllKeyspaces(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		var rows [][]sqltypes.Value
 		for _, keyspace := range keyspaces {
-			_, _, shards, err := srvtopo.GetKeyspaceShards(ctx, e.serv, e.cell, keyspace, target.TabletType)
+			_, _, shards, err := e.resolver.resolver.GetKeyspaceShards(ctx, keyspace, target.TabletType)
 			if err != nil {
 				// There might be a misconfigured keyspace or no shards in the keyspace.
 				// Skip any errors and move on.
@@ -574,7 +586,7 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 					s.Cell,
 					s.Target.Keyspace,
 					s.Target.Shard,
-					ts.Tablet.Type.String(),
+					ts.Target.TabletType.String(),
 					state,
 					topoproto.TabletAliasString(ts.Tablet.Alias),
 					ts.Tablet.Hostname,
@@ -713,6 +725,11 @@ func (e *Executor) handleUse(ctx context.Context, safeSession *SafeSession, sql 
 		return nil, vterrors.Errorf(vtrpcpb.Code_INTERNAL, "unrecognized USE statement: %v", sql)
 	}
 	target := e.ParseTarget(use.DBName.String())
+
+	if _, ok := e.VSchema().Keyspaces[target.Keyspace]; target.Keyspace != "" && !ok {
+		return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "invalid keyspace provided: %s", target.Keyspace)
+	}
+
 	if safeSession.InTransaction() && target.TabletType != topodatapb.TabletType_MASTER {
 		return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "cannot change to a non-master type in the middle of a transaction: %v", target.TabletType)
 	}
@@ -725,14 +742,18 @@ func (e *Executor) handleOther(ctx context.Context, safeSession *SafeSession, sq
 		return nil, errNoKeyspace
 	}
 	if target.Shard == "" {
-		var err error
-		target.Keyspace, target.Shard, err = srvtopo.GetAnyShard(ctx, e.serv, e.cell, target.Keyspace, target.TabletType)
+		// shardExec will re-resolve this a bit later.
+		rss, err := e.resolver.resolver.ResolveDestination(ctx, target.Keyspace, target.TabletType, key.DestinationAnyShard{})
 		if err != nil {
 			return nil, err
 		}
+		if len(rss) != 1 {
+			return nil, vterrors.Errorf(vtrpcpb.Code_UNAVAILABLE, "keyspace %s has no shards", target.Keyspace)
+		}
+		target.Keyspace, target.Shard = rss[0].Target.Keyspace, rss[0].Target.Shard
 	}
 	execStart := time.Now()
-	result, err := e.shardExec(ctx, safeSession, sql, bindVars, target, logStats)
+	result, err := e.destinationExec(ctx, safeSession, sql, bindVars, target, key.DestinationShard(target.Shard), logStats)
 	logStats.ExecuteTime = time.Since(execStart)
 	return result, err
 }
@@ -755,6 +776,13 @@ func (e *Executor) StreamExecute(ctx context.Context, method string, safeSession
 	}
 	query, comments := sqlparser.SplitTrailingComments(sql)
 	vcursor := newVCursorImpl(ctx, safeSession, target, comments, e, logStats)
+
+	// check if this is a stream statement for messaging
+	// TODO: support keyRange syntax
+	if logStats.StmtType == sqlparser.StmtType(sqlparser.StmtStream) {
+		return e.handleMessageStream(ctx, safeSession, sql, target, callback, vcursor, logStats)
+	}
+
 	plan, err := e.getPlan(
 		vcursor,
 		query,
@@ -777,7 +805,7 @@ func (e *Executor) StreamExecute(ctx context.Context, method string, safeSession
 	// dictated by stream_buffer_size.
 	result := &sqltypes.Result{}
 	byteCount := 0
-	err = plan.Instructions.StreamExecute(vcursor, bindVars, make(map[string]*querypb.BindVariable), true, func(qr *sqltypes.Result) error {
+	err = plan.Instructions.StreamExecute(vcursor, bindVars, true, func(qr *sqltypes.Result) error {
 		// If the row has field info, send it separately.
 		// TODO(sougou): this behavior is for handling tests because
 		// the framework currently sends all results as one packet.
@@ -818,32 +846,76 @@ func (e *Executor) StreamExecute(ctx context.Context, method string, safeSession
 	return err
 }
 
+// handleMessageStream executes queries of the form 'stream * from t'
+func (e *Executor) handleMessageStream(ctx context.Context, safeSession *SafeSession, sql string, target querypb.Target, callback func(*sqltypes.Result) error, vcursor *vcursorImpl, logStats *LogStats) error {
+	stmt, err := sqlparser.Parse(sql)
+	if err != nil {
+		logStats.Error = err
+		return err
+	}
+
+	streamStmt, ok := stmt.(*sqlparser.Stream)
+	if !ok {
+		logStats.Error = err
+		return vterrors.Errorf(vtrpcpb.Code_INTERNAL, "unrecognized STREAM statement: %v", sql)
+	}
+
+	table, err := vcursor.FindTable(streamStmt.Table)
+	if err != nil {
+		logStats.Error = err
+		return err
+	}
+
+	execStart := time.Now()
+	logStats.PlanTime = execStart.Sub(logStats.StartTime)
+
+	err = e.MessageStream(ctx, table.Keyspace.Name, target.Shard, nil, table.Name.CompliantName(), callback)
+	logStats.Error = err
+	logStats.ExecuteTime = time.Since(execStart)
+	return err
+}
+
+// MessageStream is part of the vtgate service API. This is a V2 level API that's sent
+// to the Resolver.
+func (e *Executor) MessageStream(ctx context.Context, keyspace string, shard string, keyRange *topodatapb.KeyRange, name string, callback func(*sqltypes.Result) error) error {
+	err := e.resolver.MessageStream(
+		ctx,
+		keyspace,
+		shard,
+		keyRange,
+		name,
+		callback,
+	)
+	return formatError(err)
+}
+
 // MessageAck acks messages.
+// FIXME(alainjobart) the keyspace field here is not used for routing,
+// but just for finding the table in the VSchema. If we don't find the
+// table in the VSchema, we could just assume it's sharded (which would work
+// for unsharded as well) and route it to the provided keyspace.
 func (e *Executor) MessageAck(ctx context.Context, keyspace, name string, ids []*querypb.Value) (int64, error) {
 	table, err := e.VSchema().FindTable(keyspace, name)
 	if err != nil {
 		return 0, err
 	}
-	// TODO(sougou): Change this to use Session.
-	vcursor := newVCursorImpl(
-		ctx,
-		NewSafeSession(&vtgatepb.Session{}),
-		querypb.Target{
-			Keyspace:   table.Keyspace.Name,
-			TabletType: topodatapb.TabletType_MASTER,
-		},
-		"",
-		e,
-		nil,
-	)
 
-	newKeyspace, _, allShards, err := srvtopo.GetKeyspaceShards(ctx, e.serv, e.cell, table.Keyspace.Name, topodatapb.TabletType_MASTER)
-	if err != nil {
-		return 0, err
-	}
-
-	shardIDs := make(map[string][]*querypb.Value)
+	var rss []*srvtopo.ResolvedShard
+	var rssValues [][]*querypb.Value
 	if table.Keyspace.Sharded {
+		// TODO(sougou): Change this to use Session.
+		vcursor := newVCursorImpl(
+			ctx,
+			NewSafeSession(&vtgatepb.Session{}),
+			querypb.Target{
+				Keyspace:   table.Keyspace.Name,
+				TabletType: topodatapb.TabletType_MASTER,
+			},
+			"",
+			e,
+			nil,
+		)
+
 		// We always use the (unique) primary vindex. The ID must be the
 		// primary vindex for message tables.
 		mapper := table.ColumnVindexes[0].Vindex.(vindexes.Unique)
@@ -856,20 +928,27 @@ func (e *Executor) MessageAck(ctx context.Context, keyspace, name string, ids []
 		if err != nil {
 			return 0, err
 		}
+		destinations := make([]key.Destination, len(ksids))
 		for i, ksid := range ksids {
-			if ksid == nil {
-				continue
-			}
-			shard, err := srvtopo.GetShardForKeyspaceID(allShards, ksid)
-			if err != nil {
+			if err := ksid.ValidateUnique(); err != nil {
 				return 0, err
 			}
-			shardIDs[shard] = append(shardIDs[shard], ids[i])
+			destinations[i] = key.DestinationKeyspaceID(ksid.ID)
+		}
+		rss, rssValues, err = e.resolver.resolver.ResolveDestinations(ctx, table.Keyspace.Name, topodatapb.TabletType_MASTER, ids, destinations)
+		if err != nil {
+			return 0, err
 		}
 	} else {
-		shardIDs[allShards[0].Name] = ids
+		// All ids go into the first shard, so we only resolve
+		// one destination, and put all IDs in there.
+		rss, err = e.resolver.resolver.ResolveDestination(ctx, table.Keyspace.Name, topodatapb.TabletType_MASTER, key.DestinationAnyShard{})
+		if err != nil {
+			return 0, err
+		}
+		rssValues = [][]*querypb.Value{ids}
 	}
-	return e.scatterConn.MessageAck(ctx, newKeyspace, shardIDs, name)
+	return e.scatterConn.MessageAck(ctx, rss, rssValues, name)
 }
 
 // IsKeyspaceRangeBasedSharded returns true if the keyspace in the vschema is
@@ -1007,6 +1086,11 @@ func (e *Executor) ParseTarget(targetString string) querypb.Target {
 		target.Shard = targetString[last+1:]
 		targetString = targetString[:last]
 	}
+	// Remove range query from string if present
+	last = strings.LastIndexAny(targetString, "[")
+	if last != -1 {
+		targetString = targetString[:last]
+	}
 	if targetString == "" && len(e.VSchema().Keyspaces) == 1 {
 		// Loop to extract the only keyspace name.
 		for k := range e.VSchema().Keyspaces {
@@ -1015,6 +1099,28 @@ func (e *Executor) ParseTarget(targetString string) querypb.Target {
 	}
 	target.Keyspace = targetString
 	return target
+}
+
+// parseRange parses range from target string.
+func parseRange(targetString string) (*topodatapb.KeyRange, error) {
+	last := strings.LastIndexAny(targetString, "[")
+	if last != -1 {
+		rangeEnd := strings.LastIndexAny(targetString, "]")
+		if rangeEnd == -1 {
+			return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "invalid key range provided. Couldn't find range end ']'")
+
+		}
+		rangeString := targetString[last+1 : rangeEnd]
+		keyRange, err := key.ParseShardingSpec(rangeString)
+		if err != nil {
+			return nil, err
+		}
+		if len(keyRange) != 1 {
+			return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "single keyrange expected in %s", rangeString)
+		}
+		return keyRange[0], nil
+	}
+	return nil, nil
 }
 
 // getPlan computes the plan for the given query. If one is in

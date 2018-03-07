@@ -21,10 +21,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/sqltypes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	vtgatepb "github.com/youtube/vitess/go/vt/proto/vtgate"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 )
 
 // This file contains tests for all the autocommit code paths
@@ -105,11 +105,8 @@ func TestAutocommitUpdateVindexChange(t *testing.T) {
 		Sql:           "select name, lastname from user2 where id = 1 for update",
 		BindVariables: map[string]*querypb.BindVariable{},
 	}, {
-		Sql: "update user2 set name = 'myname', lastname = 'mylastname' where id = 1 /* vtgate:: keyspace_id:166b40b44aba4bd6 */",
-		BindVariables: map[string]*querypb.BindVariable{
-			"_name0":     sqltypes.BytesBindVariable([]byte("myname")),
-			"_lastname0": sqltypes.BytesBindVariable([]byte("mylastname")),
-		},
+		Sql:           "update user2 set name = 'myname', lastname = 'mylastname' where id = 1 /* vtgate:: keyspace_id:166b40b44aba4bd6 */",
+		BindVariables: map[string]*querypb.BindVariable{},
 	}})
 	testAsTransactionCount(t, "sbc1", sbc1, 0)
 	testCommitCount(t, "sbc1", sbc1, 1)
@@ -312,6 +309,28 @@ func TestAutocommitDirectTarget(t *testing.T) {
 	}})
 	testAsTransactionCount(t, "sbclookup", sbclookup, 0)
 	testCommitCount(t, "sbclookup", sbclookup, 1)
+}
+
+// TestAutocommitDirectRangeTarget: no instant-commit.
+func TestAutocommitDirectRangeTarget(t *testing.T) {
+	executor, sbc1, _, _ := createExecutorEnv()
+
+	session := &vtgatepb.Session{
+		TargetString:    "TestExecutor[-]@master",
+		Autocommit:      true,
+		TransactionMode: vtgatepb.TransactionMode_MULTI,
+	}
+	sql := "DELETE FROM sharded_user_msgs LIMIT 1000"
+
+	if _, err := executor.Execute(context.Background(), "TestExecute", NewSafeSession(session), sql, map[string]*querypb.BindVariable{}); err != nil {
+		t.Error(err)
+	}
+	testQueries(t, "sbc1", sbc1, []*querypb.BoundQuery{{
+		Sql:           sql + "/* vtgate:: filtered_replication_unfriendly */",
+		BindVariables: map[string]*querypb.BindVariable{},
+	}})
+	testAsTransactionCount(t, "sbc1", sbc1, 0)
+	testCommitCount(t, "sbc1", sbc1, 1)
 }
 
 func autocommitExec(executor *Executor, sql string) (*sqltypes.Result, error) {

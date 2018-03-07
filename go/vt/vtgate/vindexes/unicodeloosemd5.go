@@ -22,7 +22,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/sqltypes"
 
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
@@ -70,14 +70,14 @@ func (vind *UnicodeLooseMD5) Verify(_ VCursor, ids []sqltypes.Value, ksids [][]b
 }
 
 // Map returns the corresponding keyspace id values for the given ids.
-func (vind *UnicodeLooseMD5) Map(_ VCursor, ids []sqltypes.Value) ([][]byte, error) {
-	out := make([][]byte, 0, len(ids))
+func (vind *UnicodeLooseMD5) Map(_ VCursor, ids []sqltypes.Value) ([]KsidOrRange, error) {
+	out := make([]KsidOrRange, 0, len(ids))
 	for _, id := range ids {
 		data, err := unicodeHash(id)
 		if err != nil {
 			return nil, fmt.Errorf("UnicodeLooseMD5.Map: %v", err)
 		}
-		out = append(out, data)
+		out = append(out, KsidOrRange{ID: data})
 	}
 	return out, nil
 }

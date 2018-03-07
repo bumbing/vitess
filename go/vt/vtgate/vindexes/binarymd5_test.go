@@ -22,7 +22,7 @@ import (
 
 	"strings"
 
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/sqltypes"
 )
 
 var binVindex Vindex
@@ -61,7 +61,7 @@ func TestBinaryMD5Map(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		out := string(got[0])
+		out := string(got[0].ID)
 		if out != tcase.out {
 			t.Errorf("Map(%#v): %#v, want %#v", tcase.in, out, tcase.out)
 		}
@@ -87,7 +87,7 @@ func TestSQLValue(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	out := string(got[0])
+	out := string(got[0].ID)
 	want := "\f\xbcf\x11\xf5T\vЀ\x9a8\x8d\xc9Za["
 	if out != want {
 		t.Errorf("Map(%#v): %#v, want %#v", val, out, want)

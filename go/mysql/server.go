@@ -25,9 +25,9 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/stats"
-	"github.com/youtube/vitess/go/tb"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/tb"
 )
 
 const (
@@ -116,6 +116,18 @@ type Listener struct {
 	connectionID uint32
 }
 
+// NewFromListener creares a new mysql listener from an existing net.Listener
+func NewFromListener(l net.Listener, authServer AuthServer, handler Handler) (*Listener, error) {
+	return &Listener{
+		authServer: authServer,
+		handler:    handler,
+		listener:   l,
+
+		ServerVersion: DefaultServerVersion,
+		connectionID:  1,
+	}, nil
+}
+
 // NewListener creates a new Listener.
 func NewListener(protocol, address string, authServer AuthServer, handler Handler) (*Listener, error) {
 	listener, err := net.Listen(protocol, address)
@@ -123,14 +135,7 @@ func NewListener(protocol, address string, authServer AuthServer, handler Handle
 		return nil, err
 	}
 
-	return &Listener{
-		authServer: authServer,
-		handler:    handler,
-		listener:   listener,
-
-		ServerVersion: DefaultServerVersion,
-		connectionID:  1,
-	}, nil
+	return NewFromListener(listener, authServer, handler)
 }
 
 // Addr returns the listener address.

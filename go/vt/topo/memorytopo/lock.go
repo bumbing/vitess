@@ -21,7 +21,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/vt/topo"
+	"vitess.io/vitess/go/vt/topo"
 )
 
 // convertError converts a context error into a topo error.
@@ -45,6 +45,11 @@ type memoryTopoLockDescriptor struct {
 func (c *Conn) Lock(ctx context.Context, dirPath, contents string) (topo.LockDescriptor, error) {
 	for {
 		c.factory.mu.Lock()
+
+		if c.factory.err != nil {
+			c.factory.mu.Unlock()
+			return nil, c.factory.err
+		}
 
 		n := c.factory.nodeByPath(c.cell, dirPath)
 		if n == nil {

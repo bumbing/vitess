@@ -17,7 +17,6 @@ limitations under the License.
 package vtgate
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -26,16 +25,17 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/discovery"
-	"github.com/youtube/vitess/go/vt/srvtopo"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vtgate/gateway"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/discovery"
+	"vitess.io/vitess/go/vt/key"
+	"vitess.io/vitess/go/vt/srvtopo"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vtgate/gateway"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vtgatepb "github.com/youtube/vitess/go/vt/proto/vtgate"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 // This file uses the sandbox_test framework.
@@ -71,7 +71,8 @@ func TestScatterConnExecuteBatch(t *testing.T) {
 			Keyspace: "TestScatterConnExecuteBatch",
 			Shards:   shards,
 		}}
-		scatterRequest, err := boundShardQueriesToScatterBatchRequest(queries)
+		res := srvtopo.NewResolver(&sandboxTopo{}, sc.gateway, "aa")
+		scatterRequest, err := boundShardQueriesToScatterBatchRequest(context.Background(), res, queries, topodatapb.TabletType_REPLICA)
 		if err != nil {
 			return nil, err
 		}
@@ -85,8 +86,14 @@ func TestScatterConnExecuteBatch(t *testing.T) {
 
 func TestScatterConnStreamExecute(t *testing.T) {
 	testScatterConnGeneric(t, "TestScatterConnStreamExecute", func(sc *ScatterConn, shards []string) (*sqltypes.Result, error) {
+		res := srvtopo.NewResolver(&sandboxTopo{}, sc.gateway, "aa")
+		rss, err := res.ResolveDestination(context.Background(), "TestScatterConnStreamExecute", topodatapb.TabletType_REPLICA, key.DestinationShards(shards))
+		if err != nil {
+			return nil, err
+		}
+
 		qr := new(sqltypes.Result)
-		err := sc.StreamExecute(context.Background(), "query", nil, "TestScatterConnStreamExecute", shards, topodatapb.TabletType_REPLICA, nil, func(r *sqltypes.Result) error {
+		err = sc.StreamExecute(context.Background(), "query", nil, rss, topodatapb.TabletType_REPLICA, nil, func(r *sqltypes.Result) error {
 			qr.AppendResult(r)
 			return nil
 		})
@@ -283,7 +290,12 @@ func TestScatterConnStreamExecuteSendError(t *testing.T) {
 	hc := discovery.NewFakeHealthCheck()
 	sc := newTestScatterConn(hc, new(sandboxTopo), "aa")
 	hc.AddTestTablet("aa", "0", 1, "TestScatterConnStreamExecuteSendError", "0", topodatapb.TabletType_REPLICA, true, 1, nil)
-	err := sc.StreamExecute(context.Background(), "query", nil, "TestScatterConnStreamExecuteSendError", []string{"0"}, topodatapb.TabletType_REPLICA, nil, func(*sqltypes.Result) error {
+	res := srvtopo.NewResolver(&sandboxTopo{}, sc.gateway, "aa")
+	rss, err := res.ResolveDestination(context.Background(), "TestScatterConnStreamExecuteSendError", topodatapb.TabletType_REPLICA, key.DestinationShard("0"))
+	if err != nil {
+		t.Fatalf("ResolveDestination failed: %v", err)
+	}
+	err = sc.StreamExecute(context.Background(), "query", nil, rss, topodatapb.TabletType_REPLICA, nil, func(*sqltypes.Result) error {
 		return fmt.Errorf("send error")
 	})
 	want := "send error"
@@ -571,138 +583,4 @@ func newTestScatterConn(hc discovery.HealthCheck, serv srvtopo.Server, cell stri
 	gw := gateway.GetCreator()(hc, nil /*topo.Server*/, serv, cell, 3)
 	tc := NewTxConn(gw, vtgatepb.TransactionMode_TWOPC)
 	return NewScatterConn("", tc, gw, hc)
-}
-
-func TestBoundShardQueriesToScatterBatchRequest(t *testing.T) {
-	var testCases = []struct {
-		boundQueries []*vtgatepb.BoundShardQuery
-		requests     *scatterBatchRequest
-	}{
-		{
-			boundQueries: []*vtgatepb.BoundShardQuery{
-				{
-					Query: &querypb.BoundQuery{
-						Sql: "q1",
-						BindVariables: map[string]*querypb.BindVariable{
-							"q1var": sqltypes.Int64BindVariable(1),
-						},
-					},
-					Keyspace: "ks1",
-					Shards:   []string{"0", "1"},
-				}, {
-					Query: &querypb.BoundQuery{
-						Sql: "q2",
-						BindVariables: map[string]*querypb.BindVariable{
-							"q2var": sqltypes.Int64BindVariable(2),
-						},
-					},
-					Keyspace: "ks1",
-					Shards:   []string{"1"},
-				}, {
-					Query: &querypb.BoundQuery{
-						Sql: "q3",
-						BindVariables: map[string]*querypb.BindVariable{
-							"q3var": sqltypes.Int64BindVariable(3),
-						},
-					},
-					Keyspace: "ks2",
-					Shards:   []string{"1"},
-				},
-			},
-			requests: &scatterBatchRequest{
-				Length: 3,
-				Requests: map[string]*shardBatchRequest{
-					"ks1:0": {
-						Queries: []*querypb.BoundQuery{
-							{
-								Sql: "q1",
-								BindVariables: map[string]*querypb.BindVariable{
-									"q1var": sqltypes.Int64BindVariable(1),
-								},
-							},
-						},
-						Keyspace:      "ks1",
-						Shard:         "0",
-						ResultIndexes: []int{0},
-					},
-					"ks1:1": {
-						Queries: []*querypb.BoundQuery{
-							{
-								Sql: "q1",
-								BindVariables: map[string]*querypb.BindVariable{
-									"q1var": sqltypes.Int64BindVariable(1),
-								},
-							}, {
-								Sql: "q2",
-								BindVariables: map[string]*querypb.BindVariable{
-									"q2var": sqltypes.Int64BindVariable(2),
-								},
-							},
-						},
-						Keyspace:      "ks1",
-						Shard:         "1",
-						ResultIndexes: []int{0, 1},
-					},
-					"ks2:1": {
-						Queries: []*querypb.BoundQuery{
-							{
-								Sql: "q3",
-								BindVariables: map[string]*querypb.BindVariable{
-									"q3var": sqltypes.Int64BindVariable(3),
-								},
-							},
-						},
-						Keyspace:      "ks2",
-						Shard:         "1",
-						ResultIndexes: []int{2},
-					},
-				},
-			},
-		},
-		{
-			boundQueries: []*vtgatepb.BoundShardQuery{
-				{
-					Query: &querypb.BoundQuery{
-						Sql: "q1",
-						BindVariables: map[string]*querypb.BindVariable{
-							"q1var": sqltypes.Int64BindVariable(1),
-						},
-					},
-					Keyspace: "ks1",
-					Shards:   []string{"0", "0"},
-				},
-			},
-			requests: &scatterBatchRequest{
-				Length: 1,
-				Requests: map[string]*shardBatchRequest{
-					"ks1:0": {
-						Queries: []*querypb.BoundQuery{
-							{
-								Sql: "q1",
-								BindVariables: map[string]*querypb.BindVariable{
-									"q1var": sqltypes.Int64BindVariable(1),
-								},
-							},
-						},
-						Keyspace:      "ks1",
-						Shard:         "0",
-						ResultIndexes: []int{0},
-					},
-				},
-			},
-		},
-	}
-
-	for _, testCase := range testCases {
-		scatterRequest, err := boundShardQueriesToScatterBatchRequest(testCase.boundQueries)
-		if err != nil {
-			t.Errorf("boundShardQueriesToScatterBatchRequest failed: %v", err)
-			continue
-		}
-		if !reflect.DeepEqual(testCase.requests, scatterRequest) {
-			got, _ := json.Marshal(scatterRequest)
-			want, _ := json.Marshal(testCase.requests)
-			t.Errorf("Bound Query: %#v\nResponse:  %s\nExpecting: %s", testCase.boundQueries, got, want)
-		}
-	}
 }

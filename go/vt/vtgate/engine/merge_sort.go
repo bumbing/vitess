@@ -24,9 +24,9 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/sqltypes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
+	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
 // mergeSort performs a merge-sort of rows returned by a streaming scatter query.
@@ -35,14 +35,14 @@ import (
 // a new value is added to it from the stream that was the source of the value that
 // was pulled out. Since the input streams are sorted the same way that the heap is
 // sorted, this guarantees that the merged stream will also be sorted the same way.
-func mergeSort(vcursor VCursor, query string, orderBy []OrderbyParams, params *scatterParams, callback func(*sqltypes.Result) error) error {
+func mergeSort(vcursor VCursor, query string, orderBy []OrderbyParams, ks string, shardVars map[string]map[string]*querypb.BindVariable, callback func(*sqltypes.Result) error) error {
 	ctx, cancel := context.WithCancel(vcursor.Context())
 	defer cancel()
 
-	handles := make([]*streamHandle, len(params.shardVars))
+	handles := make([]*streamHandle, len(shardVars))
 	id := 0
-	for shard, vars := range params.shardVars {
-		handles[id] = runOneStream(ctx, vcursor, query, params.ks, shard, vars)
+	for shard, vars := range shardVars {
+		handles[id] = runOneStream(ctx, vcursor, query, ks, shard, vars)
 		id++
 	}
 

@@ -24,7 +24,7 @@ image for you:
 
 ``` sh
 $ sudo docker run -ti vitess/base bash
-vitess@32f187ef9351:/vt/src/github.com/youtube/vitess$ make build
+vitess@32f187ef9351:/vt/src/vitess.io/vitess$ make build
 ```
 
 Now you can proceed to [start a Vitess cluster](#start-a-vitess-cluster) inside
@@ -45,9 +45,9 @@ $ docker inspect 32f187ef9351 | grep IPAddress
 
 You can also build Vitess Docker images yourself to include your
 own patches or configuration data. The
-[Dockerfile](https://github.com/youtube/vitess/blob/master/Dockerfile)
+[Dockerfile](https://github.com/vitessio/vitess/blob/master/Dockerfile)
 in the root of the Vitess tree builds the `vitess/base` image.
-The [docker](https://github.com/youtube/vitess/tree/master/docker)
+The [docker](https://github.com/vitessio/vitess/tree/master/docker)
 subdirectory contains scripts for building other images, such as `vitess/lite`.
 
 Our `Makefile` also contains rules to build the images. For example:
@@ -232,13 +232,13 @@ In addition, Vitess requires the software and libraries listed below.
 
 1.  Navigate to the directory where you want to download the Vitess
     source code and clone the Vitess Github repo. After doing so,
-    navigate to the `src/github.com/youtube/vitess` directory.
+    navigate to the `src/vitess.io/vitess` directory.
 
     ``` sh
     cd $WORKSPACE
-    git clone https://github.com/youtube/vitess.git \
-        src/github.com/youtube/vitess
-    cd src/github.com/youtube/vitess
+    git clone https://github.com/vitessio/vitess.git \
+        src/vitess.io/vitess
+    cd src/vitess.io/vitess
     ```
 
 1.  Set the `MYSQL_FLAVOR` environment variable. Choose the appropriate
@@ -265,7 +265,7 @@ In addition, Vitess requires the software and libraries listed below.
     Note that the command indicates that the `mysql` executable should
     be found at `/usr/local/mysql/bin/mysql`.
 
-1.  Run `mysql_config --version` and confirm that you
+1.  Run `mysqld --version` and confirm that you
     are running the correct version of MariaDB or MySQL. The value should
     be 10 or higher for MariaDB and 5.6.x for MySQL.
 
@@ -351,7 +351,7 @@ pkill -f '(vtdataroot|VTDATAROOT)' # kill Vitess processes
 
 This error often means your disk is too slow. If you don't have access
 to an SSD, you can try [testing against a
-ramdisk](https://github.com/youtube/vitess/blob/master/doc/TestingOnARamDisk.md).
+ramdisk](https://github.com/vitessio/vitess/blob/master/doc/TestingOnARamDisk.md).
 
 ##### Connection refused to tablet, MySQL socket not found, etc.
 
@@ -397,7 +397,7 @@ lock service. ZooKeeper is included in the Vitess distribution.
     variables required before running the scripts are `VTROOT` and `VTDATAROOT`.
 
     Set `VTROOT` to the parent of the Vitess source tree. For example, if you
-    ran `make build` while in `$HOME/vt/src/github.com/youtube/vitess`,
+    ran `make build` while in `$HOME/vt/src/vitess.io/vitess`,
     then you should set:
 
     ``` sh
@@ -418,7 +418,7 @@ lock service. ZooKeeper is included in the Vitess distribution.
     service. The following script creates a small ZooKeeper cluster:
 
     ``` sh
-    $ cd $VTROOT/src/github.com/youtube/vitess/examples/local
+    $ cd $VTROOT/src/vitess.io/vitess/examples/local
     vitess/examples/local$ ./zk-up.sh
     ### example output:
     # Starting zk servers...

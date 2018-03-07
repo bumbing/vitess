@@ -22,10 +22,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/vtgate/engine"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/vtgate/engine"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 )
 
 var (
@@ -166,8 +166,8 @@ func (rb *route) Join(rRoute *route, ajoin *sqlparser.JoinTableExpr) (builder, e
 			return rb.merge(rRoute, ajoin)
 		}
 		return nil, errIntermixingUnsupported
-	case engine.ExecDBA:
-		if rRoute.ERoute.Opcode == engine.ExecDBA {
+	case engine.SelectDBA:
+		if rRoute.ERoute.Opcode == engine.SelectDBA {
 			return rb.merge(rRoute, ajoin)
 		}
 		return nil, errIntermixingUnsupported
@@ -596,7 +596,6 @@ func (rb *route) Wireup(bldr builder, jt *jointab) error {
 		case *sqlparser.ColName:
 			if !rb.isLocal(node) {
 				joinVar := jt.Procure(bldr, node, rb.Order())
-				rb.ERoute.JoinVars[joinVar] = struct{}{}
 				buf.Myprintf("%a", ":"+joinVar)
 				return
 			}
@@ -640,7 +639,6 @@ func (rb *route) procureValues(bldr builder, jt *jointab, val sqlparser.Expr) (s
 		return pv, nil
 	case *sqlparser.ColName:
 		joinVar := jt.Procure(bldr, val, rb.Order())
-		rb.ERoute.JoinVars[joinVar] = struct{}{}
 		return sqltypes.PlanValue{Key: joinVar}, nil
 	default:
 		return sqlparser.NewPlanValue(val)
@@ -746,7 +744,7 @@ func (rb *route) IsSingle() bool {
 	switch rb.ERoute.Opcode {
 	// Even thought SelectNext is a single-shard query, we don't
 	// include it here because it can't be combined with any other construct.
-	case engine.SelectUnsharded, engine.ExecDBA, engine.SelectEqualUnique:
+	case engine.SelectUnsharded, engine.SelectDBA, engine.SelectEqualUnique:
 		return true
 	}
 	return false
@@ -765,8 +763,8 @@ func (rb *route) SubqueryCanMerge(inner *route) error {
 			return nil
 		}
 		return errIntermixingUnsupported
-	case engine.ExecDBA:
-		if rb.ERoute.Opcode == engine.ExecDBA {
+	case engine.SelectDBA:
+		if rb.ERoute.Opcode == engine.SelectDBA {
 			return nil
 		}
 		return errIntermixingUnsupported
@@ -813,8 +811,8 @@ func (rb *route) UnionCanMerge(right *route) error {
 			return nil
 		}
 		return errIntermixingUnsupported
-	case engine.ExecDBA:
-		if right.ERoute.Opcode == engine.ExecDBA {
+	case engine.SelectDBA:
+		if right.ERoute.Opcode == engine.SelectDBA {
 			return nil
 		}
 		return errIntermixingUnsupported

@@ -25,7 +25,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/youtube/vitess/go/vt/servenv"
+	"vitess.io/vitess/go/vt/servenv"
 )
 
 var (
@@ -39,7 +39,7 @@ func MakeVtctldRedirect(text string, q map[string]string) template.HTML {
 	for k, v := range q {
 		query.Set(k, v)
 	}
-	url := "/explorers/redirect" + "?" + query.Encode()
+	url := "explorers/redirect" + "?" + query.Encode()
 	return VtctldLink(text, url)
 }
 
@@ -83,7 +83,7 @@ func VtctldShard(keyspace, shard string) template.HTML {
 // VtctldSrvCell returns the cell name, possibly linked to the
 // serving graph page in vtctld for that page.
 func VtctldSrvCell(cell string) template.HTML {
-	return VtctldLink(cell, "/serving_graph/"+cell)
+	return VtctldLink(cell, "serving_graph/"+cell)
 }
 
 // VtctldSrvKeyspace returns the keyspace name, possibly linked to the
@@ -120,12 +120,12 @@ func VtctldTablet(aliasName string) template.HTML {
 // StatusFuncs returns a FuncMap that contains all of our methods here.
 // It is exported so tests can use them.
 var StatusFuncs = template.FuncMap{
-	"github_com_youtube_vitess_vtctld_keyspace":     VtctldKeyspace,
-	"github_com_youtube_vitess_vtctld_shard":        VtctldShard,
-	"github_com_youtube_vitess_vtctld_srv_cell":     VtctldSrvCell,
-	"github_com_youtube_vitess_vtctld_srv_keyspace": VtctldSrvKeyspace,
-	"github_com_youtube_vitess_vtctld_replication":  VtctldReplication,
-	"github_com_youtube_vitess_vtctld_tablet":       VtctldTablet,
+	"github_com_vitessio_vitess_vtctld_keyspace":     VtctldKeyspace,
+	"github_com_vitessio_vitess_vtctld_shard":        VtctldShard,
+	"github_com_vitessio_vitess_vtctld_srv_cell":     VtctldSrvCell,
+	"github_com_vitessio_vitess_vtctld_srv_keyspace": VtctldSrvKeyspace,
+	"github_com_vitessio_vitess_vtctld_replication":  VtctldReplication,
+	"github_com_vitessio_vitess_vtctld_tablet":       VtctldTablet,
 }
 
 func init() {

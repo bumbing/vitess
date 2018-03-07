@@ -28,37 +28,37 @@ import (
 	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/acl"
-	"github.com/youtube/vitess/go/hack"
-	"github.com/youtube/vitess/go/history"
-	"github.com/youtube/vitess/go/mysql"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/stats"
-	"github.com/youtube/vitess/go/sync2"
-	"github.com/youtube/vitess/go/tb"
-	"github.com/youtube/vitess/go/vt/binlog"
-	"github.com/youtube/vitess/go/vt/callerid"
-	"github.com/youtube/vitess/go/vt/dbconfigs"
-	"github.com/youtube/vitess/go/vt/dbconnpool"
-	"github.com/youtube/vitess/go/vt/logutil"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/topo"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vttablet/heartbeat"
-	"github.com/youtube/vitess/go/vt/vttablet/queryservice"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/connpool"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/messager"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/planbuilder"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/rules"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/schema"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/splitquery"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/tabletenv"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/txserializer"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/txthrottler"
+	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/hack"
+	"vitess.io/vitess/go/history"
+	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/sync2"
+	"vitess.io/vitess/go/tb"
+	"vitess.io/vitess/go/vt/binlog"
+	"vitess.io/vitess/go/vt/callerid"
+	"vitess.io/vitess/go/vt/dbconfigs"
+	"vitess.io/vitess/go/vt/dbconnpool"
+	"vitess.io/vitess/go/vt/logutil"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/topo"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vttablet/heartbeat"
+	"vitess.io/vitess/go/vt/vttablet/queryservice"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/connpool"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/messager"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/planbuilder"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/rules"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/schema"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/splitquery"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/txserializer"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/txthrottler"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 const (
@@ -81,8 +81,8 @@ const (
 	StateShuttingDown
 )
 
-// logTxPoolFull is for throttling txpool full messages in the log.
-var logTxPoolFull = logutil.NewThrottledLogger("TxPoolFull", 1*time.Minute)
+// logPoolFull is for throttling transaction / query pool full messages in the log.
+var logPoolFull = logutil.NewThrottledLogger("PoolFull", 1*time.Minute)
 
 var logComputeRowSerializerKey = logutil.NewThrottledLogger("ComputeRowSerializerKey", 1*time.Minute)
 
@@ -94,6 +94,25 @@ var stateName = []string{
 	"SERVING",
 	"NOT_SERVING",
 	"SHUTTING_DOWN",
+}
+
+// stateDetail matches every state and optionally more information about the reason
+// why the state is serving / not serving.
+var stateDetail = []string{
+	"Not Connected",
+	"Not Serving",
+	"",
+	"Transitioning",
+	"Shutting Down",
+}
+
+// stateInfo returns a string representation of the state and optional detail
+// about the reason for the state transition
+func stateInfo(state int64) string {
+	if state == StateServing {
+		return "SERVING"
+	}
+	return fmt.Sprintf("%s (%s)", stateName[state], stateDetail[state])
 }
 
 // TabletServer implements the RPC interface for the query service.
@@ -226,6 +245,7 @@ func NewTabletServer(config tabletenv.TabletConfig, topoServer *topo.Server, ali
 			return state
 		}))
 		stats.Publish("QueryTimeout", stats.DurationFunc(tsv.QueryTimeout.Get))
+		stats.Publish("QueryPoolTimeout", stats.DurationFunc(tsv.qe.connTimeout.Get))
 		stats.Publish("BeginTimeout", stats.DurationFunc(tsv.BeginTimeout.Get))
 		stats.Publish("TabletStateName", stats.StringFunc(tsv.GetState))
 	})
@@ -278,11 +298,11 @@ func (tsv *TabletServer) GetState() string {
 // setState changes the state and logs the event.
 // It requires the caller to hold a lock on mu.
 func (tsv *TabletServer) setState(state int64) {
-	log.Infof("TabletServer state: %s -> %s", stateName[tsv.state], stateName[state])
+	log.Infof("TabletServer state: %s -> %s", stateInfo(tsv.state), stateInfo(state))
 	tsv.state = state
 	tsv.history.Add(&historyRecord{
 		Time:         time.Now(),
-		ServingState: stateName[state],
+		ServingState: stateInfo(state),
 		TabletType:   tsv.target.TabletType.String(),
 	})
 }
@@ -440,6 +460,7 @@ func (tsv *TabletServer) decideAction(tabletType topodatapb.TabletType, serving 
 func (tsv *TabletServer) fullStart() (err error) {
 	c, err := dbconnpool.NewDBConnection(&tsv.dbconfigs.App, tabletenv.MySQLStats)
 	if err != nil {
+		log.Errorf("error creating db app connection: %v", err)
 		return err
 	}
 	c.Close()
@@ -681,7 +702,7 @@ func (tsv *TabletServer) Begin(ctx context.Context, target *querypb.Target, opti
 				// TODO(erez): I think this should be RESOURCE_EXHAUSTED.
 				return vterrors.Errorf(vtrpcpb.Code_UNAVAILABLE, "Transaction throttled")
 			}
-			transactionID, err = tsv.te.txPool.Begin(ctx, options.GetClientFoundRows(), options.GetTransactionIsolation())
+			transactionID, err = tsv.te.txPool.Begin(ctx, options)
 			logStats.TransactionID = transactionID
 			return err
 		},
@@ -1345,7 +1366,7 @@ func (tsv *TabletServer) convertAndLogError(ctx context.Context, sql string, bin
 	case vtrpcpb.Code_FAILED_PRECONDITION, vtrpcpb.Code_ALREADY_EXISTS:
 		logMethod = nil
 	case vtrpcpb.Code_RESOURCE_EXHAUSTED:
-		logMethod = logTxPoolFull.Errorf
+		logMethod = logPoolFull.Errorf
 	case vtrpcpb.Code_ABORTED:
 		logMethod = tabletenv.Warningf
 	case vtrpcpb.Code_INVALID_ARGUMENT, vtrpcpb.Code_DEADLINE_EXCEEDED:
@@ -1581,7 +1602,7 @@ func newSplitQuerySQLExecuter(
 		queryExecutor: queryExecutor,
 	}
 	var err error
-	result.conn, err = queryExecutor.getConn(queryExecutor.tsv.qe.conns)
+	result.conn, err = queryExecutor.getConn()
 	if err != nil {
 		return nil, err
 	}
@@ -1833,11 +1854,6 @@ func (tsv *TabletServer) endRequest(isTx bool) {
 	}
 }
 
-// GetPlan is only used from vtexplain
-func (tsv *TabletServer) GetPlan(ctx context.Context, logStats *tabletenv.LogStats, sql string) (*TabletPlan, error) {
-	return tsv.qe.GetPlan(ctx, logStats, sql, false /* skipQueryPlanCache */)
-}
-
 func (tsv *TabletServer) registerDebugHealthHandler() {
 	http.HandleFunc("/debug/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := acl.CheckAccessHTTP(r, acl.MONITORING); err != nil {
@@ -1973,6 +1989,61 @@ func (tsv *TabletServer) SetMaxDMLRows(val int) {
 // MaxDMLRows returns the max result size.
 func (tsv *TabletServer) MaxDMLRows() int {
 	return int(tsv.qe.maxDMLRows.Get())
+}
+
+// SetPassthroughDMLs changes the setting to pass through all DMLs
+// It should only be used for testing
+func (tsv *TabletServer) SetPassthroughDMLs(val bool) {
+	planbuilder.PassthroughDMLs = true
+	tsv.qe.passthroughDMLs.Set(val)
+}
+
+// SetAllowUnsafeDMLs changes the setting to allow unsafe DML statements
+// in SBR mode. It should be used only on initialization or for testing.
+func (tsv *TabletServer) SetAllowUnsafeDMLs(val bool) {
+	tsv.qe.allowUnsafeDMLs = val
+}
+
+// SetQueryPoolTimeout changes the timeout to get a connection from the
+// query pool
+// This function should only be used for testing.
+func (tsv *TabletServer) SetQueryPoolTimeout(val time.Duration) {
+	tsv.qe.connTimeout.Set(val)
+}
+
+// GetQueryPoolTimeout returns the timeout to get a connection from the
+// query pool
+// This function should only be used for testing.
+func (tsv *TabletServer) GetQueryPoolTimeout() time.Duration {
+	return tsv.qe.connTimeout.Get()
+}
+
+// SetQueryPoolWaiterCap changes the limit on the number of queries that can be
+// waiting for a connection from the pool
+// This function should only be used for testing.
+func (tsv *TabletServer) SetQueryPoolWaiterCap(val int64) {
+	tsv.qe.queryPoolWaiterCap.Set(val)
+}
+
+// GetQueryPoolWaiterCap returns the limit on the number of queries that can be
+// waiting for a connection from the pool
+// This function should only be used for testing.
+func (tsv *TabletServer) GetQueryPoolWaiterCap() int64 {
+	return tsv.qe.queryPoolWaiterCap.Get()
+}
+
+// SetTxPoolWaiterCap changes the limit on the number of queries that can be
+// waiting for a connection from the pool
+// This function should only be used for testing.
+func (tsv *TabletServer) SetTxPoolWaiterCap(val int64) {
+	tsv.te.txPool.waiterCap.Set(val)
+}
+
+// GetTxPoolWaiterCap returns the limit on the number of queries that can be
+// waiting for a connection from the pool
+// This function should only be used for testing.
+func (tsv *TabletServer) GetTxPoolWaiterCap() int64 {
+	return tsv.te.txPool.waiterCap.Get()
 }
 
 // queryAsString prints a readable version of query+bind variables,

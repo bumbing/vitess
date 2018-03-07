@@ -19,10 +19,11 @@ package engine
 import (
 	"encoding/json"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 var _ Primitive = (*VindexFunc)(nil)
@@ -78,13 +79,13 @@ func (code VindexOpcode) MarshalJSON() ([]byte, error) {
 }
 
 // Execute performs a non-streaming exec.
-func (vf *VindexFunc) Execute(vcursor VCursor, bindVars, joinVars map[string]*querypb.BindVariable, wantfields bool) (*sqltypes.Result, error) {
-	return vf.mapVindex(vcursor, bindVars, joinVars)
+func (vf *VindexFunc) Execute(vcursor VCursor, bindVars map[string]*querypb.BindVariable, wantfields bool) (*sqltypes.Result, error) {
+	return vf.mapVindex(vcursor, bindVars)
 }
 
 // StreamExecute performs a streaming exec.
-func (vf *VindexFunc) StreamExecute(vcursor VCursor, bindVars, joinVars map[string]*querypb.BindVariable, wantfields bool, callback func(*sqltypes.Result) error) error {
-	r, err := vf.mapVindex(vcursor, bindVars, joinVars)
+func (vf *VindexFunc) StreamExecute(vcursor VCursor, bindVars map[string]*querypb.BindVariable, wantfields bool, callback func(*sqltypes.Result) error) error {
+	r, err := vf.mapVindex(vcursor, bindVars)
 	if err != nil {
 		return err
 	}
@@ -95,12 +96,11 @@ func (vf *VindexFunc) StreamExecute(vcursor VCursor, bindVars, joinVars map[stri
 }
 
 // GetFields fetches the field info.
-func (vf *VindexFunc) GetFields(vcursor VCursor, bindVars, joinVars map[string]*querypb.BindVariable) (*sqltypes.Result, error) {
+func (vf *VindexFunc) GetFields(vcursor VCursor, bindVars map[string]*querypb.BindVariable) (*sqltypes.Result, error) {
 	return &sqltypes.Result{Fields: vf.Fields}, nil
 }
 
-func (vf *VindexFunc) mapVindex(vcursor VCursor, bindVars, joinVars map[string]*querypb.BindVariable) (*sqltypes.Result, error) {
-	bindVars = combineVars(bindVars, joinVars)
+func (vf *VindexFunc) mapVindex(vcursor VCursor, bindVars map[string]*querypb.BindVariable) (*sqltypes.Result, error) {
 	key, err := vf.Value.ResolveValue(bindVars)
 	if err != nil {
 		return nil, err
@@ -119,9 +119,13 @@ func (vf *VindexFunc) mapVindex(vcursor VCursor, bindVars, joinVars map[string]*
 		if err != nil {
 			return nil, err
 		}
-		if ksids[0] != nil {
+		switch {
+		case ksids[0].Range != nil:
+			result.Rows = append(result.Rows, vf.buildRow(vkey, nil, ksids[0].Range))
+			result.RowsAffected = 1
+		case ksids[0].ID != nil:
 			result.Rows = [][]sqltypes.Value{
-				vf.buildRow(vkey, ksids[0]),
+				vf.buildRow(vkey, ksids[0].ID, nil),
 			}
 			result.RowsAffected = 1
 		}
@@ -130,24 +134,47 @@ func (vf *VindexFunc) mapVindex(vcursor VCursor, bindVars, joinVars map[string]*
 		if err != nil {
 			return nil, err
 		}
-		for _, ksid := range ksidss[0] {
-			result.Rows = append(result.Rows, vf.buildRow(vkey, ksid))
+		if ksidss[0].Range != nil {
+			result.Rows = append(result.Rows, vf.buildRow(vkey, nil, ksidss[0].Range))
+			result.RowsAffected = 1
+		} else {
+			for _, ksid := range ksidss[0].IDs {
+				result.Rows = append(result.Rows, vf.buildRow(vkey, ksid, nil))
+			}
+			result.RowsAffected = uint64(len(ksidss[0].IDs))
 		}
-		result.RowsAffected = uint64(len(ksidss[0]))
 	default:
 		panic("unexpected")
 	}
 	return result, nil
 }
 
-func (vf *VindexFunc) buildRow(id sqltypes.Value, ksid []byte) []sqltypes.Value {
+func (vf *VindexFunc) buildRow(id sqltypes.Value, ksid []byte, kr *topodatapb.KeyRange) []sqltypes.Value {
 	row := make([]sqltypes.Value, 0, len(vf.Fields))
-	keyspaceID := sqltypes.MakeTrusted(sqltypes.VarBinary, ksid)
 	for _, col := range vf.Cols {
-		if col == 0 {
+		switch col {
+		case 0:
 			row = append(row, id)
-		} else {
-			row = append(row, keyspaceID)
+		case 1:
+			if ksid != nil {
+				row = append(row, sqltypes.MakeTrusted(sqltypes.VarBinary, ksid))
+			} else {
+				row = append(row, sqltypes.NULL)
+			}
+		case 2:
+			if kr != nil {
+				row = append(row, sqltypes.MakeTrusted(sqltypes.VarBinary, kr.Start))
+			} else {
+				row = append(row, sqltypes.NULL)
+			}
+		case 3:
+			if kr != nil {
+				row = append(row, sqltypes.MakeTrusted(sqltypes.VarBinary, kr.End))
+			} else {
+				row = append(row, sqltypes.NULL)
+			}
+		default:
+			panic("BUG: unexpected column number")
 		}
 	}
 	return row

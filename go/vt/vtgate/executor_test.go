@@ -18,6 +18,7 @@ package vtgate
 
 import (
 	"bytes"
+	"encoding/hex"
 	"html/template"
 	"reflect"
 	"strings"
@@ -26,12 +27,12 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vtgatepb "github.com/youtube/vitess/go/vt/proto/vtgate"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 )
 
 func TestExecutorTransactionsNoAutoCommit(t *testing.T) {
@@ -580,11 +581,13 @@ func TestExecutorShow(t *testing.T) {
 			buildVarCharRow("TestExecutor", "idx_noauto", "hash", "", "noauto_table"),
 			buildVarCharRow("TestExecutor", "insert_ignore_idx", "lookup_hash", "from=fromcol; table=ins_lookup; to=tocol", "insert_ignore_test"),
 			buildVarCharRow("TestExecutor", "keyspace_id", "numeric", "", ""),
+			buildVarCharRow("TestExecutor", "krcol_unique_vdx", "keyrange_lookuper_unique", "", ""),
+			buildVarCharRow("TestExecutor", "krcol_vdx", "keyrange_lookuper", "", ""),
 			buildVarCharRow("TestExecutor", "music_user_map", "lookup_hash_unique", "from=music_id; table=music_user_map; to=user_id", "music"),
 			buildVarCharRow("TestExecutor", "name_lastname_keyspace_id_map", "lookup", "from=name,lastname; table=name_lastname_keyspace_id_map; to=keyspace_id", "user2"),
 			buildVarCharRow("TestExecutor", "name_user_map", "lookup_hash", "from=name; table=name_user_map; to=user_id", "user"),
 		},
-		RowsAffected: 8,
+		RowsAffected: 10,
 	}
 	if !reflect.DeepEqual(qr, wantqr) {
 		t.Errorf("show vindexes:\n%+v, want\n%+v", qr, wantqr)
@@ -684,9 +687,10 @@ func TestExecutorShow(t *testing.T) {
 			buildVarCharRow("name_lastname_keyspace_id_map"),
 			buildVarCharRow("name_user_map"),
 			buildVarCharRow("simple"),
+			buildVarCharRow("user_msgs"),
 			buildVarCharRow("user_seq"),
 		},
-		RowsAffected: 8,
+		RowsAffected: 9,
 	}
 	if !reflect.DeepEqual(qr, wantqr) {
 		t.Errorf("show vschema_tables:\n%+v, want\n%+v", qr, wantqr)
@@ -718,12 +722,12 @@ func TestExecutorUse(t *testing.T) {
 	session := NewSafeSession(&vtgatepb.Session{Autocommit: true, TargetString: "@master"})
 
 	stmts := []string{
-		"use db",
-		"use `ks:-80@master`",
+		"use TestExecutor",
+		"use `TestExecutor:-80@master`",
 	}
 	want := []string{
-		"db",
-		"ks:-80@master",
+		"TestExecutor",
+		"TestExecutor:-80@master",
 	}
 	for i, stmt := range stmts {
 		_, err := executor.Execute(context.Background(), "TestExecute", session, stmt, nil)
@@ -739,7 +743,13 @@ func TestExecutorUse(t *testing.T) {
 	_, err := executor.Execute(context.Background(), "TestExecute", NewSafeSession(&vtgatepb.Session{}), "use 1", nil)
 	wantErr := "syntax error at position 6 near '1'"
 	if err == nil || err.Error() != wantErr {
-		t.Errorf("use 1: %v, want %v", err, wantErr)
+		t.Errorf("got: %v, want %v", err, wantErr)
+	}
+
+	_, err = executor.Execute(context.Background(), "TestExecute", NewSafeSession(&vtgatepb.Session{}), "use UnexistentKeyspace", nil)
+	wantErr = "invalid keyspace provided: UnexistentKeyspace"
+	if err == nil || err.Error() != wantErr {
+		t.Errorf("got: %v, want %v", err, wantErr)
 	}
 }
 
@@ -773,7 +783,6 @@ func TestExecutorOther(t *testing.T) {
 		"explain",
 		"repair",
 		"optimize",
-		"truncate",
 	}
 	wantCount := []int64{0, 0, 0}
 	for _, stmt := range stmts {
@@ -824,6 +833,7 @@ func TestExecutorDDL(t *testing.T) {
 		"alter",
 		"rename",
 		"drop",
+		"truncate",
 	}
 	wantCount := []int64{0, 0, 0}
 	for _, stmt := range stmts {
@@ -1207,7 +1217,6 @@ func TestGetPlanNormalized(t *testing.T) {
 
 func TestParseTarget(t *testing.T) {
 	r, _, _, _ := createExecutorEnv()
-
 	testcases := []struct {
 		targetString string
 		target       querypb.Target
@@ -1254,11 +1263,63 @@ func TestParseTarget(t *testing.T) {
 		target: querypb.Target{
 			TabletType: topodatapb.TabletType_UNKNOWN,
 		},
+	}, {
+		targetString: "ks[10-20]@master",
+		target: querypb.Target{
+			TabletType: topodatapb.TabletType_MASTER,
+			Keyspace:   "ks",
+		},
+	}, {
+		targetString: "ks[-]@master",
+		target: querypb.Target{
+			TabletType: topodatapb.TabletType_MASTER,
+			Keyspace:   "ks",
+		},
+	}, {
+		targetString: "ks[10-]@master",
+		target: querypb.Target{
+			TabletType: topodatapb.TabletType_MASTER,
+			Keyspace:   "ks",
+		},
+	}, {
+		targetString: "ks[-20]@master",
+		target: querypb.Target{
+			TabletType: topodatapb.TabletType_MASTER,
+			Keyspace:   "ks",
+		},
 	}}
 
 	for _, tcase := range testcases {
 		if target := r.ParseTarget(tcase.targetString); !proto.Equal(&target, &tcase.target) {
 			t.Errorf("ParseTarget(%s): %v, want %v", tcase.targetString, target, tcase.target)
+		}
+	}
+}
+
+func TestParseRange(t *testing.T) {
+	tenHexBytes, _ := hex.DecodeString("10")
+	twentyHexBytes, _ := hex.DecodeString("20")
+
+	testcases := []struct {
+		targetString string
+		target       *topodatapb.KeyRange
+	}{{
+		targetString: "ks[10-20]@master",
+		target:       &topodatapb.KeyRange{Start: tenHexBytes, End: twentyHexBytes},
+	}, {
+		targetString: "ks[-]@master",
+		target:       &topodatapb.KeyRange{},
+	}, {
+		targetString: "ks[10-]@master",
+		target:       &topodatapb.KeyRange{Start: tenHexBytes},
+	}, {
+		targetString: "ks[-20]@master",
+		target:       &topodatapb.KeyRange{End: twentyHexBytes},
+	}}
+
+	for _, tcase := range testcases {
+		if target, _ := parseRange(tcase.targetString); !proto.Equal(target, tcase.target) {
+			t.Errorf("ParseRange(%s) - got: %v, want %v", tcase.targetString, target, tcase.target)
 		}
 	}
 }
@@ -1313,6 +1374,23 @@ func TestPassthroughDDL(t *testing.T) {
 	}
 	if sbc1.Queries != nil {
 		t.Errorf("sbc1.Queries: %+v, want nil\n", sbc1.Queries)
+	}
+	if !reflect.DeepEqual(sbc2.Queries, wantQueries) {
+		t.Errorf("sbc2.Queries: %+v, want %+v\n", sbc2.Queries, wantQueries)
+	}
+	sbc2.Queries = nil
+	masterSession.TargetString = ""
+
+	// Use range query
+	masterSession.TargetString = "TestExecutor[-]"
+	executor.normalize = true
+
+	_, err = executorExec(executor, "/* leading */ create table passthrough_ddl (col bigint default 123) /* trailing */", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(sbc1.Queries, wantQueries) {
+		t.Errorf("sbc2.Queries: %+v, want %+v\n", sbc1.Queries, wantQueries)
 	}
 	if !reflect.DeepEqual(sbc2.Queries, wantQueries) {
 		t.Errorf("sbc2.Queries: %+v, want %+v\n", sbc2.Queries, wantQueries)

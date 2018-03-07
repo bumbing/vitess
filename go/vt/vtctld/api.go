@@ -29,18 +29,19 @@ import (
 	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/acl"
-	"github.com/youtube/vitess/go/vt/logutil"
-	"github.com/youtube/vitess/go/vt/schemamanager"
-	"github.com/youtube/vitess/go/vt/topo"
-	"github.com/youtube/vitess/go/vt/topo/topoproto"
-	"github.com/youtube/vitess/go/vt/vtctl"
-	"github.com/youtube/vitess/go/vt/vttablet/tmclient"
-	"github.com/youtube/vitess/go/vt/workflow"
-	"github.com/youtube/vitess/go/vt/wrangler"
+	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/vt/logutil"
+	"vitess.io/vitess/go/vt/schemamanager"
+	"vitess.io/vitess/go/vt/topo"
+	"vitess.io/vitess/go/vt/topo/topoproto"
+	"vitess.io/vitess/go/vt/vtctl"
+	"vitess.io/vitess/go/vt/vttablet/tmclient"
+	"vitess.io/vitess/go/vt/workflow"
+	"vitess.io/vitess/go/vt/wrangler"
 
-	logutilpb "github.com/youtube/vitess/go/vt/proto/logutil"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
+	"vitess.io/vitess/go/vt/mysqlctl"
+	logutilpb "vitess.io/vitess/go/vt/proto/logutil"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 var (
@@ -505,7 +506,7 @@ func initAPI(ctx context.Context, ts *topo.Server, actions *ActionRepository, re
 		}
 
 		resp := make(map[string]interface{})
-		resp["activeReparents"] = !*vtctl.DisableActiveReparents
+		resp["activeReparents"] = !*mysqlctl.DisableActiveReparents
 		resp["showStatus"] = *enableRealtimeStats
 		resp["showTopologyCRUD"] = *showTopologyCRUD
 		resp["showWorkflows"] = *workflowManagerInit

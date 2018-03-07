@@ -21,13 +21,17 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/vt/topo"
+	"vitess.io/vitess/go/vt/topo"
 )
 
 // ListDir is part of the topo.Conn interface.
 func (c *Conn) ListDir(ctx context.Context, dirPath string, full bool) ([]topo.DirEntry, error) {
 	c.factory.mu.Lock()
 	defer c.factory.mu.Unlock()
+
+	if c.factory.err != nil {
+		return nil, c.factory.err
+	}
 
 	isRoot := false
 	if dirPath == "" || dirPath == "/" {

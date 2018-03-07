@@ -21,13 +21,17 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/vt/topo"
+	"vitess.io/vitess/go/vt/topo"
 )
 
 // Watch is part of the topo.Conn interface.
 func (c *Conn) Watch(ctx context.Context, filePath string) (*topo.WatchData, <-chan *topo.WatchData, topo.CancelFunc) {
 	c.factory.mu.Lock()
 	defer c.factory.mu.Unlock()
+
+	if c.factory.err != nil {
+		return &topo.WatchData{Err: c.factory.err}, nil, nil
+	}
 
 	n := c.factory.nodeByPath(c.cell, filePath)
 	if n == nil {

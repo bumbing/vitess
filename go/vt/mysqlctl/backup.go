@@ -33,13 +33,14 @@ import (
 	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/cgzip"
-	"github.com/youtube/vitess/go/mysql"
-	"github.com/youtube/vitess/go/sync2"
-	"github.com/youtube/vitess/go/vt/concurrency"
-	"github.com/youtube/vitess/go/vt/hook"
-	"github.com/youtube/vitess/go/vt/logutil"
-	"github.com/youtube/vitess/go/vt/mysqlctl/backupstorage"
+	"vitess.io/vitess/go/cgzip"
+	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/sqlescape"
+	"vitess.io/vitess/go/sync2"
+	"vitess.io/vitess/go/vt/concurrency"
+	"vitess.io/vitess/go/vt/hook"
+	"vitess.io/vitess/go/vt/logutil"
+	"vitess.io/vitess/go/vt/mysqlctl/backupstorage"
 )
 
 // This file handles the backup and restore related code
@@ -321,7 +322,7 @@ func backup(ctx context.Context, mysqld MysqlDaemon, logger logutil.Logger, bh b
 	usable := backupErr == nil
 
 	// Try to restart mysqld
-	err = mysqld.RefreshConfig()
+	err = mysqld.RefreshConfig(ctx)
 	if err != nil {
 		return usable, fmt.Errorf("can't refresh mysqld config: %v", err)
 	}
@@ -529,19 +530,15 @@ func backupFile(ctx context.Context, mysqld MysqlDaemon, logger logutil.Logger, 
 // satisfied (there is a DB with tables).
 // Returns non-nil error if one occurs while trying to perform the check.
 func checkNoDB(ctx context.Context, mysqld MysqlDaemon, dbName string) (bool, error) {
-	// Wait for mysqld to be ready, in case it was launched in parallel with us.
-	if err := mysqld.Wait(ctx); err != nil {
-		return false, err
-	}
-
 	qr, err := mysqld.FetchSuperQuery(ctx, "SHOW DATABASES")
 	if err != nil {
 		return false, fmt.Errorf("checkNoDB failed: %v", err)
 	}
 
+	backtickDBName := sqlescape.EscapeID(dbName)
 	for _, row := range qr.Rows {
 		if row[0].ToString() == dbName {
-			tableQr, err := mysqld.FetchSuperQuery(ctx, "SHOW TABLES FROM "+dbName)
+			tableQr, err := mysqld.FetchSuperQuery(ctx, "SHOW TABLES FROM "+backtickDBName)
 			if err != nil {
 				return false, fmt.Errorf("checkNoDB failed: %v", err)
 			}
@@ -740,6 +737,11 @@ func Restore(
 	logger logutil.Logger,
 	deleteBeforeRestore bool,
 	dbName string) (mysql.Position, error) {
+
+	// Wait for mysqld to be ready, in case it was launched in parallel with us.
+	if err := mysqld.Wait(ctx); err != nil {
+		return mysql.Position{}, err
+	}
 
 	// find the right backup handle: most recent one, with a MANIFEST
 	logger.Infof("Restore: looking for a suitable backup to restore")

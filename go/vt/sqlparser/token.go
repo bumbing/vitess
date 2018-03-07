@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/youtube/vitess/go/bytes2"
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/bytes2"
+	"vitess.io/vitess/go/sqltypes"
 )
 
 const (
@@ -94,6 +94,7 @@ var keywords = map[string]int{
 	"asensitive":          UNUSED,
 	"auto_increment":      AUTO_INCREMENT,
 	"before":              UNUSED,
+	"begin":               BEGIN,
 	"between":             BETWEEN,
 	"bigint":              BIGINT,
 	"binary":              BINARY,
@@ -116,6 +117,7 @@ var keywords = map[string]int{
 	"collate":             COLLATE,
 	"column":              UNUSED,
 	"comment":             COMMENT_KEYWORD,
+	"commit":              COMMIT,
 	"condition":           UNUSED,
 	"constraint":          UNUSED,
 	"continue":            UNUSED,
@@ -284,6 +286,7 @@ var keywords = map[string]int{
 	"revoke":              UNUSED,
 	"right":               RIGHT,
 	"rlike":               REGEXP,
+	"rollback":            ROLLBACK,
 	"schema":              UNUSED,
 	"schemas":             UNUSED,
 	"second_microsecond":  UNUSED,
@@ -309,10 +312,12 @@ var keywords = map[string]int{
 	"sql_no_cache":        SQL_NO_CACHE,
 	"sql_small_result":    UNUSED,
 	"ssl":                 UNUSED,
+	"start":               START,
 	"starting":            UNUSED,
 	"status":              STATUS,
 	"stored":              UNUSED,
 	"straight_join":       STRAIGHT_JOIN,
+	"stream":              STREAM,
 	"table":               TABLE,
 	"tables":              TABLES,
 	"terminated":          UNUSED,
@@ -326,6 +331,7 @@ var keywords = map[string]int{
 	"tinytext":            TINYTEXT,
 	"to":                  TO,
 	"trailing":            UNUSED,
+	"transaction":         TRANSACTION,
 	"trigger":             TRIGGER,
 	"true":                TRUE,
 	"truncate":            TRUNCATE,

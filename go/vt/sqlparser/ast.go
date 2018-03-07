@@ -25,11 +25,11 @@ import (
 
 	log "github.com/golang/glog"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/vterrors"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 // Instructions for creating new types: If a type
@@ -181,6 +181,7 @@ type Statement interface {
 
 func (*Union) iStatement()      {}
 func (*Select) iStatement()     {}
+func (*Stream) iStatement()     {}
 func (*Insert) iStatement()     {}
 func (*Update) iStatement()     {}
 func (*Delete) iStatement()     {}
@@ -188,6 +189,9 @@ func (*Set) iStatement()        {}
 func (*DDL) iStatement()        {}
 func (*Show) iStatement()       {}
 func (*Use) iStatement()        {}
+func (*Begin) iStatement()      {}
+func (*Commit) iStatement()     {}
+func (*Rollback) iStatement()   {}
 func (*OtherRead) iStatement()  {}
 func (*OtherAdmin) iStatement() {}
 
@@ -399,6 +403,32 @@ func (node *Union) WalkSubtree(visit Visit) error {
 		visit,
 		node.Left,
 		node.Right,
+	)
+}
+
+// Stream represents a SELECT statement.
+type Stream struct {
+	Comments   Comments
+	SelectExpr SelectExpr
+	Table      TableName
+}
+
+// Format formats the node.
+func (node *Stream) Format(buf *TrackedBuffer) {
+	buf.Myprintf("stream %v%v from %v",
+		node.Comments, node.SelectExpr, node.Table)
+}
+
+// WalkSubtree walks the nodes of the subtree.
+func (node *Stream) WalkSubtree(visit Visit) error {
+	if node == nil {
+		return nil
+	}
+	return Walk(
+		visit,
+		node.Comments,
+		node.SelectExpr,
+		node.Table,
 	)
 }
 
@@ -982,6 +1012,7 @@ func (ct *ColumnType) WalkSubtree(visit Visit) error {
 type IndexDefinition struct {
 	Info    *IndexInfo
 	Columns []*IndexColumn
+	Using   ColIdent
 }
 
 // Format formats the node.
@@ -998,6 +1029,9 @@ func (idx *IndexDefinition) Format(buf *TrackedBuffer) {
 		}
 	}
 	buf.Myprintf(")")
+	if !idx.Using.IsEmpty() {
+		buf.Myprintf(" USING %v", idx.Using)
+	}
 }
 
 // WalkSubtree walks the nodes of the subtree.
@@ -1108,6 +1142,45 @@ func (node *Use) Format(buf *TrackedBuffer) {
 // WalkSubtree walks the nodes of the subtree.
 func (node *Use) WalkSubtree(visit Visit) error {
 	return Walk(visit, node.DBName)
+}
+
+// Begin represents a Begin statement.
+type Begin struct{}
+
+// Format formats the node.
+func (node *Begin) Format(buf *TrackedBuffer) {
+	buf.WriteString("begin")
+}
+
+// WalkSubtree walks the nodes of the subtree.
+func (node *Begin) WalkSubtree(visit Visit) error {
+	return nil
+}
+
+// Commit represents a Commit statement.
+type Commit struct{}
+
+// Format formats the node.
+func (node *Commit) Format(buf *TrackedBuffer) {
+	buf.WriteString("commit")
+}
+
+// WalkSubtree walks the nodes of the subtree.
+func (node *Commit) WalkSubtree(visit Visit) error {
+	return nil
+}
+
+// Rollback represents a Rollback statement.
+type Rollback struct{}
+
+// Format formats the node.
+func (node *Rollback) Format(buf *TrackedBuffer) {
+	buf.WriteString("rollback")
+}
+
+// WalkSubtree walks the nodes of the subtree.
+func (node *Rollback) WalkSubtree(visit Visit) error {
+	return nil
 }
 
 // OtherRead represents a DESCRIBE, or EXPLAIN statement.

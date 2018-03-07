@@ -28,25 +28,25 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/mysql"
-	"github.com/youtube/vitess/go/mysql/fakesqldb"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/callerid"
-	"github.com/youtube/vitess/go/vt/callinfo"
-	"github.com/youtube/vitess/go/vt/callinfo/fakecallinfo"
-	"github.com/youtube/vitess/go/vt/tableacl"
-	"github.com/youtube/vitess/go/vt/tableacl/simpleacl"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/connpool"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/messager"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/planbuilder"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/rules"
-	"github.com/youtube/vitess/go/vt/vttablet/tabletserver/tabletenv"
+	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/mysql/fakesqldb"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/callerid"
+	"vitess.io/vitess/go/vt/callinfo"
+	"vitess.io/vitess/go/vt/callinfo/fakecallinfo"
+	"vitess.io/vitess/go/vt/tableacl"
+	"vitess.io/vitess/go/vt/tableacl/simpleacl"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/connpool"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/messager"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/planbuilder"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/rules"
+	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	tableaclpb "github.com/youtube/vitess/go/vt/proto/tableacl"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	tableaclpb "vitess.io/vitess/go/vt/proto/tableacl"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 func TestQueryExecutorPlanDDL(t *testing.T) {
@@ -108,8 +108,6 @@ func TestQueryExecutorPlanPassDmlRBR(t *testing.T) {
 func TestQueryExecutorPassthroughDml(t *testing.T) {
 	db := setUpQueryExecutorTest(t)
 	defer db.Close()
-	planbuilder.PassthroughDMLs = true
-	defer func() { planbuilder.PassthroughDMLs = false }()
 	query := "update test_table set pk = foo()"
 	want := &sqltypes.Result{}
 	db.AddQuery(query, want)
@@ -118,9 +116,8 @@ func TestQueryExecutorPassthroughDml(t *testing.T) {
 	tsv := newTestTabletServer(ctx, noFlags, db)
 	defer tsv.StopService()
 
-	planbuilder.PassthroughDMLs = true
-	defer func() { planbuilder.PassthroughDMLs = false }()
-	tsv.qe.passthroughDMLs.Set(true)
+	tsv.SetPassthroughDMLs(true)
+	defer tsv.SetPassthroughDMLs(false)
 	tsv.qe.binlogFormat = connpool.BinlogFormatRow
 
 	txid := newTransaction(tsv, nil)
@@ -147,7 +144,7 @@ func TestQueryExecutorPassthroughDml(t *testing.T) {
 		t.Errorf("qre.Execute: %v, want %v", code, vtrpcpb.Code_INVALID_ARGUMENT)
 	}
 
-	tsv.qe.allowUnsafeDMLs = true
+	tsv.SetAllowUnsafeDMLs(true)
 	got, err = qre.Execute()
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got: %v, want: %v", got, want)
@@ -201,9 +198,8 @@ func TestQueryExecutorPassthroughDmlAutoCommit(t *testing.T) {
 	tsv := newTestTabletServer(ctx, noFlags, db)
 	defer tsv.StopService()
 
-	planbuilder.PassthroughDMLs = true
-	defer func() { planbuilder.PassthroughDMLs = false }()
-	tsv.qe.passthroughDMLs.Set(true)
+	tsv.SetPassthroughDMLs(true)
+	defer tsv.SetPassthroughDMLs(false)
 	tsv.qe.binlogFormat = connpool.BinlogFormatRow
 
 	qre := newTestQueryExecutor(ctx, tsv, query, 0)
@@ -223,7 +219,7 @@ func TestQueryExecutorPassthroughDmlAutoCommit(t *testing.T) {
 		t.Errorf("qre.Execute: %v, want %v", code, vtrpcpb.Code_INVALID_ARGUMENT)
 	}
 
-	tsv.qe.allowUnsafeDMLs = true
+	tsv.SetAllowUnsafeDMLs(true)
 	got, err = qre.Execute()
 	if err != nil {
 		t.Fatalf("qre.Execute() = %v, want nil", err)

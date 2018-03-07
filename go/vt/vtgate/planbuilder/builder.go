@@ -20,9 +20,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/vtgate/engine"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/vtgate/engine"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 )
 
 // builder defines the interface that a primitive must
@@ -162,6 +162,12 @@ func BuildFromStmt(query string, stmt sqlparser.Statement, vschema VSchema) (*en
 		return nil, errors.New("unsupported construct: other read")
 	case *sqlparser.OtherAdmin:
 		return nil, errors.New("unsupported construct: other admin")
+	case *sqlparser.Begin:
+		return nil, errors.New("unsupported construct: begin")
+	case *sqlparser.Commit:
+		return nil, errors.New("unsupported construct: commit")
+	case *sqlparser.Rollback:
+		return nil, errors.New("unsupported construct: rollback")
 	default:
 		panic(fmt.Sprintf("BUG: unexpected statement type: %T", stmt))
 	}

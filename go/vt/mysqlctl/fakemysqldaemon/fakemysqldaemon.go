@@ -24,15 +24,15 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/mysql"
-	"github.com/youtube/vitess/go/mysql/fakesqldb"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/stats"
-	"github.com/youtube/vitess/go/vt/dbconnpool"
-	"github.com/youtube/vitess/go/vt/mysqlctl"
-	"github.com/youtube/vitess/go/vt/mysqlctl/tmutils"
+	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/mysql/fakesqldb"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/vt/dbconnpool"
+	"vitess.io/vitess/go/vt/mysqlctl"
+	"vitess.io/vitess/go/vt/mysqlctl/tmutils"
 
-	tabletmanagerdatapb "github.com/youtube/vitess/go/vt/proto/tabletmanagerdata"
+	tabletmanagerdatapb "vitess.io/vitess/go/vt/proto/tabletmanagerdata"
 )
 
 // FakeMysqlDaemon implements MysqlDaemon and allows the user to fake
@@ -190,7 +190,7 @@ func (fmd *FakeMysqlDaemon) ReinitConfig(ctx context.Context) error {
 }
 
 // RefreshConfig is part of the MysqlDaemon interface
-func (fmd *FakeMysqlDaemon) RefreshConfig() error {
+func (fmd *FakeMysqlDaemon) RefreshConfig(ctx context.Context) error {
 	return nil
 }
 

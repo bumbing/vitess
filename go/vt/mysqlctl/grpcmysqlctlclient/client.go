@@ -28,10 +28,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/vt/grpcclient"
-	"github.com/youtube/vitess/go/vt/mysqlctl/mysqlctlclient"
+	"vitess.io/vitess/go/vt/grpcclient"
+	"vitess.io/vitess/go/vt/mysqlctl/mysqlctlclient"
 
-	mysqlctlpb "github.com/youtube/vitess/go/vt/proto/mysqlctl"
+	mysqlctlpb "vitess.io/vitess/go/vt/proto/mysqlctl"
 )
 
 type client struct {
@@ -87,6 +87,14 @@ func (c *client) RunMysqlUpgrade(ctx context.Context) error {
 func (c *client) ReinitConfig(ctx context.Context) error {
 	return c.withRetry(ctx, func() error {
 		_, err := c.c.ReinitConfig(ctx, &mysqlctlpb.ReinitConfigRequest{})
+		return err
+	})
+}
+
+// RefreshConfig is part of the MysqlctlClient interface.
+func (c *client) RefreshConfig(ctx context.Context) error {
+	return c.withRetry(ctx, func() error {
+		_, err := c.c.RefreshConfig(ctx, &mysqlctlpb.RefreshConfigRequest{})
 		return err
 	})
 }

@@ -29,7 +29,7 @@ limitations under the License.
 package heartbeat
 
 import (
-	"github.com/youtube/vitess/go/stats"
+	"vitess.io/vitess/go/stats"
 )
 
 var (
@@ -43,5 +43,7 @@ var (
 	readErrors = stats.NewInt("HeartbeatReadErrors")
 	// HeartbeatCumulativeLagNs is incremented by the current lag at each heartbeat read interval. Plotting this
 	// over time allows calculating of a rolling average lag.
-	lagNs = stats.NewInt("HeartbeatCumulativeLagNs")
+	cumulativeLagNs = stats.NewInt("HeartbeatCumulativeLagNs")
+	// HeartbeatCurrentLagNs is a point-in-time calculation of the lag, updated at each heartbeat read interval.
+	currentLagNs = stats.NewInt("HeartbeatCurrentLagNs")
 )

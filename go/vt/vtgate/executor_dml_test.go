@@ -23,13 +23,13 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	_ "github.com/youtube/vitess/go/vt/vtgate/vindexes"
-	"github.com/youtube/vitess/go/vt/vttablet/sandboxconn"
+	"vitess.io/vitess/go/sqltypes"
+	_ "vitess.io/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/vt/vttablet/sandboxconn"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	vtgatepb "github.com/youtube/vitess/go/vt/proto/vtgate"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 func TestUpdateEqual(t *testing.T) {
@@ -38,6 +38,7 @@ func TestUpdateEqual(t *testing.T) {
 	logChan := QueryLogger.Subscribe("Test")
 	defer QueryLogger.Unsubscribe(logChan)
 
+	// Update by primary vindex.
 	_, err := executorExec(executor, "update user set a=2 where id = 1", nil)
 	if err != nil {
 		t.Error(err)
@@ -70,6 +71,7 @@ func TestUpdateEqual(t *testing.T) {
 		t.Errorf("sbc1.Queries: %+v, want nil\n", sbc1.Queries)
 	}
 
+	// Update by secondary vindex.
 	sbc1.Queries = nil
 	sbc2.Queries = nil
 	sbclookup.SetResults([]*sqltypes.Result{{}})
@@ -93,6 +95,7 @@ func TestUpdateEqual(t *testing.T) {
 		t.Errorf("sbc1.Queries: %+v, want nil\n", sbc1.Queries)
 	}
 
+	// Update changes lookup vindex values.
 	sbc1.Queries = nil
 	sbc2.Queries = nil
 	sbclookup.Queries = nil
@@ -106,11 +109,8 @@ func TestUpdateEqual(t *testing.T) {
 			BindVariables: map[string]*querypb.BindVariable{},
 		},
 		{
-			Sql: "update user2 set name = 'myname', lastname = 'mylastname' where id = 1 /* vtgate:: keyspace_id:166b40b44aba4bd6 */",
-			BindVariables: map[string]*querypb.BindVariable{
-				"_name0":     sqltypes.BytesBindVariable([]byte("myname")),
-				"_lastname0": sqltypes.BytesBindVariable([]byte("mylastname")),
-			},
+			Sql:           "update user2 set name = 'myname', lastname = 'mylastname' where id = 1 /* vtgate:: keyspace_id:166b40b44aba4bd6 */",
+			BindVariables: map[string]*querypb.BindVariable{},
 		},
 	}
 	if !reflect.DeepEqual(sbc1.Queries, wantQueries) {
@@ -142,7 +142,127 @@ func TestUpdateEqual(t *testing.T) {
 	if !reflect.DeepEqual(sbclookup.Queries, wantQueries) {
 		t.Errorf("sbclookup.Queries: %+v, want %+v\n", sbclookup.Queries, wantQueries)
 	}
+}
 
+func TestUpdateMultiOwned(t *testing.T) {
+	vschema := `
+{
+	"sharded": true,
+	"vindexes": {
+		"hash_index": {
+			"type": "hash"
+		},
+		"lookup1": {
+			"type": "lookup_hash_unique",
+			"owner": "user",
+			"params": {
+				"table": "music_user_map",
+				"from": "from1,from2",
+				"to": "user_id"
+			}
+		},
+		"lookup2": {
+			"type": "lookup_hash_unique",
+			"owner": "user",
+			"params": {
+				"table": "music_user_map",
+				"from": "from1,from2",
+				"to": "user_id"
+			}
+		},
+		"lookup3": {
+			"type": "lookup_hash_unique",
+			"owner": "user",
+			"params": {
+				"table": "music_user_map",
+				"from": "from1,from2",
+				"to": "user_id"
+			}
+		}
+	},
+	"tables": {
+		"user": {
+			"column_vindexes": [
+				{
+					"column": "id",
+					"name": "hash_index"
+				},
+				{
+					"columns": ["a", "b"],
+					"name": "lookup1"
+				},
+				{
+					"columns": ["c", "d"],
+					"name": "lookup2"
+				},
+				{
+					"columns": ["e", "f"],
+					"name": "lookup3"
+				}
+			]
+		}
+	}
+}
+`
+	executor, sbc1, sbc2, sbclookup := createCustomExecutor(vschema)
+
+	sbc1.SetResults([]*sqltypes.Result{
+		sqltypes.MakeTestResult(
+			sqltypes.MakeTestFields("a|b|c|d|e|f", "int64|int64|int64|int64|int64|int64"),
+			"10|20|30|40|50|60",
+		),
+	})
+	_, err := executorExec(executor, "update user set a=1, b=2, f=4, e=3 where id=1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantQueries := []*querypb.BoundQuery{{
+		Sql:           "select a, b, c, d, e, f from user where id = 1 for update",
+		BindVariables: map[string]*querypb.BindVariable{},
+	}, {
+		Sql:           "update user set a = 1, b = 2, f = 4, e = 3 where id = 1 /* vtgate:: keyspace_id:166b40b44aba4bd6 */",
+		BindVariables: map[string]*querypb.BindVariable{},
+	}}
+	if !reflect.DeepEqual(sbc1.Queries, wantQueries) {
+		t.Errorf("sbc1.Queries:\n%+v, want\n%+v\n", sbc1.Queries, wantQueries)
+	}
+	if sbc2.Queries != nil {
+		t.Errorf("sbc2.Queries: %+v, want nil\n", sbc2.Queries)
+	}
+
+	wantQueries = []*querypb.BoundQuery{{
+		Sql: "delete from music_user_map where from1 = :from1 and from2 = :from2 and user_id = :user_id",
+		BindVariables: map[string]*querypb.BindVariable{
+			"from1":   sqltypes.Int64BindVariable(10),
+			"from2":   sqltypes.Int64BindVariable(20),
+			"user_id": sqltypes.Uint64BindVariable(1),
+		},
+	}, {
+		Sql: "insert into music_user_map(from1, from2, user_id) values (:from10, :from20, :user_id0)",
+		BindVariables: map[string]*querypb.BindVariable{
+			"from10":   sqltypes.Int64BindVariable(1),
+			"from20":   sqltypes.Int64BindVariable(2),
+			"user_id0": sqltypes.Uint64BindVariable(1),
+		},
+	}, {
+		Sql: "delete from music_user_map where from1 = :from1 and from2 = :from2 and user_id = :user_id",
+		BindVariables: map[string]*querypb.BindVariable{
+			"from1":   sqltypes.Int64BindVariable(50),
+			"from2":   sqltypes.Int64BindVariable(60),
+			"user_id": sqltypes.Uint64BindVariable(1),
+		},
+	}, {
+		Sql: "insert into music_user_map(from1, from2, user_id) values (:from10, :from20, :user_id0)",
+		BindVariables: map[string]*querypb.BindVariable{
+			"from10":   sqltypes.Int64BindVariable(3),
+			"from20":   sqltypes.Int64BindVariable(4),
+			"user_id0": sqltypes.Uint64BindVariable(1),
+		},
+	}}
+
+	if !reflect.DeepEqual(sbclookup.Queries, wantQueries) {
+		t.Errorf("sbclookup.Queries:\n%+v, want\n%+v\n", sbclookup.Queries, wantQueries)
+	}
 }
 
 func TestUpdateComments(t *testing.T) {
@@ -208,36 +328,6 @@ func TestUpdateNormalize(t *testing.T) {
 	}
 	sbc2.Queries = nil
 	masterSession.TargetString = ""
-}
-
-func TestUpdateEqualFail(t *testing.T) {
-	executor, _, _, _ := createExecutorEnv()
-	s := getSandbox("TestExecutor")
-
-	_, err := executorExec(executor, "update user set a=2 where id = :aa", nil)
-	want := "execUpdateEqual: missing bind var aa"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	s.SrvKeyspaceMustFail = 1
-	_, err = executorExec(executor, "update user set a=2 where id = :id", map[string]*querypb.BindVariable{
-		"id": sqltypes.Int64BindVariable(1),
-	})
-	want = "execUpdateEqual: keyspace TestExecutor fetch error: topo error GetSrvKeyspace"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	s.ShardSpec = "80-"
-	_, err = executorExec(executor, "update user set a=2 where id = :id", map[string]*querypb.BindVariable{
-		"id": sqltypes.Int64BindVariable(1),
-	})
-	want = "execUpdateEqual: KeyspaceId 166b40b44aba4bd6 didn't match any shards"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-	s.ShardSpec = DefaultShardSpec
 }
 
 func TestDeleteEqual(t *testing.T) {
@@ -374,6 +464,25 @@ func TestDeleteEqual(t *testing.T) {
 	}
 }
 
+func TestDeleteSharded(t *testing.T) {
+	executor, sbc1, sbc2, _ := createExecutorEnv()
+	_, err := executorExec(executor, "delete from user_extra", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	// Queries get annotatted.
+	wantQueries := []*querypb.BoundQuery{{
+		Sql:           "delete from user_extra/* vtgate:: filtered_replication_unfriendly */",
+		BindVariables: map[string]*querypb.BindVariable{},
+	}}
+	if !reflect.DeepEqual(sbc1.Queries, wantQueries) {
+		t.Errorf("sbc.Queries:\n%+v, want\n%+v\n", sbc1.Queries, wantQueries)
+	}
+	if !reflect.DeepEqual(sbc2.Queries, wantQueries) {
+		t.Errorf("sbc.Queries:\n%+v, want\n%+v\n", sbc2.Queries, wantQueries)
+	}
+}
+
 func TestDeleteComments(t *testing.T) {
 	executor, sbc, _, sbclookup := createExecutorEnv()
 
@@ -412,36 +521,6 @@ func TestDeleteComments(t *testing.T) {
 	if !reflect.DeepEqual(sbclookup.Queries, wantQueries) {
 		t.Errorf("sbclookup.Queries:\n%+v, want\n%+v\n", sbclookup.Queries, wantQueries)
 	}
-}
-
-func TestDeleteEqualFail(t *testing.T) {
-	executor, _, _, _ := createExecutorEnv()
-	s := getSandbox("TestExecutor")
-
-	_, err := executorExec(executor, "delete from user where id = :aa", nil)
-	want := "execDeleteEqual: missing bind var aa"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	s.SrvKeyspaceMustFail = 1
-	_, err = executorExec(executor, "delete from user where id = :id", map[string]*querypb.BindVariable{
-		"id": sqltypes.Int64BindVariable(1),
-	})
-	want = "execDeleteEqual: keyspace TestExecutor fetch error: topo error GetSrvKeyspace"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	s.ShardSpec = "80-"
-	_, err = executorExec(executor, "delete from user where id = :id", map[string]*querypb.BindVariable{
-		"id": sqltypes.Int64BindVariable(1),
-	})
-	want = "execDeleteEqual: KeyspaceId 166b40b44aba4bd6 didn't match any shards"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-	s.ShardSpec = DefaultShardSpec
 }
 
 func TestInsertSharded(t *testing.T) {
@@ -528,6 +607,96 @@ func TestInsertSharded(t *testing.T) {
 	}}
 	if !reflect.DeepEqual(sbc1.Queries, wantQueries) {
 		t.Errorf("sbc1.Queries:\n%+v, want\n%+v\n", sbc1.Queries, wantQueries)
+	}
+}
+
+func TestInsertShardedKeyrange(t *testing.T) {
+	executor, _, _, _ := createExecutorEnv()
+
+	// If a unique vindex returns a keyrange, we fail the insert
+	_, err := executorExec(executor, "insert into keyrange_table(krcol_unique, krcol) values(1, 1)", nil)
+	want := "execInsertSharded: getInsertShardedRoute: vindex could not map the value to a unique keyspace id"
+	if err == nil || err.Error() != want {
+		t.Errorf("executorExec error: %v, want %s", err, want)
+	}
+}
+
+func TestInsertShardedAutocommitLookup(t *testing.T) {
+
+	vschema := `
+{
+	"sharded": true,
+	"vindexes": {
+		"hash_index": {
+			"type": "hash"
+		},
+		"name_user_map": {
+			"type": "lookup_hash",
+			"owner": "user",
+			"params": {
+				"table": "name_user_map",
+				"from": "name",
+				"to": "user_id",
+				"autocommit": "true"
+			}
+		}
+	},
+	"tables": {
+		"user": {
+			"column_vindexes": [
+				{
+					"column": "Id",
+					"name": "hash_index"
+				},
+				{
+					"column": "name",
+					"name": "name_user_map"
+				}
+			],
+			"auto_increment": {
+				"column": "id",
+				"sequence": "user_seq"
+			},
+			"columns": [
+				{
+					"name": "textcol",
+					"type": "VARCHAR"
+				}
+			]
+		}
+	}
+}
+`
+	executor, sbc1, sbc2, sbclookup := createCustomExecutor(vschema)
+
+	_, err := executorExec(executor, "insert into user(id, v, name) values (1, 2, 'myname')", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	wantQueries := []*querypb.BoundQuery{{
+		Sql: "insert into user(id, v, name) values (:_Id0, 2, :_name0) /* vtgate:: keyspace_id:166b40b44aba4bd6 */",
+		BindVariables: map[string]*querypb.BindVariable{
+			"_Id0":   sqltypes.Int64BindVariable(1),
+			"_name0": sqltypes.BytesBindVariable([]byte("myname")),
+			"__seq0": sqltypes.Int64BindVariable(1),
+		},
+	}}
+	if !reflect.DeepEqual(sbc1.Queries, wantQueries) {
+		t.Errorf("sbc1.Queries:\n%+v, want\n%+v\n", sbc1.Queries, wantQueries)
+	}
+	if sbc2.Queries != nil {
+		t.Errorf("sbc2.Queries: %+v, want nil\n", sbc2.Queries)
+	}
+	wantQueries = []*querypb.BoundQuery{{
+		Sql: "insert into name_user_map(name, user_id) values (:name0, :user_id0) on duplicate key update name = values(name), user_id = values(user_id)",
+		BindVariables: map[string]*querypb.BindVariable{
+			"name0":    sqltypes.BytesBindVariable([]byte("myname")),
+			"user_id0": sqltypes.Uint64BindVariable(1),
+		},
+	}}
+	// autocommit should go as ExecuteBatch
+	if !reflect.DeepEqual(sbclookup.BatchQueries[0], wantQueries) {
+		t.Errorf("sbclookup.BatchQueries[0]: \n%+v, want \n%+v", sbclookup.BatchQueries[0], wantQueries)
 	}
 }
 
@@ -1068,122 +1237,6 @@ func TestInsertLookupUnownedUnsupplied(t *testing.T) {
 	}
 }
 
-func TestInsertFail(t *testing.T) {
-	executor, sbc, _, sbclookup := createExecutorEnv()
-
-	_, err := executorExec(executor, "insert into user(id, v, name) values (:aa, 2, 'myname')", nil)
-	want := "execInsertSharded: processGenerate: missing bind var aa"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into main1(id, v, name) values (:aa, 2, 'myname')", nil)
-	want = "execInsertUnsharded: processGenerate: missing bind var aa"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	sbclookup.MustFailCodes[vtrpcpb.Code_INVALID_ARGUMENT] = 1
-	_, err = executorExec(executor, "insert into user(id, v, name) values (null, 2, 'myname')", nil)
-	want = "execInsertSharded: "
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-
-	sbclookup.MustFailCodes[vtrpcpb.Code_INVALID_ARGUMENT] = 1
-	_, err = executorExec(executor, "insert into user(id, v, name) values (1, 2, 'myname')", nil)
-	want = "execInsertSharded: getInsertShardedRoute: lookup.Create: "
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into ksid_table(keyspace_id) values (null)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: could not map NULL to a keyspace id"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	sbclookup.MustFailCodes[vtrpcpb.Code_INVALID_ARGUMENT] = 1
-	_, err = executorExec(executor, "insert into music_extra_reversed(music_id, user_id) values (1, 1)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: lookup.Map"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-
-	sbclookup.SetResults([]*sqltypes.Result{{}})
-	_, err = executorExec(executor, "insert into music_extra_reversed(music_id, user_id) values (1, 1)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: could not map INT64(1) to a keyspace id"
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("paramsSelectEqual: executorExec: %v, must contain %v", err, want)
-	}
-
-	getSandbox("TestExecutor").SrvKeyspaceMustFail = 1
-	_, err = executorExec(executor, "insert into user(id, v, name) values (1, 2, 'myname')", nil)
-	want = "execInsertSharded: getInsertShardedRoute: keyspace TestExecutor fetch error: topo error GetSrvKeyspace"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	getSandbox("TestExecutor").ShardSpec = "80-"
-	_, err = executorExec(executor, "insert into user(id, v, name) values (1, 2, 'myname')", nil)
-	want = "execInsertSharded: getInsertShardedRoute: KeyspaceId 166b40b44aba4bd6 didn't match any shards"
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("executorExec: %v, must contain %v", err, want)
-	}
-	getSandbox("TestExecutor").ShardSpec = DefaultShardSpec
-
-	sbclookup.MustFailCodes[vtrpcpb.Code_INVALID_ARGUMENT] = 1
-	_, err = executorExec(executor, "insert into music(user_id, id) values (1, null)", nil)
-	want = "execInsertSharded:"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-
-	sbclookup.MustFailCodes[vtrpcpb.Code_INVALID_ARGUMENT] = 1
-	_, err = executorExec(executor, "insert into music(user_id, id) values (1, 2)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: lookup.Create: execInsertUnsharded: target: TestUnsharded.0.master"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into music_extra(user_id, music_id) values (1, null)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: value must be supplied for column [music_id]"
-	if err == nil || err.Error() != want {
-		t.Errorf("executorExec: %v, want %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into music_extra_reversed(music_id, user_id) values (1, 'aa')", nil)
-	want = `execInsertSharded: getInsertShardedRoute: hash.Verify: could not parse value: 'aa'`
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("executorExec: %v, must contain %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into music_extra_reversed(music_id, user_id) values (1, 3)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: values [[INT64(3)]] for column [user_id] does not map to keyspaceids"
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("executorExec: %v, must contain %v", err, want)
-	}
-
-	sbc.MustFailCodes[vtrpcpb.Code_INVALID_ARGUMENT] = 1
-	_, err = executorExec(executor, "insert into user(id, v, name) values (1, 2, 'myname')", nil)
-	want = "execInsertSharded: target: TestExecutor.-20.master"
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("executorExec: %v, must contain %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into noauto_table(id) values (null)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: could not map NULL to a keyspace id"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-
-	_, err = executorExec(executor, "insert into user(id, v, name) values (1, 2, null)", nil)
-	want = "execInsertSharded: getInsertShardedRoute: value must be supplied for column name"
-	if err == nil || !strings.HasPrefix(err.Error(), want) {
-		t.Errorf("executorExec: %v, want prefix %v", err, want)
-	}
-}
-
 // If a statement gets broken up into two, and the first one fails,
 // then an error should be returned normally.
 func TestInsertPartialFail1(t *testing.T) {
@@ -1459,4 +1512,104 @@ func TestMultiInsertGeneratorSparse(t *testing.T) {
 	if !result.Equal(&wantResult) {
 		t.Errorf("result: %+v, want %+v", result, &wantResult)
 	}
+}
+
+func TestKeyRangeQuery(t *testing.T) {
+	executor, sbc1, sbc2, _ := createExecutorEnv()
+	// it works in a single shard key range
+	masterSession.TargetString = "TestExecutor[40-60]"
+
+	_, err := executorExec(executor, "DELETE FROM sharded_user_msgs LIMIT 1000", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	sql := "DELETE FROM sharded_user_msgs LIMIT 1000"
+	wantQueries := []*querypb.BoundQuery{{
+		Sql:           sql + "/* vtgate:: filtered_replication_unfriendly */",
+		BindVariables: map[string]*querypb.BindVariable{},
+	}}
+
+	if len(sbc1.Queries) != 0 {
+		t.Errorf("sbc1.Queries: %+v, want %+v\n", sbc1.Queries, []*querypb.BoundQuery{})
+	}
+	testQueries(t, "sbc2", sbc2, wantQueries)
+
+	sbc1.Queries = nil
+	sbc2.Queries = nil
+
+	// it works with keyrange spanning two shards
+	masterSession.TargetString = "TestExecutor[-60]"
+
+	_, err = executorExec(executor, sql, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	testQueries(t, "sbc1", sbc1, wantQueries)
+	testQueries(t, "sbc1", sbc2, wantQueries)
+
+	sbc1.Queries = nil
+	sbc2.Queries = nil
+
+	// it works with open ended key range
+	masterSession.TargetString = "TestExecutor[-]"
+
+	_, err = executorExec(executor, sql, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	testQueries(t, "sbc1", sbc1, wantQueries)
+	testQueries(t, "sbc1", sbc2, wantQueries)
+
+	sbc1.Queries = nil
+	sbc2.Queries = nil
+
+	// it works for select
+	sql = "SELECT * FROM sharded_user_msgs LIMIT 1"
+	wantQueries = []*querypb.BoundQuery{{
+		Sql:           sql,
+		BindVariables: map[string]*querypb.BindVariable{},
+	}}
+
+	_, err = executorExec(executor, sql, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	testQueries(t, "sbc1", sbc1, wantQueries)
+	testQueries(t, "sbc2", sbc2, wantQueries)
+
+	sbc1.Queries = nil
+	sbc2.Queries = nil
+
+	// it works for updates
+	sql = "UPDATE sharded_user_msgs set message='test' LIMIT 1"
+
+	wantQueries = []*querypb.BoundQuery{{
+		Sql:           sql + "/* vtgate:: filtered_replication_unfriendly */",
+		BindVariables: map[string]*querypb.BindVariable{},
+	}}
+
+	_, err = executorExec(executor, sql, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	testQueries(t, "sbc1", sbc1, wantQueries)
+	testQueries(t, "sbc2", sbc2, wantQueries)
+
+	sbc1.Queries = nil
+	sbc2.Queries = nil
+
+	// it does not work for inserts
+	_, err = executorExec(executor, "INSERT INTO sharded_user_msgs(message) VALUE('test')", nil)
+
+	want := "range queries not supported for inserts: TestExecutor[-]"
+	if err == nil || err.Error() != want {
+		t.Errorf("got: %v, want %s", err, want)
+	}
+
+	sbc1.Queries = nil
+	sbc2.Queries = nil
+	masterSession.TargetString = ""
 }

@@ -29,16 +29,16 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/discovery"
-	"github.com/youtube/vitess/go/vt/key"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vttablet/sandboxconn"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/discovery"
+	"vitess.io/vitess/go/vt/key"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vttablet/sandboxconn"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vtgatepb "github.com/youtube/vitess/go/vt/proto/vtgate"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 // This file uses the sandbox_test framework.
@@ -342,7 +342,7 @@ func TestVTGateExecuteWithKeyspaceShard(t *testing.T) {
 		"select id from none",
 		nil,
 	)
-	want = "vtgate: : target: TestUnsharded.noshard.master, no valid tablet"
+	want = "vtgate: : target: TestUnsharded.noshard.master, no valid tablet: node doesn't exist"
 	if err == nil || err.Error() != want {
 		t.Errorf("Execute: %v, want %s", err, want)
 	}
@@ -1188,12 +1188,10 @@ func TestVTGateSplitQuerySharded(t *testing.T) {
 
 func TestVTGateMessageStreamSharded(t *testing.T) {
 	ks := "TestVTGateMessageStreamSharded"
-	shard1 := "-20"
-	shard2 := "20-40"
 	createSandbox(ks)
 	hcVTGateTest.Reset()
-	_ = hcVTGateTest.AddTestTablet("aa", "1.1.1.1", 1001, ks, shard1, topodatapb.TabletType_MASTER, true, 1, nil)
-	_ = hcVTGateTest.AddTestTablet("aa", "1.1.1.1", 1002, ks, shard2, topodatapb.TabletType_MASTER, true, 1, nil)
+	_ = hcVTGateTest.AddTestTablet("aa", "1.1.1.1", 1001, ks, "-20", topodatapb.TabletType_MASTER, true, 1, nil)
+	_ = hcVTGateTest.AddTestTablet("aa", "1.1.1.1", 1002, ks, "20-40", topodatapb.TabletType_MASTER, true, 1, nil)
 	ch := make(chan *sqltypes.Result)
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1230,7 +1228,7 @@ func TestVTGateMessageStreamSharded(t *testing.T) {
 	})
 	want := "keyrange -30 does not exactly match shards"
 	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("MessageStream: %v, must contain %s", err, want)
+		t.Errorf("MessageStream: '%v', must contain '%s'", err, want)
 	}
 }
 

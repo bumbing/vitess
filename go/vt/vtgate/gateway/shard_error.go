@@ -17,12 +17,12 @@ limitations under the License.
 package gateway
 
 import (
-	"github.com/youtube/vitess/go/vt/topo/topoproto"
-	"github.com/youtube/vitess/go/vt/topotools"
-	"github.com/youtube/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/topo/topoproto"
+	"vitess.io/vitess/go/vt/topotools"
+	"vitess.io/vitess/go/vt/vterrors"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 // NewShardError returns a new error with the shard info amended.
@@ -33,5 +33,8 @@ func NewShardError(in error, target *querypb.Target, tablet *topodatapb.Tablet, 
 	if tablet != nil {
 		return vterrors.Errorf(vterrors.Code(in), "target: %s.%s.%s, used tablet: %s, %v", target.Keyspace, target.Shard, topoproto.TabletTypeLString(target.TabletType), topotools.TabletIdent(tablet), in)
 	}
-	return vterrors.Errorf(vterrors.Code(in), "target: %s.%s.%s, %v", target.Keyspace, target.Shard, topoproto.TabletTypeLString(target.TabletType), in)
+	if target != nil {
+		return vterrors.Errorf(vterrors.Code(in), "target: %s.%s.%s, %v", target.Keyspace, target.Shard, topoproto.TabletTypeLString(target.TabletType), in)
+	}
+	return vterrors.Errorf(vterrors.Code(in), "%v", in)
 }

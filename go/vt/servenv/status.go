@@ -30,7 +30,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/youtube/vitess/go/acl"
+	"vitess.io/vitess/go/acl"
 )
 
 var (
@@ -58,8 +58,8 @@ func AddStatusFuncs(fmap template.FuncMap) {
 	defer statusMu.Unlock()
 
 	for name, fun := range fmap {
-		if !strings.HasPrefix(name, "github_com_youtube_vitess_") {
-			panic("status func registered without proper prefix, need github_com_youtube_vitess_:" + name)
+		if !strings.HasPrefix(name, "github_com_vitessio_vitess_") {
+			panic("status func registered without proper prefix, need github_com_vitessio_vitess_:" + name)
 		}
 		if _, ok := statusFuncMap[name]; ok {
 			panic("duplicate status func registered: " + name)

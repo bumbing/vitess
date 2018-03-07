@@ -17,9 +17,9 @@ limitations under the License.
 package mysql
 
 import (
-	"github.com/youtube/vitess/go/sqltypes"
+	"vitess.io/vitess/go/sqltypes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
+	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
 // This file contains the methods needed to execute streaming queries.
@@ -41,11 +41,8 @@ func (c *Conn) ExecuteStreamFetch(query string) (err error) {
 		return NewSQLError(CRCommandsOutOfSync, SSUnknownSQLState, "streaming query already in progress")
 	}
 
-	// This is a new command, need to reset the sequence.
-	c.sequence = 0
-
 	// Send the query as a COM_QUERY packet.
-	if err := c.writeComQuery(query); err != nil {
+	if err := c.WriteComQuery(query); err != nil {
 		return err
 	}
 

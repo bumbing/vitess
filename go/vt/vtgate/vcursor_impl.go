@@ -21,15 +21,16 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/srvtopo"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/key"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/srvtopo"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 
-	querypb "github.com/youtube/vitess/go/vt/proto/query"
-	topodatapb "github.com/youtube/vitess/go/vt/proto/topodata"
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 // vcursorImpl implements the VCursor functionality used by dependent
@@ -100,9 +101,18 @@ func (vc *vcursorImpl) DefaultKeyspace() (*vindexes.Keyspace, error) {
 	return ks.Keyspace, nil
 }
 
-// Execute performs a V3 level execution of the query. It does not take any routing directives.
+// Execute performs a V3 level execution of the query.
 func (vc *vcursorImpl) Execute(method string, query string, BindVars map[string]*querypb.BindVariable, isDML bool) (*sqltypes.Result, error) {
 	qr, err := vc.executor.Execute(vc.ctx, method, vc.safeSession, query+vc.trailingComments, BindVars)
+	if err == nil {
+		vc.hasPartialDML = true
+	}
+	return qr, err
+}
+
+// ExecuteAutocommit performs a V3 level execution of the query in a separate autocommit session.
+func (vc *vcursorImpl) ExecuteAutocommit(method string, query string, BindVars map[string]*querypb.BindVariable, isDML bool) (*sqltypes.Result, error) {
+	qr, err := vc.executor.Execute(vc.ctx, method, NewAutocommitSession(vc.safeSession.Session), query+vc.trailingComments, BindVars)
 	if err == nil {
 		vc.hasPartialDML = true
 	}
@@ -154,7 +164,22 @@ func (vc *vcursorImpl) GetKeyspaceShards(keyspace *vindexes.Keyspace) (string, [
 }
 
 func (vc *vcursorImpl) GetShardForKeyspaceID(allShards []*topodatapb.ShardReference, keyspaceID []byte) (string, error) {
-	return srvtopo.GetShardForKeyspaceID(allShards, keyspaceID)
+	return key.GetShardForKeyspaceID(allShards, keyspaceID)
+}
+
+func (vc *vcursorImpl) GetShardsForKsids(allShards []*topodatapb.ShardReference, ksids vindexes.Ksids) ([]string, error) {
+	if ksids.Range != nil {
+		return srvtopo.GetShardsForKeyRange(allShards, ksids.Range), nil
+	}
+	var shards []string
+	for _, ksid := range ksids.IDs {
+		shard, err := key.GetShardForKeyspaceID(allShards, ksid)
+		if err != nil {
+			return nil, err
+		}
+		shards = append(shards, shard)
+	}
+	return shards, nil
 }
 
 func commentedShardQueries(shardQueries map[string]*querypb.BoundQuery, trailingComments string) map[string]*querypb.BoundQuery {

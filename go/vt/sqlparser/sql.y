@@ -107,7 +107,7 @@ func forceEOF(yylex interface{}) {
 
 %token LEX_ERROR
 %left <bytes> UNION
-%token <bytes> SELECT INSERT UPDATE DELETE FROM WHERE GROUP HAVING ORDER BY LIMIT OFFSET FOR
+%token <bytes> SELECT STREAM INSERT UPDATE DELETE FROM WHERE GROUP HAVING ORDER BY LIMIT OFFSET FOR
 %token <bytes> ALL DISTINCT AS EXISTS ASC DESC INTO DUPLICATE KEY DEFAULT SET LOCK KEYS
 %token <bytes> VALUES LAST_INSERT_ID
 %token <bytes> NEXT VALUE SHARE MODE
@@ -152,6 +152,9 @@ func forceEOF(yylex interface{}) {
 %token <bytes> VINDEX VINDEXES
 %token <bytes> STATUS VARIABLES
 
+// Transaction Tokens
+%token <bytes> BEGIN START TRANSACTION COMMIT ROLLBACK
+
 // Type Tokens
 %token <bytes> BIT TINYINT SMALLINT MEDIUMINT INT INTEGER BIGINT INTNUM
 %token <bytes> REAL DOUBLE FLOAT_TYPE DECIMAL NUMERIC
@@ -185,10 +188,11 @@ func forceEOF(yylex interface{}) {
 
 %type <statement> command
 %type <selStmt> select_statement base_select union_lhs union_rhs
-%type <statement> insert_statement update_statement delete_statement set_statement
+%type <statement> stream_statement insert_statement update_statement delete_statement set_statement
 %type <statement> create_statement alter_statement rename_statement drop_statement truncate_statement
 %type <ddl> create_table_prefix
 %type <statement> analyze_statement show_statement use_statement other_statement
+%type <statement> begin_statement commit_statement rollback_statement
 %type <bytes2> comment_opt comment_list
 %type <str> union_op insert_or_replace
 %type <str> distinct_opt straight_join_opt cache_opt match_option separator_opt
@@ -238,9 +242,9 @@ func forceEOF(yylex interface{}) {
 %type <bytes> for_from
 %type <str> ignore_opt default_opt
 %type <byt> exists_opt
-%type <empty> not_exists_opt non_rename_operation to_opt index_opt constraint_opt using_opt
+%type <empty> not_exists_opt non_rename_operation to_opt index_opt constraint_opt
 %type <bytes> reserved_keyword non_reserved_keyword
-%type <colIdent> sql_id reserved_sql_id col_alias as_ci_opt charset_value
+%type <colIdent> sql_id reserved_sql_id col_alias as_ci_opt charset_value using_opt
 %type <tableIdent> table_id reserved_table_id table_alias as_opt_id
 %type <empty> as_opt
 %type <empty> force_eof ddl_force_eof
@@ -287,6 +291,7 @@ command:
   {
     $$ = $1
   }
+| stream_statement
 | insert_statement
 | update_statement
 | delete_statement
@@ -299,6 +304,9 @@ command:
 | analyze_statement
 | show_statement
 | use_statement
+| begin_statement
+| commit_statement
+| rollback_statement
 | other_statement
 
 select_statement:
@@ -317,6 +325,12 @@ select_statement:
 | SELECT comment_opt cache_opt NEXT num_val for_from table_name
   {
     $$ = &Select{Comments: Comments($2), Cache: $3, SelectExprs: SelectExprs{Nextval{Expr: $5}}, From: TableExprs{&AliasedTableExpr{Expr: $7}}}
+  }
+
+stream_statement:
+  STREAM comment_opt select_expression FROM table_name
+  {
+    $$ = &Stream{Comments: Comments($2), SelectExpr: $3, Table: $5}
   }
 
 // base_select is an unparenthesized SELECT with no order by clause or beyond.
@@ -860,9 +874,9 @@ column_comment_opt:
   }
 
 index_definition:
-  index_info '(' index_column_list ')'
+  index_info '(' index_column_list ')' using_opt
   {
-    $$ = &IndexDefinition{Info: $1, Columns: $3}
+    $$ = &IndexDefinition{Info: $1, Columns: $3, Using: $5}
   }
 
 index_info:
@@ -1169,6 +1183,28 @@ use_statement:
 | USE
   {
     $$ = &Use{DBName:TableIdent{v:""}}
+  }
+
+begin_statement:
+  BEGIN
+  {
+    $$ = &Begin{}
+  }
+| START TRANSACTION
+  {
+    $$ = &Begin{}
+  }
+
+commit_statement:
+  COMMIT
+  {
+    $$ = &Commit{}
+  }
+
+rollback_statement:
+  ROLLBACK
+  {
+    $$ = &Rollback{}
   }
 
 other_statement:
@@ -2456,9 +2492,9 @@ constraint_opt:
   { $$ = struct{}{} }
 
 using_opt:
-  { $$ = struct{}{} }
+  { $$ = ColIdent{} }
 | USING sql_id
-  { $$ = struct{}{} }
+  { $$ = $2 }
 
 sql_id:
   ID
@@ -2602,6 +2638,7 @@ reserved_keyword:
 */
 non_reserved_keyword:
   AGAINST
+| BEGIN
 | BIGINT
 | BIT
 | BLOB
@@ -2610,6 +2647,7 @@ non_reserved_keyword:
 | CHARACTER
 | CHARSET
 | COMMENT_KEYWORD
+| COMMIT
 | DATE
 | DATETIME
 | DECIMAL
@@ -2644,10 +2682,12 @@ non_reserved_keyword:
 | REAL
 | REORGANIZE
 | REPAIR
+| ROLLBACK
 | SESSION
 | SHARE
 | SIGNED
 | SMALLINT
+| START
 | STATUS
 | TEXT
 | THAN
@@ -2656,6 +2696,7 @@ non_reserved_keyword:
 | TINYBLOB
 | TINYINT
 | TINYTEXT
+| TRANSACTION
 | TRIGGER
 | UNSIGNED
 | UNUSED

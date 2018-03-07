@@ -28,11 +28,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/testfiles"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/vtgate/engine"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/testfiles"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/vtgate/engine"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 )
 
 // hashIndex satisfies Functional, Unique.
@@ -43,11 +43,15 @@ func (*hashIndex) Cost() int        { return 1 }
 func (*hashIndex) Verify(vindexes.VCursor, []sqltypes.Value, [][]byte) ([]bool, error) {
 	return []bool{}, nil
 }
-func (*hashIndex) Map(vindexes.VCursor, []sqltypes.Value) ([][]byte, error) { return nil, nil }
+func (*hashIndex) Map(vindexes.VCursor, []sqltypes.Value) ([]vindexes.KsidOrRange, error) {
+	return nil, nil
+}
 
 func newHashIndex(name string, _ map[string]string) (vindexes.Vindex, error) {
 	return &hashIndex{name: name}, nil
 }
+
+var _ vindexes.Unique = (*hashIndex)(nil)
 
 // lookupIndex satisfies Lookup, Unique.
 type lookupIndex struct{ name string }
@@ -57,13 +61,21 @@ func (*lookupIndex) Cost() int        { return 2 }
 func (*lookupIndex) Verify(vindexes.VCursor, []sqltypes.Value, [][]byte) ([]bool, error) {
 	return []bool{}, nil
 }
-func (*lookupIndex) Map(vindexes.VCursor, []sqltypes.Value) ([][]byte, error)          { return nil, nil }
+func (*lookupIndex) Map(vindexes.VCursor, []sqltypes.Value) ([]vindexes.KsidOrRange, error) {
+	return nil, nil
+}
 func (*lookupIndex) Create(vindexes.VCursor, [][]sqltypes.Value, [][]byte, bool) error { return nil }
 func (*lookupIndex) Delete(vindexes.VCursor, [][]sqltypes.Value, []byte) error         { return nil }
+func (*lookupIndex) Update(vindexes.VCursor, []sqltypes.Value, []byte, []sqltypes.Value) error {
+	return nil
+}
 
 func newLookupIndex(name string, _ map[string]string) (vindexes.Vindex, error) {
 	return &lookupIndex{name: name}, nil
 }
+
+var _ vindexes.Unique = (*lookupIndex)(nil)
+var _ vindexes.Lookup = (*lookupIndex)(nil)
 
 // multiIndex satisfies Lookup, NonUnique.
 type multiIndex struct{ name string }
@@ -73,13 +85,19 @@ func (*multiIndex) Cost() int        { return 3 }
 func (*multiIndex) Verify(vindexes.VCursor, []sqltypes.Value, [][]byte) ([]bool, error) {
 	return []bool{}, nil
 }
-func (*multiIndex) Map(vindexes.VCursor, []sqltypes.Value) ([][][]byte, error)        { return nil, nil }
+func (*multiIndex) Map(vindexes.VCursor, []sqltypes.Value) ([]vindexes.Ksids, error)  { return nil, nil }
 func (*multiIndex) Create(vindexes.VCursor, [][]sqltypes.Value, [][]byte, bool) error { return nil }
 func (*multiIndex) Delete(vindexes.VCursor, [][]sqltypes.Value, []byte) error         { return nil }
+func (*multiIndex) Update(vindexes.VCursor, []sqltypes.Value, []byte, []sqltypes.Value) error {
+	return nil
+}
 
 func newMultiIndex(name string, _ map[string]string) (vindexes.Vindex, error) {
 	return &multiIndex{name: name}, nil
 }
+
+var _ vindexes.NonUnique = (*multiIndex)(nil)
+var _ vindexes.Lookup = (*multiIndex)(nil)
 
 // costlyIndex satisfies Lookup, NonUnique.
 type costlyIndex struct{ name string }
@@ -89,13 +107,19 @@ func (*costlyIndex) Cost() int        { return 10 }
 func (*costlyIndex) Verify(vindexes.VCursor, []sqltypes.Value, [][]byte) ([]bool, error) {
 	return []bool{}, nil
 }
-func (*costlyIndex) Map(vindexes.VCursor, []sqltypes.Value) ([][][]byte, error)        { return nil, nil }
+func (*costlyIndex) Map(vindexes.VCursor, []sqltypes.Value) ([]vindexes.Ksids, error)  { return nil, nil }
 func (*costlyIndex) Create(vindexes.VCursor, [][]sqltypes.Value, [][]byte, bool) error { return nil }
 func (*costlyIndex) Delete(vindexes.VCursor, [][]sqltypes.Value, []byte) error         { return nil }
+func (*costlyIndex) Update(vindexes.VCursor, []sqltypes.Value, []byte, []sqltypes.Value) error {
+	return nil
+}
 
 func newCostlyIndex(name string, _ map[string]string) (vindexes.Vindex, error) {
 	return &costlyIndex{name: name}, nil
 }
+
+var _ vindexes.NonUnique = (*costlyIndex)(nil)
+var _ vindexes.Lookup = (*costlyIndex)(nil)
 
 func init() {
 	vindexes.Register("hash_test", newHashIndex)

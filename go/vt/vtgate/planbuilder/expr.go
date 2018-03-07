@@ -21,8 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/vtgate/engine"
+	"vitess.io/vitess/go/vt/sqlparser"
 )
 
 // splitAndExpression breaks up the Expr into AND-separated conditions
@@ -154,7 +153,7 @@ func hasSubquery(node sqlparser.SQLNode) bool {
 	return has
 }
 
-func validateSubquerySamePlan(outer *engine.Route, vschema VSchema, nodes ...sqlparser.SQLNode) bool {
+func validateSubquerySamePlan(keyspace string, bldr builder, vschema VSchema, nodes ...sqlparser.SQLNode) bool {
 	samePlan := true
 
 	for _, node := range nodes {
@@ -168,7 +167,7 @@ func validateSubquerySamePlan(outer *engine.Route, vschema VSchema, nodes ...sql
 				if !inSubQuery {
 					return true, nil
 				}
-				bldr, err := processSelect(nodeType, vschema, nil)
+				bldr, err := processSelect(nodeType, vschema, bldr)
 				if err != nil {
 					samePlan = false
 					return false, err
@@ -178,7 +177,7 @@ func validateSubquerySamePlan(outer *engine.Route, vschema VSchema, nodes ...sql
 					samePlan = false
 					return false, errors.New("dummy")
 				}
-				if innerRoute.ERoute.Keyspace.Name != outer.Keyspace.Name {
+				if innerRoute.ERoute.Keyspace.Name != keyspace {
 					samePlan = false
 					return false, errors.New("dummy")
 				}
@@ -196,7 +195,7 @@ func validateSubquerySamePlan(outer *engine.Route, vschema VSchema, nodes ...sql
 					samePlan = false
 					return false, errors.New("dummy")
 				}
-				if innerRoute.ERoute.Keyspace.Name != outer.Keyspace.Name {
+				if innerRoute.ERoute.Keyspace.Name != keyspace {
 					samePlan = false
 					return false, errors.New("dummy")
 				}

@@ -25,12 +25,12 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"github.com/youtube/vitess/go/exit"
-	"github.com/youtube/vitess/go/vt/dbconfigs"
-	"github.com/youtube/vitess/go/vt/logutil"
-	"github.com/youtube/vitess/go/vt/mysqlctl"
-	"github.com/youtube/vitess/go/vt/servenv"
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/exit"
+	"vitess.io/vitess/go/vt/dbconfigs"
+	"vitess.io/vitess/go/vt/logutil"
+	"vitess.io/vitess/go/vt/mysqlctl"
+	"vitess.io/vitess/go/vt/servenv"
 )
 
 var (
@@ -98,7 +98,7 @@ func main() {
 		}
 		mysqld.OnTerm(onTermFunc)
 
-		err = mysqld.RefreshConfig()
+		err = mysqld.RefreshConfig(ctx)
 		if err != nil {
 			log.Errorf("failed to refresh config: %v", err)
 			exit.Return(1)

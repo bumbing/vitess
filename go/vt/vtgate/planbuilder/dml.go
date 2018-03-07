@@ -19,13 +19,13 @@ package planbuilder
 import (
 	"errors"
 
-	"github.com/youtube/vitess/go/sqltypes"
-	"github.com/youtube/vitess/go/vt/sqlparser"
-	"github.com/youtube/vitess/go/vt/vterrors"
-	"github.com/youtube/vitess/go/vt/vtgate/engine"
-	"github.com/youtube/vitess/go/vt/vtgate/vindexes"
+	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vtgate/engine"
+	"vitess.io/vitess/go/vt/vtgate/vindexes"
 
-	vtrpcpb "github.com/youtube/vitess/go/vt/proto/vtrpc"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 // dmlFormatter strips out keyspace name from dmls.
@@ -39,8 +39,8 @@ func dmlFormatter(buf *sqlparser.TrackedBuffer, node sqlparser.SQLNode) {
 }
 
 // buildUpdatePlan builds the instructions for an UPDATE statement.
-func buildUpdatePlan(upd *sqlparser.Update, vschema VSchema) (*engine.Route, error) {
-	er := &engine.Route{
+func buildUpdatePlan(upd *sqlparser.Update, vschema VSchema) (*engine.Update, error) {
+	eupd := &engine.Update{
 		Query:               generateQuery(upd),
 		ChangedVindexValues: make(map[string][]sqltypes.PlanValue),
 	}
@@ -53,14 +53,14 @@ func buildUpdatePlan(upd *sqlparser.Update, vschema VSchema) (*engine.Route, err
 		return nil, errors.New("unsupported: multi-table update statement in sharded keyspace")
 	}
 
-	er.Keyspace = rb.ERoute.Keyspace
-	if !er.Keyspace.Sharded {
+	eupd.Keyspace = rb.ERoute.Keyspace
+	if !eupd.Keyspace.Sharded {
 		// We only validate non-table subexpressions because the previous analysis has already validated them.
-		if !validateSubquerySamePlan(rb.ERoute, vschema, upd.Exprs, upd.Where, upd.OrderBy, upd.Limit) {
+		if !validateSubquerySamePlan(rb.ERoute.Keyspace.Name, rb, vschema, upd.Exprs, upd.Where, upd.OrderBy, upd.Limit) {
 			return nil, errors.New("unsupported: sharded subqueries in DML")
 		}
-		er.Opcode = engine.UpdateUnsharded
-		return er, nil
+		eupd.Opcode = engine.UpdateUnsharded
+		return eupd, nil
 	}
 
 	if hasSubquery(upd) {
@@ -74,23 +74,23 @@ func buildUpdatePlan(upd *sqlparser.Update, vschema VSchema) (*engine.Route, err
 	for _, tval := range rb.Symtab().tables {
 		vindexTable = tval.vindexTable
 	}
-	er.Table = vindexTable
-	if er.Table == nil {
+	eupd.Table = vindexTable
+	if eupd.Table == nil {
 		return nil, errors.New("internal error: table.vindexTable is mysteriously nil")
 	}
-	err = getDMLRouting(upd.Where, er)
+	eupd.Vindex, eupd.Values, err = getDMLRouting(upd.Where, eupd.Table)
 	if err != nil {
 		return nil, err
 	}
-	er.Opcode = engine.UpdateEqual
+	eupd.Opcode = engine.UpdateEqual
 
-	if er.ChangedVindexValues, err = buildChangedVindexesValues(er, upd, er.Table.ColumnVindexes); err != nil {
+	if eupd.ChangedVindexValues, err = buildChangedVindexesValues(eupd, upd, eupd.Table.ColumnVindexes); err != nil {
 		return nil, err
 	}
-	if len(er.ChangedVindexValues) != 0 {
-		er.Subquery = generateUpdateSubquery(upd, er.Table)
+	if len(eupd.ChangedVindexValues) != 0 {
+		eupd.OwnedVindexQuery = generateUpdateSubquery(upd, eupd.Table)
 	}
-	return er, nil
+	return eupd, nil
 }
 
 func generateQuery(statement sqlparser.Statement) string {
@@ -102,48 +102,57 @@ func generateQuery(statement sqlparser.Statement) string {
 // buildChangedVindexesValues adds to the plan all the lookup vindexes that are changing.
 // Updates can only be performed to secondary lookup vindexes with no complex expressions
 // in the set clause.
-func buildChangedVindexesValues(route *engine.Route, update *sqlparser.Update, colVindexes []*vindexes.ColumnVindex) (map[string][]sqltypes.PlanValue, error) {
+func buildChangedVindexesValues(eupd *engine.Update, update *sqlparser.Update, colVindexes []*vindexes.ColumnVindex) (map[string][]sqltypes.PlanValue, error) {
 	changedVindexes := make(map[string][]sqltypes.PlanValue)
 	for i, vindex := range colVindexes {
-		for _, assignment := range update.Exprs {
-			for _, vcol := range vindex.Columns {
-				if vcol.Equal(assignment.Name.Name) {
-					pv, err := extractValueFromUpdate(assignment, vcol)
-					if err != nil {
-						return changedVindexes, err
-					}
-					changedVindexes[vindex.Name] = append(changedVindexes[vindex.Name], pv)
+		var vindexValues []sqltypes.PlanValue
+		for _, vcol := range vindex.Columns {
+			// Searching in order of columns in colvindex.
+			found := false
+			for _, assignment := range update.Exprs {
+				if !vcol.Equal(assignment.Name.Name) {
+					continue
 				}
+				if found {
+					return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "column has duplicate set values: '%v'", assignment.Name.Name)
+				}
+				found = true
+				pv, err := extractValueFromUpdate(assignment, vcol)
+				if err != nil {
+					return nil, err
+				}
+				vindexValues = append(vindexValues, pv)
 			}
 		}
-		if len(changedVindexes[vindex.Name]) == 0 {
+		if len(vindexValues) == 0 {
 			// Vindex not changing, continue
 			continue
 		}
-		if len(changedVindexes[vindex.Name]) != len(vindex.Columns) {
-			return changedVindexes, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: update does not have values for all the columns in vindex (%s)", vindex.Name)
+		if len(vindexValues) != len(vindex.Columns) {
+			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: update does not have values for all the columns in vindex (%s)", vindex.Name)
 		}
 
 		if update.Limit != nil && len(update.OrderBy) == 0 {
-			return changedVindexes, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: Need to provide order by clause when using limit. Invalid update on vindex: %v", vindex.Name)
+			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: Need to provide order by clause when using limit. Invalid update on vindex: %v", vindex.Name)
 		}
 		if i == 0 {
-			return changedVindexes, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can't update primary vindex columns. Invalid update on vindex: %v", vindex.Name)
+			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can't update primary vindex columns. Invalid update on vindex: %v", vindex.Name)
 		}
 		if _, ok := vindex.Vindex.(vindexes.Lookup); !ok {
-			return changedVindexes, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update lookup vindexes. Invalid update on vindex: %v", vindex.Name)
+			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update lookup vindexes. Invalid update on vindex: %v", vindex.Name)
 		}
 		if !vindex.Owned {
-			return changedVindexes, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update owned vindexes. Invalid update on vindex: %v", vindex.Name)
+			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update owned vindexes. Invalid update on vindex: %v", vindex.Name)
 		}
+		changedVindexes[vindex.Name] = vindexValues
 	}
 
 	return changedVindexes, nil
 }
 
 // buildDeletePlan builds the instructions for a DELETE statement.
-func buildDeletePlan(del *sqlparser.Delete, vschema VSchema) (*engine.Route, error) {
-	er := &engine.Route{
+func buildDeletePlan(del *sqlparser.Delete, vschema VSchema) (*engine.Delete, error) {
+	edel := &engine.Delete{
 		Query: generateQuery(del),
 	}
 	bldr, err := processTableExprs(del.TableExprs, vschema)
@@ -154,14 +163,14 @@ func buildDeletePlan(del *sqlparser.Delete, vschema VSchema) (*engine.Route, err
 	if !ok {
 		return nil, errors.New("unsupported: multi-table delete statement in sharded keyspace")
 	}
-	er.Keyspace = rb.ERoute.Keyspace
-	if !er.Keyspace.Sharded {
+	edel.Keyspace = rb.ERoute.Keyspace
+	if !edel.Keyspace.Sharded {
 		// We only validate non-table subexpressions because the previous analysis has already validated them.
-		if !validateSubquerySamePlan(rb.ERoute, vschema, del.Targets, del.Where, del.OrderBy, del.Limit) {
+		if !validateSubquerySamePlan(rb.ERoute.Keyspace.Name, rb, vschema, del.Targets, del.Where, del.OrderBy, del.Limit) {
 			return nil, errors.New("unsupported: sharded subqueries in DML")
 		}
-		er.Opcode = engine.DeleteUnsharded
-		return er, nil
+		edel.Opcode = engine.DeleteUnsharded
+		return edel, nil
 	}
 	if del.Targets != nil || len(rb.Symtab().tables) != 1 {
 		return nil, errors.New("unsupported: multi-table delete statement in sharded keyspace")
@@ -173,17 +182,29 @@ func buildDeletePlan(del *sqlparser.Delete, vschema VSchema) (*engine.Route, err
 	for t := range rb.Symtab().tables {
 		tableName = t
 	}
-	er.Table, err = vschema.FindTable(tableName)
+	edel.Table, err = vschema.FindTable(tableName)
 	if err != nil {
 		return nil, err
 	}
-	err = getDMLRouting(del.Where, er)
+	edel.Vindex, edel.Values, err = getDMLRouting(del.Where, edel.Table)
+	// We couldn't generate a route for a single shard
+	// Execute a delete sharded
 	if err != nil {
-		return nil, err
+		edel.Opcode = engine.DeleteSharded
+	} else {
+		edel.Opcode = engine.DeleteEqual
 	}
-	er.Opcode = engine.DeleteEqual
-	er.Subquery = generateDeleteSubquery(del, er.Table)
-	return er, nil
+
+	if edel.Opcode == engine.DeleteSharded {
+		if len(edel.Table.Owned) != 0 {
+			return edel, errors.New("unsupported: multi shard delete on a table with owned lookup vindexes")
+		}
+		if del.Limit != nil {
+			return edel, errors.New("unsupported: multi shard delete with limit")
+		}
+	}
+	edel.OwnedVindexQuery = generateDeleteSubquery(del, edel.Table)
+	return edel, nil
 }
 
 // generateDeleteSubquery generates the query to fetch the rows
@@ -224,23 +245,21 @@ func generateUpdateSubquery(upd *sqlparser.Update, table *vindexes.Table) string
 	return buf.String()
 }
 
-// getDMLRouting updates the route with the necessary routing
-// info. If it cannot find a unique route, then it returns an error.
-func getDMLRouting(where *sqlparser.Where, route *engine.Route) error {
+// getDMLRouting returns the vindex and values for the DML,
+// If it cannot find a unique vindex match, it returns an error.
+func getDMLRouting(where *sqlparser.Where, table *vindexes.Table) (vindexes.Vindex, []sqltypes.PlanValue, error) {
 	if where == nil {
-		return errors.New("unsupported: multi-shard where clause in DML")
+		return nil, nil, errors.New("unsupported: multi-shard where clause in DML")
 	}
-	for _, index := range route.Table.Ordered {
+	for _, index := range table.Ordered {
 		if !vindexes.IsUnique(index.Vindex) {
 			continue
 		}
 		if pv, ok := getMatch(where.Expr, index.Columns[0]); ok {
-			route.Vindex = index.Vindex
-			route.Values = []sqltypes.PlanValue{pv}
-			return nil
+			return index.Vindex, []sqltypes.PlanValue{pv}, nil
 		}
 	}
-	return errors.New("unsupported: multi-shard where clause in DML")
+	return nil, nil, errors.New("unsupported: multi-shard where clause in DML")
 }
 
 // extractValueFromUpdate given an UpdateExpr attempts to extracts the Value

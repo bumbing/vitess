@@ -23,10 +23,10 @@ package grpcmysqlctlserver
 import (
 	"google.golang.org/grpc"
 
-	"github.com/youtube/vitess/go/vt/mysqlctl"
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/vt/mysqlctl"
 
-	mysqlctlpb "github.com/youtube/vitess/go/vt/proto/mysqlctl"
+	mysqlctlpb "vitess.io/vitess/go/vt/proto/mysqlctl"
 )
 
 // server is our gRPC server.
@@ -52,6 +52,11 @@ func (s *server) RunMysqlUpgrade(ctx context.Context, request *mysqlctlpb.RunMys
 // ReinitConfig implements the server side of the MysqlctlClient interface.
 func (s *server) ReinitConfig(ctx context.Context, request *mysqlctlpb.ReinitConfigRequest) (*mysqlctlpb.ReinitConfigResponse, error) {
 	return &mysqlctlpb.ReinitConfigResponse{}, s.mysqld.ReinitConfig(ctx)
+}
+
+// RefreshConfig implements the server side of the MysqlctlClient interface.
+func (s *server) RefreshConfig(ctx context.Context, request *mysqlctlpb.RefreshConfigRequest) (*mysqlctlpb.RefreshConfigResponse, error) {
+	return &mysqlctlpb.RefreshConfigResponse{}, s.mysqld.RefreshConfig(ctx)
 }
 
 // StartServer registers the Server for RPCs.
