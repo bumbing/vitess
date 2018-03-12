@@ -6,7 +6,7 @@ exports_files(["data/test"])
 gazelle(
     name = "gazelle",
     command = "fix",
-    prefix = "github.com/youtube/vitess",
+    prefix = "vitess.io/vitess",
 )
 
 filegroup(
@@ -18,14 +18,14 @@ filegroup(
 go_library(
     name = "go_default_library",
     srcs = ["test.go"],
-    importpath = "github.com/youtube/vitess",
+    importpath = "vitess.io/vitess",
     visibility = ["//visibility:private"],
 )
 
 go_binary(
     name = "vitess",
     embed = [":go_default_library"],
-    importpath = "github.com/youtube/vitess",
+    importpath = "vitess.io/vitess",
     visibility = ["//visibility:public"],
 )
 

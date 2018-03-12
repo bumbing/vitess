@@ -7,6 +7,6 @@ go_library(
         "ports.go",
     ],
     data = ["//:testdata"],
-    importpath = "github.com/youtube/vitess/go/testfiles",
+    importpath = "vitess.io/vitess/go/testfiles",
     visibility = ["//visibility:public"],
 )
