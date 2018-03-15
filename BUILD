@@ -3,6 +3,29 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 exports_files(["data/test"])
 
+# A script that generates go_repos.bzl, which will contain a bazel-compatible
+# version of the govendor dependency list from vendor/vendor.json
+py_binary(
+    name = "govendor_to_bazel",
+    srcs = ["govendor_to_bazel.py"],
+)
+
+# Generates the go_repos.bzl file using govendor_to_bazel.
+genrule(
+    name = "generate_go_repos",
+    srcs = [":vendor/vendor.json"],
+    outs = ["go_repos.bzl"],
+    cmd = "$(location :govendor_to_bazel) $(location :vendor/vendor.json) > $@",
+    tools = [":govendor_to_bazel"],
+)
+
+# Run this rule to generate bazel build files based on the go files and imports.
+# Usage:
+# $ bazel run :gazelle
+#
+# You'll need to make the go_repos.bzl file first.
+# The easiest thing to do is just run ./bazel_bootstrap.sh instead of running
+# this directly.
 gazelle(
     name = "gazelle",
     command = "fix",
