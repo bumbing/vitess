@@ -1,0 +1,16 @@
+/var/log/vtgate/queries.log {
+  daily
+  maxsize 200M
+  compress
+  delaycompress
+  nocopy
+  nodateext
+  notifempty
+  missingok
+  rotate 7
+  sharedscripts
+  postrotate
+            /usr/bin/docker exec -t vtgate /bin/bash -c ' \
+            [ -f /vt/vtdataroot/vtgate.pid ] && kill -USR2 $(cat /vt/vtdataroot/vtgate.pid)'
+  endscript
+}
