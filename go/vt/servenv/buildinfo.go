@@ -65,7 +65,14 @@ func (v *versionInfo) Print() {
 func init() {
 	t, err := time.Parse(time.UnixDate, buildTime)
 	if buildTime != "" && err != nil {
-		panic(fmt.Sprintf("Couldn't parse build timestamp %q: %v", buildTime, err))
+		msecs, err := strconv.ParseInt(buildTime, 10, 64)
+
+		if err != nil {
+			panic(fmt.Sprintf("Couldn't parse build timestamp %q: %v", buildTime, err))
+		}
+
+		t = time.Unix(msecs/1000, 0)
+		buildTime = t.String()
 	}
 
 	jenkinsBuildNumber, err := strconv.ParseInt(jenkinsBuildNumberStr, 10, 64)
