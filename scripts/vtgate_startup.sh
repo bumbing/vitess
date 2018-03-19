@@ -7,14 +7,18 @@
 # setting of -flag will override the first, setting -flag to value2.
 
 DOCKER=false
+DEV=false
 
 EXTRA_ARGS=""
 BINARY="bazel run go/cmd/vtgate --"
 
-while getopts ":d" opt; do
+while getopts ":de" opt; do
   case $opt in
     d)
       DOCKER=true
+      ;;
+    e)
+      DEV=true
       ;;
     \?)
       break
@@ -30,6 +34,13 @@ if [[ ${DOCKER} == true ]]; then
     -log_queries_to_file /vt/logs/queries.log \
     -pid_file /vt/vtdataroot/vtgate.pid"
   BINARY="/bin/vtgate"
+fi
+
+# For new command line arguments that may be enabled for dev but not prod (yet).
+if [[ ${DEV} == true ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -mysql_default_workload olap"
 fi
 
 ${BINARY} \
