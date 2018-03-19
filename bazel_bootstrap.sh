@@ -7,11 +7,10 @@
 # You'll need to run this before building for the first time,
 # or if you've added go files or changed their imports.
 
-if [ ! -e "go_repos.bzl" ] ; then
-  echo "def register_go_repos():" > go_repos.bzl
-  echo "  pass" >> go_repos.bzl
+if [ ! -e "bazel/go_repos.bzl" ] ; then
+  echo "def register_go_repos():" > bazel/go_repos.bzl
+  echo "  pass" >> bazel/go_repos.bzl
 fi
-bazel build :generate_go_repos
-cp bazel-genfiles/go_repos.bzl go_repos.bzl
-chmod +w go_repos.bzl
+bazel build //bazel:generate_go_repos
+cp bazel-genfiles/bazel/go_repos.bzl bazel/go_repos.bzl
 bazel run :gazelle

@@ -11,6 +11,6 @@ load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
 go_rules_dependencies()
 go_register_toolchains()
 
-load(":go_repos.bzl", "register_go_repos")
+load("//bazel:go_repos.bzl", "register_go_repos")
 
 register_go_repos()

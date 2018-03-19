@@ -6,7 +6,7 @@
 
 # Output from bazel builds
 bazel-*
-go_repos.bzl
+bazel/go_repos.bzl
 **/BUILD.bazel
 
 # Produced by yacc
