@@ -2,7 +2,7 @@
 // parsing passwords out of the unusal storage format and workaround around what
 // seems like a bug in the go knox client.
 
-package knoxauth
+package knox
 
 import (
 	"flag"
@@ -19,27 +19,27 @@ var (
 	knoxSupportedUsernames flagutil.StringListValue
 )
 
-// KnoxMultiClient fetches passwords for a pre-determined set of users from knox.
-type KnoxMultiClient struct {
+// Client fetches passwords for a pre-determined set of users from knox.
+type Client struct {
 	clientsByUsername map[string]knox.Client
 }
 
-// InitKnoxMultiClient creates KnoxMultiClient for the set of users configured with -knox_supported_usernames.
-func InitKnoxMultiClient() *KnoxMultiClient {
+// CreateFromFlags creates Client for the set of users configured with -knox_supported_usernames.
+func CreateFromFlags() *Client {
 	clientsByUsername := make(map[string]knox.Client)
 	for _, username := range knoxSupportedUsernames {
 		knoxKey := fmt.Sprintf("mysql:rbac:%s:credentials", username)
-		clientsByUsername[username] = RequireFileClient(knoxKey)
+		clientsByUsername[username] = requireFileClient(knoxKey)
 	}
 
-	return &KnoxMultiClient{
+	return &Client{
 		clientsByUsername: clientsByUsername,
 	}
 }
 
 // GetActivePasswords returns a list of all valid passwords for the given user, or an error. This is only for
 // validating passwords. For sending passwords, use GetPrimaryPassword.
-func (c *KnoxMultiClient) GetActivePasswords(user string) ([]string, error) {
+func (c *Client) GetActivePasswords(user string) ([]string, error) {
 	var result []string
 
 	knoxClient, ok := c.clientsByUsername[user]
@@ -65,7 +65,7 @@ func (c *KnoxMultiClient) GetActivePasswords(user string) ([]string, error) {
 }
 
 // GetPrimaryPassword returns the primary passwords for the given user, or an error.
-func (c *KnoxMultiClient) GetPrimaryPassword(user string) (string, error) {
+func (c *Client) GetPrimaryPassword(user string) (string, error) {
 	knoxClient, ok := c.clientsByUsername[user]
 	if !ok {
 		return "", fmt.Errorf("User %s was not whitelisted with -knox_supported_usernames", user)
@@ -87,9 +87,9 @@ func parseKnoxPassword(rawCredentials string, user string) (string, error) {
 	return splitCreds[1], nil
 }
 
-// RequireFileClient is the same as NewFileClient, but panics if there is an
+// requireFileClient is the same as NewFileClient, but panics if there is an
 // error.
-func RequireFileClient(keyID string) knox.Client {
+func requireFileClient(keyID string) knox.Client {
 	c, err := knox.NewFileClient(keyID)
 	if err != nil {
 		log.Fatalf("Error making knox client for key %v: %v", keyID, err)

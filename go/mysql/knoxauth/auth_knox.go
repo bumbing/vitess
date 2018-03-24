@@ -6,24 +6,25 @@ import (
 	"bytes"
 	"net"
 
+	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/mysql"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
 // Init registers a knox-based authenticator for vtgate.
 func Init() {
-	knoxClient := InitKnoxMultiClient()
+	knoxClient := knox.CreateFromFlags()
 	mysql.RegisterAuthServerImpl("knox", newAuthServerKnox(knoxClient))
 }
 
 // authServerKnox can authenticate against credentials from knox.
 type authServerKnox struct {
-	knoxClient *KnoxMultiClient
+	knoxClient *knox.Client
 }
 
 // newAuthServerKnox returns a new authServerKnox that authenticates with the provided
 // username -> knox.Client pairs.
-func newAuthServerKnox(knoxClient *KnoxMultiClient) *authServerKnox {
+func newAuthServerKnox(knoxClient *knox.Client) *authServerKnox {
 	return &authServerKnox{
 		knoxClient: knoxClient,
 	}
