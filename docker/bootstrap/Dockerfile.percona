@@ -21,3 +21,9 @@ USER vitess
 ENV USER vitess
 ENV MYSQL_FLAVOR MySQL56
 RUN ./bootstrap.sh --skip_root_installs
+
+# For pinterest: we have some extra govender deps, and
+# it's substantially faster to sync them here than to
+# rebuild the whole bootstrap image from scratch
+# RUN govendor fetch +missing
+RUN govendor fetch github.com/pinterest/knox@084e20c00cae39fb078c1be6f3d2b42a53cbff9d
