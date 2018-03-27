@@ -10,7 +10,7 @@
   rotate 7
   sharedscripts
   postrotate
-            /usr/bin/docker exec -t vtgate /bin/bash -c ' \
+            /usr/bin/docker exec -u prod -t vtgate /bin/bash -c ' \
             [ -f /vt/vtdataroot/vtgate.pid ] && kill -USR2 $(cat /vt/vtdataroot/vtgate.pid)'
   endscript
 }

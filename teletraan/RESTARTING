@@ -1,6 +1,11 @@
 #!/bin/bash
 
-mkdir -p /mnt/vtdataroot
-chown prod: /mnt/vtdataroot
+for dir in /var/log/vtgate /mnt/vtdataroot; do
+  if [ ! -d ${dir} ]; then
+    mkdir ${dir}
+    chown prod:prod ${dir}
+    chmod 755 ${dir}
+  fi
+done
 
 configure-serviceset -c teletraan/config/serviceset.${STAGE_NAME}.conf
