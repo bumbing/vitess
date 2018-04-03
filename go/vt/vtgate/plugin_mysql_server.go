@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -39,34 +38,6 @@ import (
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 )
 
-// workloadFlag is a type of command line flag with values of type Query.ExecuteOptions.Workload.
-type workloadFlag struct {
-	workload querypb.ExecuteOptions_Workload
-}
-
-func (wf *workloadFlag) String() string {
-	return wf.workload.String()
-}
-
-// Set parses command line flag strings like "olap" into the actual corresponding protobuf enum type.
-func (wf *workloadFlag) Set(value string) error {
-	// Stick the the default of UNDEFINED unless a value is explicitly set.
-	if value == "" {
-		return nil
-	}
-
-	out, ok := querypb.ExecuteOptions_Workload_value[strings.ToUpper(value)]
-	if !ok {
-		keys := []string{}
-		for key := range querypb.ExecuteOptions_Workload_value {
-			keys = append(keys, key)
-		}
-		return fmt.Errorf("Invalid workload type: %s. Valid values: %v", value, keys)
-	}
-	wf.workload = querypb.ExecuteOptions_Workload(out)
-	return nil
-}
-
 var (
 	mysqlServerPort               = flag.Int("mysql_server_port", -1, "If set, also listen for MySQL binary protocol connections on this port.")
 	mysqlServerBindAddress        = flag.String("mysql_server_bind_address", "", "Binds on this address when listening to MySQL binary protocol. Useful to restrict listening to 'localhost' only for instance.")
@@ -83,8 +54,6 @@ var (
 	mysqlSlowConnectWarnThreshold = flag.Duration("mysql_slow_connect_warn_threshold", 0, "Warn if it takes more than the given threshold for a mysql connection to establish")
 
 	busyConnections int32
-
-	mysqlDefaultWorkload workloadFlag
 )
 
 // vtgateHandler implements the Listener interface.
@@ -136,7 +105,6 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		session = &vtgatepb.Session{
 			Options: &querypb.ExecuteOptions{
 				IncludedFields: querypb.ExecuteOptions_ALL,
-				Workload:       mysqlDefaultWorkload.workload,
 			},
 			Autocommit: true,
 		}
@@ -301,7 +269,6 @@ func shutdownMysqlProtocolAndDrain() {
 }
 
 func init() {
-	flag.Var(&mysqlDefaultWorkload, "mysql_default_workload", "Set to 'olap' to make streaming mode the default for sessions.")
 	servenv.OnRun(initMySQLProtocol)
 	servenv.OnTermSync(shutdownMysqlProtocolAndDrain)
 }
