@@ -10,7 +10,10 @@ DOCKER=false
 DEV=false
 
 EXTRA_ARGS=""
-BINARY="bazel run go/cmd/vtgate --"
+if [ "$VTGATE_COMMAND" = "" ]
+then
+   VTGATE_COMMAND="bazel run --workspace_status_command=./scripts/workspace_status.sh go/cmd/vtgate --"
+fi
 
 while getopts ":de" opt; do
   case $opt in
@@ -33,17 +36,18 @@ if [[ ${DOCKER} == true ]]; then
     -log_dir /vt/logs \
     -log_queries_to_file /vt/logs/queries.log \
     -pid_file /vt/vtdataroot/vtgate.pid"
-  BINARY="/bin/vtgate"
+  VTGATE_COMMAND="/bin/vtgate"
 fi
 
 # For new command line arguments that may be enabled for dev but not prod (yet).
 if [[ ${DEV} == true ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -mysql_default_workload olap"
+    -emit_stats=false \
+    -opentsdb_service vtgate_test"
 fi
 
-${BINARY} \
+${VTGATE_COMMAND} \
   -topo_implementation zk2 \
   -topo_global_root /vitess/global \
   -port 15001 \
@@ -58,7 +62,12 @@ ${BINARY} \
   -tablet_types_to_wait MASTER,REPLICA \
   -gateway_implementation discoverygateway \
   -service_map 'grpc-vtgateservice' \
+  -opentsdb_service vtgate \
+  -emit_stats \
+  -stats_emit_period 1m \
+  -stats_backend opentsdb \
   -alsologtostderr \
+  -opentsdb_service vtgate \
   ${EXTRA_ARGS} \
   $@
 

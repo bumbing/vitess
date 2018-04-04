@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "opentsdb.go",
+        "opentsdb_backend.go",
+    ],
+    importpath = "vitess.io/vitess/go/stats/opentsdb",
+    visibility = ["//visibility:public"],
+    x_defs = {
+        # Use --workspace_status_command=./status.sh in your bazel
+        # command to make sure this is set.
+        "buildGitRev": "{GIT_REVISION}",
+    },
+    deps = [
+        "//go/netutil:go_default_library",
+        "//go/stats:go_default_library",
+        "//go/vt/servenv:go_default_library",
+    ],
+)
