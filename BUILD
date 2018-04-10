@@ -66,10 +66,18 @@ pkg_tar(
 )
 
 pkg_tar(
+    name = "scripts_dist",
+    srcs = ["scripts/vtgate_startup.sh"],
+    mode = "0755",
+    strip_prefix = "/",
+)
+
+pkg_tar(
     name = "full_dist",
     extension = "tar.gz",
     deps = [
         ":binaries_dist",
         ":config_dist",
+        ":scripts_dist",
     ],
 )

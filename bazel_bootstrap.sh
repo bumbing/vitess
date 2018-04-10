@@ -11,6 +11,6 @@ if [ ! -e "bazel/go_repos.bzl" ] ; then
   echo "def register_go_repos():" > bazel/go_repos.bzl
   echo "  pass" >> bazel/go_repos.bzl
 fi
-bazel build //bazel:generate_go_repos
-cp bazel-genfiles/bazel/go_repos.bzl bazel/go_repos.bzl
-bazel run :gazelle
+bazel build --symlink_prefix=/  //bazel:generate_go_repos
+cp `bazel info bazel-genfiles`/bazel/go_repos.bzl bazel/go_repos.bzl
+bazel run --symlink_prefix=/  :gazelle
