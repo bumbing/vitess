@@ -132,8 +132,8 @@ type knoxCredentialsServer struct {
 }
 
 // GetUserAndPassword is part of the CredentialsServer interface
-func (kcs *knoxCredentialsServer) GetUserAndPassword(user string) (string, string, error) {
-	password, err := kcs.knoxClient.GetPrimaryPassword(user)
+func (kcs *knoxCredentialsServer) GetUserAndPassword(role string) (string, string, error) {
+	user, password, err := kcs.knoxClient.GetPrimaryCredentials(role)
 	if err != nil {
 		return "", "", err
 	}

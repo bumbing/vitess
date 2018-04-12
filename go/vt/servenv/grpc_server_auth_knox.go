@@ -15,9 +15,20 @@ var (
 	_ Authenticator = (*KnoxAuthPlugin)(nil)
 )
 
+// internal type and value
+type key int
+
+var roleInfoKey key
+
 // KnoxAuthPlugin implements knox-based username/password authentication for grpc.
 type KnoxAuthPlugin struct {
 	knoxClient *knox.Client
+}
+
+// GetKnoxAuthenticatedRole pulls out the role from a context if it's been previously authenticated.
+func GetKnoxAuthenticatedRole(ctx context.Context) (string, bool) {
+	role, _ := ctx.Value(roleInfoKey).(string)
+	return role, role != ""
 }
 
 // Authenticate implements AuthPlugin interface. This method will be used inside a middleware in grpc_server to authenticate
@@ -30,15 +41,13 @@ func (sa *KnoxAuthPlugin) Authenticate(ctx context.Context, fullMethod string) (
 		username := md["username"][0]
 		password := md["password"][0]
 
-		passwords, err := sa.knoxClient.GetActivePasswords(username)
+		role, knoxPassword, err := sa.knoxClient.GetActivePassword(username)
 		if err != nil {
 			return nil, grpc.Errorf(codes.PermissionDenied, "auth failure: caller %q not registered with -knox_supported_usernames", username)
 		}
 
-		for _, knoxPassword := range passwords {
-			if password == knoxPassword {
-				return ctx, nil
-			}
+		if password == knoxPassword {
+			return context.WithValue(ctx, roleInfoKey, role), nil
 		}
 		return nil, grpc.Errorf(codes.PermissionDenied, "auth failure: caller %q provided invalid credentials", username)
 	}

@@ -11,27 +11,27 @@ import (
 )
 
 var (
-	knoxUser = flag.String("grpc_auth_knox_user", "", "sets a knox user to authenticate with server as")
+	knoxRole = flag.String("grpc_auth_knox_role", "", "sets a knox role to authenticate with server as")
 	// KnoxAuthClientCreds implements client interface to be able to WithPerRPCCredentials
 	_ credentials.PerRPCCredentials = (*KnoxAuthClientCreds)(nil)
 )
 
 // KnoxAuthClientCreds holder for client credentials
 type KnoxAuthClientCreds struct {
-	username   string
+	role       string
 	knoxClient *knox.Client
 }
 
 // GetRequestMetadata  gets the request metadata as a map from KnoxAuthClientCreds
 func (c *KnoxAuthClientCreds) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
-	password, err := c.knoxClient.GetPrimaryPassword(c.username)
+	username, password, err := c.knoxClient.GetPrimaryCredentials(c.role)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return map[string]string{
-		"username": c.username,
+		"username": username,
 		"password": password,
 	}, nil
 }
@@ -47,11 +47,11 @@ func (c *KnoxAuthClientCreds) RequireTransportSecurity() bool {
 
 // AppendKnoxAuth optionally appends static auth credentials if provided.
 func AppendKnoxAuth(opts []grpc.DialOption) ([]grpc.DialOption, error) {
-	if *knoxUser == "" {
+	if *knoxRole == "" {
 		return opts, nil
 	}
 	clientCreds := KnoxAuthClientCreds{
-		username:   *knoxUser,
+		role:       *knoxRole,
 		knoxClient: knox.CreateFromFlags(),
 	}
 	creds := grpc.WithPerRPCCredentials(&clientCreds)

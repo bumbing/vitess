@@ -61,13 +61,12 @@ type VTGate struct {
 // and will be used when talking to vttablet.
 // vttablet in turn can use table ACLs to validate access is authorized.
 func immediateCallerID(ctx context.Context) (string, []string) {
-	// TODO(dweitzman): Maybe have this code coordinate with grpc_server_auth_knox
-	// to populate the caller ID with the knox username. Otherwise all grpc requests
-	// that get through knox auth will be received by vttablets as "unsecure_grpc_client",
-	// which isn't necessarily less meaningful than something like "longqueryro" in the short
-	// term, but it seems like we'd eventually want to be able to have the username chosen
-	// by grpc clients propagate itself down to the tablets so they can be treated differently
-	// at that level (for acl enforcement or similar purposes).
+	// TODO(dweitzman): There should be a cleaner way to deal with knox auth that doesn't require server.go
+	// to know that knox exists. We should refactor something and contribute it back upstream to open source.
+	knoxRole, ok := servenv.GetKnoxAuthenticatedRole(ctx)
+	if ok {
+		return knoxRole, nil
+	}
 
 	p, ok := peer.FromContext(ctx)
 	if !ok {

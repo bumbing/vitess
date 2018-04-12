@@ -56,7 +56,7 @@ ${VTGATE_COMMAND} \
   -mysql_tcp_version tcp4 \
   -mysql_server_socket_path /tmp/mysql.sock \
   -mysql_auth_server_impl knox \
-  -knox_supported_usernames scriptro,longqueryro,scriptrw,longqueryrw \
+  -knox_supported_roles scriptro,longqueryro,scriptrw,longqueryrw \
   -cell test \
   -cells_to_watch test \
   -tablet_types_to_wait MASTER,REPLICA \

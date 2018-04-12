@@ -5,6 +5,7 @@
 package knox
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -16,75 +17,76 @@ import (
 )
 
 var (
-	knoxSupportedUsernames flagutil.StringListValue
+	knoxSupportedRoles flagutil.StringListValue
+	errParsingCreds    = errors.New("delimiter '@%|' is missing, which should separate username from password")
 )
 
 // Client fetches passwords for a pre-determined set of users from knox.
 type Client struct {
-	clientsByUsername map[string]knox.Client
+	clientsByRole map[string]knox.Client
 }
 
 // CreateFromFlags creates Client for the set of users configured with -knox_supported_usernames.
 func CreateFromFlags() *Client {
-	clientsByUsername := make(map[string]knox.Client)
-	for _, username := range knoxSupportedUsernames {
+	clientsByRole := make(map[string]knox.Client)
+	for _, username := range knoxSupportedRoles {
 		knoxKey := fmt.Sprintf("mysql:rbac:%s:credentials", username)
-		clientsByUsername[username] = requireFileClient(knoxKey)
+		clientsByRole[username] = requireFileClient(knoxKey)
 	}
 
 	return &Client{
-		clientsByUsername: clientsByUsername,
+		clientsByRole: clientsByRole,
 	}
 }
 
-// GetActivePasswords returns a list of all valid passwords for the given user, or an error. This is only for
-// validating passwords. For sending passwords, use GetPrimaryPassword.
-func (c *Client) GetActivePasswords(user string) ([]string, error) {
-	var result []string
+// GetActivePassword the role and active password for the given user.
+// Assumes that every user has only one password at any given time, and that password rotation also
+// involves user rotation.
+func (c *Client) GetActivePassword(user string) (role string, password string, err error) {
+	for role, knoxClient := range c.clientsByRole {
+		for _, unparsedActiveCredentials := range knoxClient.GetActive() {
+			if unparsedActiveCredentials == "" {
+				// TODO(dweitzman): Looks like there's a bug in the knox client that can return
+				// empty entries in the list of active credentials. We should fix this in the client.
+				continue
+			}
 
-	knoxClient, ok := c.clientsByUsername[user]
-	if !ok {
-		return nil, fmt.Errorf("User %s was not whitelisted with -knox_supported_usernames", user)
+			candidateUsername, candidatePassword, err := parseKnoxCreds(unparsedActiveCredentials, user)
+			if err != nil {
+				log.Errorf("Problems parsing creds for role %s: %v", role, err)
+				continue
+			}
+
+			if candidateUsername == user {
+				return role, candidatePassword, nil
+			}
+		}
 	}
 
-	for _, unparsedActiveCredentials := range knoxClient.GetActive() {
-		if unparsedActiveCredentials == "" {
-			// TODO(dweitzman): Looks like there's a bug in the knox client that can return
-			// empty entries in the list of active credentials. We should fix this in the client.
-			continue
-		}
-
-		password, err := parseKnoxPassword(unparsedActiveCredentials, user)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, password)
-	}
-	return result, nil
+	return "", "", fmt.Errorf("User %s not found for any of the whitelisted knox roles", user)
 }
 
-// GetPrimaryPassword returns the primary passwords for the given user, or an error.
-func (c *Client) GetPrimaryPassword(user string) (string, error) {
-	knoxClient, ok := c.clientsByUsername[user]
+// GetPrimaryCredentials returns the primary credentials for the given user, or an error.
+func (c *Client) GetPrimaryCredentials(role string) (username string, password string, err error) {
+	knoxClient, ok := c.clientsByRole[role]
 	if !ok {
-		return "", fmt.Errorf("User %s was not whitelisted with -knox_supported_usernames", user)
+		return "", "", fmt.Errorf("Role %s was not whitelisted with -knox_supported_roles", role)
 	}
 
-	return parseKnoxPassword(knoxClient.GetPrimary(), user)
+	return parseKnoxCreds(knoxClient.GetPrimary(), role)
 }
 
 // Knox mashes usernames and credentials in a non-standard format (sadness) so we need custom code
 // to parse it.
 //
-// The format is "<username>@%|<password>", so we ignore everything before the '|'.
-func parseKnoxPassword(rawCredentials string, user string) (string, error) {
-	splitCreds := strings.Split(rawCredentials, "|")
-
+// The format is "<username>@%|<password>"
+func parseKnoxCreds(rawCredentials string, role string) (username string, password string, err error) {
+	splitCreds := strings.Split(rawCredentials, "@%|")
 	if len(splitCreds) != 2 {
-		return "", fmt.Errorf("Knox client returned unparsable credentials for user %s", user)
+		return "", "", errParsingCreds
 	}
-	return splitCreds[1], nil
+
+	return splitCreds[0], splitCreds[1], nil
 }
 
 // requireFileClient is the same as NewFileClient, but panics if there is an
@@ -98,5 +100,5 @@ func requireFileClient(keyID string) knox.Client {
 }
 
 func init() {
-	flag.Var(&knoxSupportedUsernames, "knox_supported_usernames", "comma separated list of usernames to support for knox authentication")
+	flag.Var(&knoxSupportedRoles, "knox_supported_roles", "comma separated list of roles to support for knox authentication")
 }

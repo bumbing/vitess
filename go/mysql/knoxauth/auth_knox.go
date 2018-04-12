@@ -42,17 +42,15 @@ func (a *authServerKnox) Salt() ([]byte, error) {
 
 // ValidateHash is part of the AuthServer interface.
 func (a *authServerKnox) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (mysql.Getter, error) {
-	passwords, err := a.knoxClient.GetActivePasswords(user)
+	role, password, err := a.knoxClient.GetActivePassword(user)
 	if err != nil {
 		return &knoxUserData{""}, mysql.NewSQLError(
 			mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied: %s", err.Error())
 	}
 
-	for _, password := range passwords {
-		computedAuthResponse := mysql.ScramblePassword(salt, []byte(password))
-		if bytes.Compare(authResponse, computedAuthResponse) == 0 {
-			return &knoxUserData{user}, nil
-		}
+	computedAuthResponse := mysql.ScramblePassword(salt, []byte(password))
+	if bytes.Compare(authResponse, computedAuthResponse) == 0 {
+		return &knoxUserData{role}, nil
 	}
 
 	// None of the active credentials matched.
