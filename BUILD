@@ -64,6 +64,7 @@ pkg_tar(
     srcs = glob([
         "config/**",
         "teletraan/**",
+        "web/**",
     ]),
     strip_prefix = "/",
 )
