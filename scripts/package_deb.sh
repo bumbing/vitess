@@ -1,15 +1,15 @@
 # Tarball file should be the output file from "bazel build :full_dist"
+# Usage:
+# ./scripts/package_deb.sh <tarball_name> <output dir for .deb file>
+OUTPUT_DIR="$2"
 TARBALL="$1"
-
-# Output will go in the debs/ directory.
-mkdir -p debs/
 
 DATE=$(date +%Y%m%d.%H%M)
 
 fpm --verbose \
   -s tar \
   -t deb \
-  -p debs/ \
+  -p "$OUTPUT_DIR" \
   -n "vitess" \
   -v $DATE \
   -a all \
