@@ -61,7 +61,10 @@ pkg_tar(
 
 pkg_tar(
     name = "config_dist",
-    srcs = glob(["config/**"]),
+    srcs = glob([
+        "config/**",
+        "teletraan/**",
+    ]),
     strip_prefix = "/",
 )
 
