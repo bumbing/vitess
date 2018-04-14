@@ -33,9 +33,19 @@ docker run -t -v `pwd`:/vt/src -v $OUTPUT_LOCAL_DIR:/vt/build_artifacts -w /vt/s
 echo Finished building :full_dist as $FULL_OUTPUT_FILE
 echo Copying the output into a docker image and tagging as $PROD_IMAGE_NAME...
 
-cat <<EOF | docker build --pull --no-cache -t $PROD_IMAGE_NAME -f - $OUTPUT_LOCAL_DIR
+# TODO(dweitzman): Improve the dockerfile story so we don't have to write it to disk.
+# Piping to stdin seemed to work locally, but there were issues on jenkins and technically
+# I think docker claims that if you use "-" as a filename it doesn't support reading files
+# from your working directory.
+
+DOCKERFILE_NAME="$OUTPUT_LOCAL_DIR/vtgate.dockerfile.tmp"
+
+cat <<EOF > "$DOCKERFILE_NAME"
 FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu14.04:latest
 ADD $OUTPUT_TARBALL_NAME /vt/build/
 EOF
+
+docker build --pull --no-cache -t "$PROD_IMAGE_NAME" -f "$DOCKERFILE_NAME" "$OUTPUT_LOCAL_DIR"
+rm "$DOCKERFILE_NAME"
 
 echo Finished tagging docker image $PROD_IMAGE_NAME
