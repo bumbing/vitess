@@ -17,5 +17,5 @@ fpm --verbose \
   --vendor "Pinterest" \
   --deb-no-default-config-files \
   -m "Pinterest Ops" \
-  --prefix /vt/build/ \
+  --prefix /vt/ \
   "$TARBALL"
