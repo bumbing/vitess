@@ -42,7 +42,7 @@ DOCKERFILE_NAME="$OUTPUT_LOCAL_DIR/vtgate.dockerfile.tmp"
 
 cat <<EOF > "$DOCKERFILE_NAME"
 FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu14.04:latest
-ADD $OUTPUT_TARBALL_NAME /vt/build/
+ADD $OUTPUT_TARBALL_NAME /vt/
 EOF
 
 docker build --pull --no-cache -t "$PROD_IMAGE_NAME" -f "$DOCKERFILE_NAME" "$OUTPUT_LOCAL_DIR"

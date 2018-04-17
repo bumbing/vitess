@@ -36,7 +36,7 @@ if [[ ${DOCKER} == true ]]; then
     -log_dir /vt/logs \
     -log_queries_to_file /vt/logs/queries.log \
     -pid_file /vt/vtdataroot/vtgate.pid"
-  VTGATE_COMMAND="/vt/build/bin/vtgate"
+  VTGATE_COMMAND="/vt/bin/vtgate"
 fi
 
 # For new command line arguments that may be enabled for dev but not prod (yet).
