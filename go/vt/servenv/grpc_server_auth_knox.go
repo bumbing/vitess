@@ -1,13 +1,13 @@
 package servenv
 
 import (
-	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"vitess.io/vitess/go/knox"
+	"vitess.io/vitess/go/vt/log"
 )
 
 var (

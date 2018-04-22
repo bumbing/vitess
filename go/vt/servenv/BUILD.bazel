@@ -46,7 +46,6 @@ go_library(
         "//go/vt/log:go_default_library",
         "//go/vt/logutil:go_default_library",
         "//go/vt/vttls:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",

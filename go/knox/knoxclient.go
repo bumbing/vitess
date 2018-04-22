@@ -10,10 +10,9 @@ import (
 	"fmt"
 	"strings"
 
-	log "github.com/golang/glog"
-
 	"github.com/pinterest/knox"
 	"vitess.io/vitess/go/flagutil"
+	"vitess.io/vitess/go/vt/log"
 )
 
 var (
