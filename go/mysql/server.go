@@ -24,10 +24,10 @@ import (
 	"net"
 	"time"
 
-	log "github.com/golang/glog"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/tb"
+	"vitess.io/vitess/go/vt/log"
 )
 
 const (
@@ -42,10 +42,10 @@ const (
 
 var (
 	// Metrics
-	timings    = stats.NewTimings("MysqlServerTimings")
-	connCount  = stats.NewInt("MysqlServerConnCount")
-	connAccept = stats.NewInt("MysqlServerConnAccepted")
-	connSlow   = stats.NewInt("MysqlServerConnSlow")
+	timings    = stats.NewTimings("MysqlServerTimings", "MySQL server timings")
+	connCount  = stats.NewGauge("MysqlServerConnCount", "Active MySQL server connections")
+	connAccept = stats.NewCounter("MysqlServerConnAccepted", "Connections accepted by MySQL server")
+	connSlow   = stats.NewCounter("MysqlServerConnSlow", "Connections that took more than the configured mysql_slow_connect_warn_threshold to establish")
 )
 
 // A Handler is an interface used by Listener to send queries.
@@ -197,7 +197,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 	// so we don't buffer the TLS negotiation packets.
 	response, err := c.readPacketDirect()
 	if err != nil {
-		log.Errorf("Cannot read client handshake response from %s: %v", c, err)
+		// Don't log EOF errors. They cause too much spam, same as main read loop.
+		if err != io.EOF {
+			log.Errorf("Cannot read client handshake response from %s: %v", c, err)
+		}
 		return
 	}
 	user, authMethod, authResponse, err := l.parseClientHandshakePacket(c, true, response)

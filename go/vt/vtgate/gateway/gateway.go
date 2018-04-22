@@ -23,12 +23,11 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/golang/glog"
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/vt/log"
 
 	"vitess.io/vitess/go/vt/discovery"
 	"vitess.io/vitess/go/vt/srvtopo"
-	"vitess.io/vitess/go/vt/topo"
 	"vitess.io/vitess/go/vt/vttablet/queryservice"
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
@@ -70,7 +69,7 @@ type Gateway interface {
 }
 
 // Creator is the factory method which can create the actual gateway object.
-type Creator func(hc discovery.HealthCheck, topoServer *topo.Server, serv srvtopo.Server, cell string, retryCount int) Gateway
+type Creator func(hc discovery.HealthCheck, serv srvtopo.Server, cell string, retryCount int) Gateway
 
 var creators = make(map[string]Creator)
 

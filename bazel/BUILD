@@ -13,4 +13,3 @@ genrule(
     cmd = "$(location :govendor_to_bazel) $(location //:vendor/vendor.json) > $@",
     tools = [":govendor_to_bazel"],
 )
-

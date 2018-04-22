@@ -499,6 +499,12 @@
 			"revisionTime": "2017-08-08T02:16:21Z"
 		},
 		{
+			"checksumSHA1": "p/8vSviYF91gFflhrt5vkyksroo=",
+			"path": "github.com/golang/snappy",
+			"revision": "553a641470496b2327abcac10b36396bd98e45c9",
+			"revisionTime": "2017-02-15T23:32:05Z"
+		},
+		{
 			"checksumSHA1": "V/53BpqgOkSDZCX6snQCAkdO2fM=",
 			"path": "github.com/googleapis/gax-go",
 			"revision": "da06d194a00e19ce00d9011a13931c3f6f6887c7",
@@ -629,9 +635,9 @@
 			"revisionTime": "2016-01-10T10:55:54Z"
 		},
 		{
-			"checksumSHA1": "f+c772l+hly4ZdqJqe1dryr0398=",
+			"checksumSHA1": "3NL4uu8RZhI2d+/SEmVOHPT390c=",
 			"path": "github.com/prometheus/client_golang/prometheus",
-			"revision": "488edd04dc224ba64c401747cd0a4b5f05dfb234",
+			"revision": "d7590aab3c040059dac7628c7037ffd9db368c01",
 			"revisionTime": "2016-05-31T09:15:28Z"
 		},
 		{
@@ -1099,7 +1105,7 @@
 		{
 			"checksumSHA1": "QyasSHZlgle+PHSIQ2/p+fr+ihY=",
 			"path": "google.golang.org/grpc/grpclog/glogger",
-			"revision": "08a45354194cd00490a5d926825670fb928b5f76",
+			"revision": "d11072e7ca9811b1100b80ca0269ac831f06d024",
 			"revisionTime": "2017-11-01T20:14:29Z"
 		},
 		{

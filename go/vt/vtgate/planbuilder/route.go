@@ -51,7 +51,6 @@ var (
 )
 
 var _ builder = (*route)(nil)
-var _ columnOriginator = (*route)(nil)
 
 var errIntermixingUnsupported = errors.New("unsupported: intermixing of information_schema and regular tables")
 
@@ -89,7 +88,7 @@ type route struct {
 	ERoute *engine.Route
 }
 
-func newRoute(stmt sqlparser.SelectStatement, eroute *engine.Route, condition sqlparser.Expr, vschema VSchema) *route {
+func newRoute(stmt sqlparser.SelectStatement, eroute *engine.Route, condition sqlparser.Expr, vschema ContextVSchema) *route {
 	rb := &route{
 		Select:        stmt,
 		order:         1,
@@ -115,18 +114,13 @@ func (rb *route) Symtab() *symtab {
 	return rb.symtab.Resolve()
 }
 
-// Order returns the order of the route.
+// Order satisfies the builder interface.
 func (rb *route) Order() int {
 	return rb.order
 }
 
-// MaxOrder satisfies the builder interface.
-func (rb *route) MaxOrder() int {
-	return rb.order
-}
-
-// SetOrder satisfies the builder interface.
-func (rb *route) SetOrder(order int) {
+// Reorder satisfies the builder interface.
+func (rb *route) Reorder(order int) {
 	rb.order = order + 1
 }
 
@@ -136,7 +130,7 @@ func (rb *route) Primitive() engine.Primitive {
 }
 
 // Leftmost satisfies the builder interface.
-func (rb *route) Leftmost() columnOriginator {
+func (rb *route) Leftmost() builder {
 	return rb
 }
 
@@ -259,7 +253,7 @@ func (rb *route) isSameRoute(rhs *route, filter sqlparser.Expr) bool {
 		left, right = right, left
 		lVindex = rb.Symtab().Vindex(left, rb)
 	}
-	if lVindex == nil || !vindexes.IsUnique(lVindex) {
+	if lVindex == nil || !lVindex.IsUnique() {
 		return false
 	}
 	rVindex := rhs.Symtab().Vindex(right, rhs)
@@ -274,7 +268,7 @@ func (rb *route) isSameRoute(rhs *route, filter sqlparser.Expr) bool {
 
 // PushFilter satisfies the builder interface.
 // The primitive will be updated if the new filter improves the plan.
-func (rb *route) PushFilter(filter sqlparser.Expr, whereType string, _ columnOriginator) error {
+func (rb *route) PushFilter(filter sqlparser.Expr, whereType string, _ builder) error {
 	sel := rb.Select.(*sqlparser.Select)
 	switch whereType {
 	case sqlparser.WhereStr:
@@ -365,7 +359,7 @@ func (rb *route) computeEqualPlan(comparison *sqlparser.ComparisonExpr) (opcode 
 	if !rb.exprIsValue(right) {
 		return engine.SelectScatter, nil, nil
 	}
-	if vindexes.IsUnique(vindex) {
+	if vindex.IsUnique() {
 		return engine.SelectEqualUnique, vindex, right
 	}
 	return engine.SelectEqual, vindex, right
@@ -401,7 +395,7 @@ func (rb *route) exprIsValue(expr sqlparser.Expr) bool {
 }
 
 // PushSelect satisfies the builder interface.
-func (rb *route) PushSelect(expr *sqlparser.AliasedExpr, _ columnOriginator) (rc *resultColumn, colnum int, err error) {
+func (rb *route) PushSelect(expr *sqlparser.AliasedExpr, _ builder) (rc *resultColumn, colnum int, err error) {
 	sel := rb.Select.(*sqlparser.Select)
 	sel.SelectExprs = append(sel.SelectExprs, expr)
 

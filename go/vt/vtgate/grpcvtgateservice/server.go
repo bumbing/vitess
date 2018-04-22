@@ -175,6 +175,8 @@ func (vtg *VTGate) StreamExecute(request *vtgatepb.StreamExecuteRequest, stream 
 		session.Options = request.Options
 	}
 	vtgErr := vtg.server.StreamExecute(ctx, session, request.Query.Sql, request.Query.BindVariables, func(value *sqltypes.Result) error {
+		// Send is not safe to call concurrently, but vtgate
+		// guarantees that it's not.
 		return stream.Send(&vtgatepb.StreamExecuteResponse{
 			Result: sqltypes.ResultToProto3(value),
 		})
@@ -310,6 +312,8 @@ func (vtg *VTGate) StreamExecuteShards(request *vtgatepb.StreamExecuteShardsRequ
 		request.TabletType,
 		request.Options,
 		func(value *sqltypes.Result) error {
+			// Send is not safe to call concurrently, but vtgate
+			// guarantees that it's not.
 			return stream.Send(&vtgatepb.StreamExecuteShardsResponse{
 				Result: sqltypes.ResultToProto3(value),
 			})
@@ -330,6 +334,8 @@ func (vtg *VTGate) StreamExecuteKeyspaceIds(request *vtgatepb.StreamExecuteKeysp
 		request.TabletType,
 		request.Options,
 		func(value *sqltypes.Result) error {
+			// Send is not safe to call concurrently, but vtgate
+			// guarantees that it's not.
 			return stream.Send(&vtgatepb.StreamExecuteKeyspaceIdsResponse{
 				Result: sqltypes.ResultToProto3(value),
 			})
@@ -350,6 +356,8 @@ func (vtg *VTGate) StreamExecuteKeyRanges(request *vtgatepb.StreamExecuteKeyRang
 		request.TabletType,
 		request.Options,
 		func(value *sqltypes.Result) error {
+			// Send is not safe to call concurrently, but vtgate
+			// guarantees that it's not.
 			return stream.Send(&vtgatepb.StreamExecuteKeyRangesResponse{
 				Result: sqltypes.ResultToProto3(value),
 			})
@@ -411,6 +419,8 @@ func (vtg *VTGate) MessageStream(request *vtgatepb.MessageStreamRequest, stream 
 	defer vtg.server.HandlePanic(&err)
 	ctx := withCallerIDContext(stream.Context(), request.CallerId)
 	vtgErr := vtg.server.MessageStream(ctx, request.Keyspace, request.Shard, request.KeyRange, request.Name, func(qr *sqltypes.Result) error {
+		// Send is not safe to call concurrently, but vtgate
+		// guarantees that it's not.
 		return stream.Send(&querypb.MessageStreamResponse{
 			Result: sqltypes.ResultToProto3(qr),
 		})
@@ -495,6 +505,8 @@ func (vtg *VTGate) UpdateStream(request *vtgatepb.UpdateStreamRequest, stream vt
 		request.Timestamp,
 		request.Event,
 		func(event *querypb.StreamEvent, resumeTimestamp int64) error {
+			// Send is not safe to call concurrently, but vtgate
+			// guarantees that it's not.
 			return stream.Send(&vtgatepb.UpdateStreamResponse{
 				Event:           event,
 				ResumeTimestamp: resumeTimestamp,

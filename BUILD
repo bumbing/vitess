@@ -1,4 +1,5 @@
-load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 exports_files([
@@ -35,7 +36,6 @@ go_library(
 go_binary(
     name = "vitess",
     embed = [":go_default_library"],
-    importpath = "vitess.io/vitess",
     visibility = ["//visibility:public"],
 )
 

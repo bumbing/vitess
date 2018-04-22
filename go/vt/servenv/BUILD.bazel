@@ -43,6 +43,7 @@ go_library(
         "//go/stats:go_default_library",
         "//go/tb:go_default_library",
         "//go/vt/grpccommon:go_default_library",
+        "//go/vt/log:go_default_library",
         "//go/vt/logutil:go_default_library",
         "//go/vt/vttls:go_default_library",
         "@com_github_golang_glog//:go_default_library",
@@ -62,6 +63,5 @@ go_test(
         "status_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "vitess.io/vitess/go/vt/servenv",
     deps = ["//go/event:go_default_library"],
 )

@@ -24,10 +24,10 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/golang/glog"
 	"golang.org/x/net/context"
 
 	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/topo"
 
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
@@ -120,7 +120,7 @@ type ResilientServer struct {
 	topoServer   *topo.Server
 	cacheTTL     time.Duration
 	cacheRefresh time.Duration
-	counts       *stats.Counters
+	counts       *stats.CountersWithLabels
 
 	// mutex protects the cache map itself, not the individual
 	// values in the cache.
@@ -215,11 +215,16 @@ func NewResilientServer(base *topo.Server, counterPrefix string) *ResilientServe
 		topoServer:   base,
 		cacheTTL:     *srvTopoCacheTTL,
 		cacheRefresh: *srvTopoCacheRefresh,
-		counts:       stats.NewCounters(counterPrefix + "Counts"),
+		counts:       stats.NewCountersWithLabels(counterPrefix+"Counts", "Resilient srvtopo server operations", "type"),
 
 		srvKeyspaceNamesCache: make(map[string]*srvKeyspaceNamesEntry),
 		srvKeyspaceCache:      make(map[string]*srvKeyspaceEntry),
 	}
+}
+
+// GetTopoServer returns the topo.Server that backs the resilient server.
+func (server *ResilientServer) GetTopoServer() *topo.Server {
+	return server.topoServer
 }
 
 // GetSrvKeyspaceNames returns all keyspace names for the given cell.

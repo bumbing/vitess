@@ -24,10 +24,9 @@ import (
 
 	"golang.org/x/net/context"
 
-	log "github.com/golang/glog"
-
 	"vitess.io/vitess/go/exit"
 	"vitess.io/vitess/go/vt/discovery"
+	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/servenv"
 	"vitess.io/vitess/go/vt/srvtopo"
 	"vitess.io/vitess/go/vt/topo"
@@ -84,7 +83,7 @@ func main() {
 		}
 	}
 
-	vtg := vtgate.Init(context.Background(), healthCheck, ts, resilientServer, *cell, *retryCount, tabletTypes)
+	vtg := vtgate.Init(context.Background(), healthCheck, resilientServer, *cell, *retryCount, tabletTypes)
 
 	servenv.OnRun(func() {
 		addStatusParts(vtg)

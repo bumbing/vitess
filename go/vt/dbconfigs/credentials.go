@@ -28,9 +28,9 @@ import (
 	"io/ioutil"
 	"sync"
 
-	log "github.com/golang/glog"
 	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/mysql"
+	"vitess.io/vitess/go/vt/log"
 )
 
 var (
