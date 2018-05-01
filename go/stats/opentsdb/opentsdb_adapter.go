@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ var (
 	// line.
 	ErrNoServiceName = errors.New("you must set -opentdsb_service <service name> when using -stats_backend OpenTSDB")
 
-	percentileBuckets     = []float64{50, 90, 95, 99, 999}
+	percentileBuckets     = []float64{.5, .9, .95, .99, .999}
 	percentileBucketNames = []string{"p50", "p90", "p95", "p99", "p999"}
 )
 
@@ -52,6 +53,13 @@ type openTSDBBackend struct {
 	prefix   string
 	metadata *Metadata
 }
+
+// ByKey imports sort.Interface for []Metric based on the metric key
+type ByKey []Metric
+
+func (m ByKey) Len() int           { return len(m) }
+func (m ByKey) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m ByKey) Less(i, j int) bool { return m[i].Key < m[j].Key }
 
 // Init attempts to create a singleton openTSDBBackend and register it as a PushBackend.
 // If it fails to create one, this is a noop.
@@ -77,7 +85,10 @@ func Init(prefix string) {
 
 		http.HandleFunc("/debug/opentsdb", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			if b, err := json.MarshalIndent((*backend).getMetrics(), "", "  "); err != nil {
+			metrics := (*backend).getMetrics()
+			sort.Sort(ByKey(metrics))
+
+			if b, err := json.MarshalIndent(metrics, "", "  "); err != nil {
 				w.Write([]byte(err.Error()))
 			} else {
 				w.Write(b)
