@@ -163,10 +163,20 @@ func (backend *openTSDBBackend) addMetrics(metrics *[]Metric, kv expvar.KeyValue
 			Key:   k,
 			Value: formatInt(v.Get()),
 		})
+	case *stats.CounterFunc:
+		*metrics = append(*metrics, Metric{
+			Key:   k,
+			Value: formatFloat(v.Mf.FloatVal()),
+		})
 	case *stats.Gauge:
 		*metrics = append(*metrics, Metric{
 			Key:   k,
 			Value: formatInt(v.Get()),
+		})
+	case *stats.GaugeFunc:
+		*metrics = append(*metrics, Metric{
+			Key:   k,
+			Value: formatFloat(v.Mf.FloatVal()),
 		})
 	case stats.IntFunc:
 		*metrics = append(*metrics, Metric{
