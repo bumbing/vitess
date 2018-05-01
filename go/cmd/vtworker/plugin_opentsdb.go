@@ -7,5 +7,5 @@ import (
 )
 
 func init() {
-	opentsdb.Init("vtgate")
+	opentsdb.Init("vtworker")
 }

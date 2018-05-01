@@ -671,6 +671,12 @@
 			"revisionTime": "2016-04-11T19:08:41Z"
 		},
 		{
+			"checksumSHA1": "BSKQ8okupcPpW2+1gOw1a/OlZqc=",
+			"path": "github.com/rcrowley/go-metrics",
+			"revision": "d932a24a8ccb8fcadc993e5c6c58f93dac168294",
+			"revisionTime": "2018-04-06T23:47:16Z"
+		},
+		{
 			"checksumSHA1": "dF3fORwN1HTgrlrdmll9K2cOjOg=",
 			"path": "github.com/samuel/go-zookeeper/zk",
 			"revision": "e64db453f3512cade908163702045e0f31137843",

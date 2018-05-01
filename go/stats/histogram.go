@@ -65,6 +65,7 @@ func NewGenericHistogram(name string, cutoffs []int64, labels []string, countLab
 		totalLabel: totalLabel,
 		buckets:    make([]sync2.AtomicInt64, len(labels)),
 	}
+	h.hook = makeHistogramHook(h)
 	if name != "" {
 		publish(name, h)
 	}
