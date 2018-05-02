@@ -34,7 +34,7 @@ var (
 	// Most servers at pinterest have the opentsdb telnet protocol available on port 18126.
 	openTsdbHost    = flag.String("opentsdb_host", "localhost:18126", "the opentsdb host (with port)")
 	openTsdbService = flag.String("opentsdb_service", "", "the service name for opentsdb stats")
-	buildGitRev     = "unknown"
+	buildGitRev     = ""
 
 	// ErrNoServiceName means pushing to OpenTSDB failed because -opentsdb_service was not passed on the command
 	// line.
@@ -70,8 +70,13 @@ func Init(prefix string) {
 			return
 		}
 
+		gitRev := buildGitRev
+		if gitRev == "" {
+			gitRev = "unknown"
+		}
+
 		metadata := &Metadata{
-			GitSha:   buildGitRev,
+			GitSha:   gitRev,
 			Hostname: netutil.FullyQualifiedHostnameOrPanic(),
 			Service:  *openTsdbService,
 		}
