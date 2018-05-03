@@ -62,6 +62,8 @@ type route struct {
 
 	// ERoute is the primitive being built.
 	ERoute *engine.Route
+
+	forceScatter bool
 }
 
 func newRoute(stmt sqlparser.SelectStatement, eroute *engine.Route, condition sqlparser.Expr) (*route, *symtab) {
@@ -189,6 +191,10 @@ func (rb *route) computePlan(pb *primitiveBuilder, filter sqlparser.Expr) (opcod
 
 // computeEqualPlan computes the plan for an equality constraint.
 func (rb *route) computeEqualPlan(pb *primitiveBuilder, comparison *sqlparser.ComparisonExpr) (opcode engine.RouteOpcode, vindex vindexes.Vindex, condition sqlparser.Expr) {
+	if rb.forceScatter {
+		return engine.SelectScatter, nil, nil
+	}
+
 	left := comparison.Left
 	right := comparison.Right
 	vindex = pb.st.Vindex(left, rb)
@@ -210,6 +216,10 @@ func (rb *route) computeEqualPlan(pb *primitiveBuilder, comparison *sqlparser.Co
 
 // computeINPlan computes the plan for an IN constraint.
 func (rb *route) computeINPlan(pb *primitiveBuilder, comparison *sqlparser.ComparisonExpr) (opcode engine.RouteOpcode, vindex vindexes.Vindex, condition sqlparser.Expr) {
+	if rb.forceScatter {
+		return engine.SelectScatter, nil, nil
+	}
+
 	vindex = pb.st.Vindex(comparison.Left, rb)
 	if vindex == nil {
 		return engine.SelectScatter, nil, nil

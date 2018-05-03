@@ -12,3 +12,24 @@
     "FieldQuery": "select * from user as u1 left join user as u2 on u1.col = u2.col where 1 != 1"
   }
 }
+
+
+# Force scatter directive. In select_cases.txt this test results in a SelectEqualUnique plan without the FORCE_SCATTER
+"select /*vt+ FORCE_SCATTER=1 */ * from user where name ='abc' AND (id = 4) limit 5"
+{
+  "Original": "select /*vt+ FORCE_SCATTER=1 */ * from user where name ='abc' AND (id = 4) limit 5",
+  "Instructions": {
+    "Opcode":"Limit",
+    "Count":5,
+    "Offset":null,
+    "Input":{
+      "Opcode": "SelectScatter",
+      "Keyspace": {
+        "Name": "user",
+        "Sharded": true
+      },
+    "Query": "select /*vt+ FORCE_SCATTER=1 */ * from user where name = 'abc' and (id = 4) limit :__upper_limit",
+    "FieldQuery": "select * from user where 1 != 1"
+    }
+  }
+}
