@@ -26,3 +26,4 @@ RUN ./bootstrap.sh
 # rebuild the whole bootstrap image from scratch
 # RUN govendor fetch +missing
 RUN govendor fetch github.com/pinterest/knox@084e20c00cae39fb078c1be6f3d2b42a53cbff9d
+RUN govendor fetch github.com/rcrowley/go-metrics@d932a24a8ccb8fcadc993e5c6c58f93dac168294
