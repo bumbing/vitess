@@ -10,6 +10,7 @@ import (
 var (
 	histogramToTimerMu sync.RWMutex
 	histogramToTimer   = make(map[*Histogram]*metrics.Timer)
+	fakeTimer          *metrics.Timer
 )
 
 // GetTimer maps a Histogram to its associated Timer, which has percentiles, mean, min, and max.
@@ -24,8 +25,19 @@ func GetTimer(histogram *Histogram) *metrics.Timer {
 	return histogramToTimer[histogram]
 }
 
+// SetFakeTimerForTest sets a fake timer that will always be associated
+// with histograms.
+func SetFakeTimerForTest(timer *metrics.Timer) {
+	fakeTimer = timer
+}
+
 func makeHistogramHook(histogramPtr *Histogram) func(int64) {
-	percentilesTimer := metrics.NewTimer()
+	var percentilesTimer metrics.Timer
+	if fakeTimer != nil {
+		percentilesTimer = *fakeTimer
+	} else {
+		percentilesTimer = metrics.NewTimer()
+	}
 
 	histogramToTimerMu.Lock()
 	histogramToTimer[histogramPtr] = &percentilesTimer
