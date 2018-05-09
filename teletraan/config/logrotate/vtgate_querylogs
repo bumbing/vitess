@@ -1,6 +1,6 @@
 /var/log/vtgate/queries.log {
   daily
-  maxsize 200M
+  maxsize 5G
   compress
   delaycompress
   nocopy
