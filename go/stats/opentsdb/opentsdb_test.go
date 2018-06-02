@@ -43,38 +43,38 @@ func init() {
 
 func TestOpenTsdbCounter(t *testing.T) {
 	name := "counter_name"
-	stats.NewCounterFunc(name, "help", stats.IntFunc(func() int64 {
-		return 2
-	}))
+	c := stats.NewCounter(name, "counter description")
+	c.Add(1)
 
 	checkOutput(t, name, `
 		[
-			{
-			"metric": "vtgate.counter_name",
-			"timestamp": 1234,
-			"value": 2,
-			"tags": {
-				"host": "localhost"
-			}
-			}
+		  {
+		    "metric": "vtgate.counter_name",
+		    "timestamp": 1234,
+		    "value": 1,
+		    "tags": {
+		      "host": "localhost"
+		    }
+		  }
 		]`)
 }
 
 func TestOpenTsdbCounterFunc(t *testing.T) {
 	name := "counter_fn_name"
-	c := stats.NewCounter(name, "counter description")
-	c.Add(1)
+	stats.NewCounterFunc(name, "help", func() int64 {
+		return 2
+	})
 	checkOutput(t, name, `
 		[
-			{
-			  "metric": "vtgate.counter_fn_name",
-			  "timestamp": 1234,
-			  "value": 1,
-			  "tags": {
-				"host": "localhost"
-			  }
-			}
-		  ]`)
+		  {
+		    "metric": "vtgate.counter_fn_name",
+		    "timestamp": 1234,
+		    "value": 2,
+		    "tags": {
+		      "host": "localhost"
+		    }
+		  }
+		]`)
 }
 
 func TestGaugesWithMultiLabels(t *testing.T) {
@@ -122,13 +122,14 @@ func TestExpvar(t *testing.T) {
 func TestOpenTsdbTimings(t *testing.T) {
 	name := "blah_timings"
 	cats := []string{"cat1", "cat2"}
-	timing := stats.NewTimings(name, "help", cats...)
+	timing := stats.NewTimings(name, "help", "category", cats...)
 	timing.Add("cat1", time.Duration(1000000000))
+	timing.Add("cat1", time.Duration(1))
 	resetFakeSample()
 
 	checkOutput(t, name, `
 		[
-		  {
+			{
 		    "metric": "vtgate.blah_timings.average",
 		    "timestamp": 1234,
 		    "value": 2,
@@ -149,7 +150,7 @@ func TestOpenTsdbTimings(t *testing.T) {
 		  {
 		    "metric": "vtgate.blah_timings.count",
 		    "timestamp": 1234,
-		    "value": 1,
+		    "value": 2,
 		    "tags": {
 		      "histograms": "cat1",
 		      "host": "localhost"

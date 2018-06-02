@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/callerid"
+	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/vtgate/vindexes"
 	"vitess.io/vitess/go/vt/vtgate/vschemaacl"
 
@@ -224,28 +225,79 @@ func TestExecutorSet(t *testing.T) {
 		out *vtgatepb.Session
 		err string
 	}{{
-		in:  "set autocommit=1",
+		in:  "set autocommit = 1",
 		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set @@autocommit = true",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set @@session.autocommit = true",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set @@session.`autocommit` = true",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set @@session.'autocommit' = true",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set @@session.\"autocommit\" = true",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set autocommit = true",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set autocommit = on",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set autocommit = 'on'",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set autocommit = `on`",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set autocommit = \"on\"",
+		out: &vtgatepb.Session{Autocommit: true},
+	}, {
+		in:  "set autocommit = false",
+		out: &vtgatepb.Session{},
+	}, {
+		in:  "set autocommit = off",
+		out: &vtgatepb.Session{},
 	}, {
 		in:  "set AUTOCOMMIT = 0",
 		out: &vtgatepb.Session{},
 	}, {
 		in:  "set AUTOCOMMIT = 'aa'",
-		err: "unexpected value type for autocommit: string",
+		err: "unexpected value for autocommit: aa",
 	}, {
 		in:  "set autocommit = 2",
 		err: "unexpected value for autocommit: 2",
 	}, {
-		in:  "set client_found_rows=1",
+		in:  "set client_found_rows = 1",
 		out: &vtgatepb.Session{Autocommit: true, Options: &querypb.ExecuteOptions{ClientFoundRows: true}},
 	}, {
-		in:  "set client_found_rows=0",
+		in:  "set client_found_rows = true",
+		out: &vtgatepb.Session{Autocommit: true, Options: &querypb.ExecuteOptions{ClientFoundRows: true}},
+	}, {
+		in:  "set client_found_rows = 0",
 		out: &vtgatepb.Session{Autocommit: true, Options: &querypb.ExecuteOptions{}},
 	}, {
-		in:  "set client_found_rows='aa'",
+		in:  "set client_found_rows = false",
+		out: &vtgatepb.Session{Autocommit: true, Options: &querypb.ExecuteOptions{}},
+	}, {
+		in:  "set @@global.client_found_rows = 1",
+		err: "unsupported in set: global",
+	}, {
+		in:  "set global client_found_rows = 1",
+		err: "unsupported in set: global",
+	}, {
+		in:  "set global @@session.client_found_rows = 1",
+		err: "unsupported in set: mixed using of variable scope",
+	}, {
+		in:  "set client_found_rows = 'aa'",
 		err: "unexpected value type for client_found_rows: string",
 	}, {
-		in:  "set client_found_rows=2",
+		in:  "set client_found_rows = 2",
 		err: "unexpected value for client_found_rows: 2",
 	}, {
 		in:  "set transaction_mode = 'unspecified'",
@@ -258,6 +310,9 @@ func TestExecutorSet(t *testing.T) {
 		out: &vtgatepb.Session{Autocommit: true, TransactionMode: vtgatepb.TransactionMode_MULTI},
 	}, {
 		in:  "set transaction_mode = 'twopc'",
+		out: &vtgatepb.Session{Autocommit: true, TransactionMode: vtgatepb.TransactionMode_TWOPC},
+	}, {
+		in:  "set transaction_mode = twopc",
 		out: &vtgatepb.Session{Autocommit: true, TransactionMode: vtgatepb.TransactionMode_TWOPC},
 	}, {
 		in:  "set transaction_mode = 'aa'",
@@ -296,7 +351,7 @@ func TestExecutorSet(t *testing.T) {
 		in:  "set sql_select_limit = 'asdfasfd'",
 		err: "unexpected string value for sql_select_limit: asdfasfd",
 	}, {
-		in:  "set autocommit=1+1",
+		in:  "set autocommit = 1+1",
 		err: "invalid syntax: 1 + 1",
 	}, {
 		in:  "set character_set_results=null",
@@ -305,8 +360,8 @@ func TestExecutorSet(t *testing.T) {
 		in:  "set character_set_results='abcd'",
 		err: "disallowed value for character_set_results: abcd",
 	}, {
-		in:  "set foo=1",
-		err: "unsupported construct: set foo=1",
+		in:  "set foo = 1",
+		err: "unsupported construct: set foo = 1",
 	}, {
 		in:  "set names utf8",
 		out: &vtgatepb.Session{Autocommit: true},
@@ -340,6 +395,15 @@ func TestExecutorSet(t *testing.T) {
 	}, {
 		in:  "set sql_auto_is_null = 1",
 		err: "sql_auto_is_null is not currently supported",
+	}, {
+		in:  "set tx_read_only = 2",
+		err: "unexpected value for tx_read_only: 2",
+	}, {
+		in:  "set tx_isolation = 'invalid'",
+		err: "unexpected value for tx_isolation: invalid",
+	}, {
+		in:  "set sql_safe_updates = 2",
+		err: "unexpected value for sql_safe_updates: 2",
 	}}
 	for _, tcase := range testcases {
 		session := NewSafeSession(&vtgatepb.Session{Autocommit: true})
@@ -1585,12 +1649,12 @@ func TestVSchemaStats(t *testing.T) {
 
 func TestGetPlanUnnormalized(t *testing.T) {
 	r, _, _, _ := createExecutorEnv()
-	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, "", r, nil)
-	unshardedvc := newVCursorImpl(context.Background(), nil, KsTestUnsharded, 0, "", r, nil)
+	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, makeComments(""), r, nil)
+	unshardedvc := newVCursorImpl(context.Background(), nil, KsTestUnsharded, 0, makeComments(""), r, nil)
 
 	logStats1 := NewLogStats(nil, "Test", "", nil)
 	query1 := "select * from music_user_map where id = 1"
-	plan1, err := r.getPlan(emptyvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, false, logStats1)
+	plan1, err := r.getPlan(emptyvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1600,7 +1664,7 @@ func TestGetPlanUnnormalized(t *testing.T) {
 	}
 
 	logStats2 := NewLogStats(nil, "Test", "", nil)
-	plan2, err := r.getPlan(emptyvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, false, logStats2)
+	plan2, err := r.getPlan(emptyvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1617,7 +1681,7 @@ func TestGetPlanUnnormalized(t *testing.T) {
 		t.Errorf("logstats sql want \"%s\" got \"%s\"", wantSQL, logStats2.SQL)
 	}
 	logStats3 := NewLogStats(nil, "Test", "", nil)
-	plan3, err := r.getPlan(unshardedvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, false, logStats3)
+	plan3, err := r.getPlan(unshardedvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats3)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1628,7 +1692,7 @@ func TestGetPlanUnnormalized(t *testing.T) {
 		t.Errorf("logstats sql want \"%s\" got \"%s\"", wantSQL, logStats3.SQL)
 	}
 	logStats4 := NewLogStats(nil, "Test", "", nil)
-	plan4, err := r.getPlan(unshardedvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, false, logStats4)
+	plan4, err := r.getPlan(unshardedvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats4)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1649,10 +1713,10 @@ func TestGetPlanUnnormalized(t *testing.T) {
 
 func TestGetPlanCacheUnnormalized(t *testing.T) {
 	r, _, _, _ := createExecutorEnv()
-	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, "", r, nil)
+	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, makeComments(""), r, nil)
 	query1 := "select * from music_user_map where id = 1"
 	logStats1 := NewLogStats(nil, "Test", "", nil)
-	_, err := r.getPlan(emptyvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, true /* skipQueryPlanCache */, logStats1)
+	_, err := r.getPlan(emptyvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, true /* skipQueryPlanCache */, logStats1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1664,7 +1728,7 @@ func TestGetPlanCacheUnnormalized(t *testing.T) {
 		t.Errorf("logstats sql want \"%s\" got \"%s\"", wantSQL, logStats1.SQL)
 	}
 	logStats2 := NewLogStats(nil, "Test", "", nil)
-	_, err = r.getPlan(emptyvc, query1, " /* comment 2 */", map[string]*querypb.BindVariable{}, false /* skipQueryPlanCache */, logStats2)
+	_, err = r.getPlan(emptyvc, query1, makeComments(" /* comment 2 */"), map[string]*querypb.BindVariable{}, false /* skipQueryPlanCache */, logStats2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1675,15 +1739,38 @@ func TestGetPlanCacheUnnormalized(t *testing.T) {
 	if logStats2.SQL != wantSQL {
 		t.Errorf("logstats sql want \"%s\" got \"%s\"", wantSQL, logStats2.SQL)
 	}
+
+	// Skip cache using directive
+	r, _, _, _ = createExecutorEnv()
+	unshardedvc := newVCursorImpl(context.Background(), nil, KsTestUnsharded, 0, makeComments(""), r, nil)
+
+	query1 = "insert /*vt+ SKIP_QUERY_PLAN_CACHE=1 */ into user(id) values (1), (2)"
+	logStats1 = NewLogStats(nil, "Test", "", nil)
+	_, err = r.getPlan(unshardedvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(r.plans.Keys()) != 0 {
+		t.Errorf("Plan keys should be 0, got: %v", len(r.plans.Keys()))
+	}
+
+	query1 = "insert into user(id) values (1), (2)"
+	_, err = r.getPlan(unshardedvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(r.plans.Keys()) != 1 {
+		t.Errorf("Plan keys should be 1, got: %v", len(r.plans.Keys()))
+	}
 }
 
 func TestGetPlanCacheNormalized(t *testing.T) {
 	r, _, _, _ := createExecutorEnv()
 	r.normalize = true
-	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, "", r, nil)
+	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, makeComments(""), r, nil)
 	query1 := "select * from music_user_map where id = 1"
 	logStats1 := NewLogStats(nil, "Test", "", nil)
-	_, err := r.getPlan(emptyvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, true /* skipQueryPlanCache */, logStats1)
+	_, err := r.getPlan(emptyvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, true /* skipQueryPlanCache */, logStats1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1695,7 +1782,7 @@ func TestGetPlanCacheNormalized(t *testing.T) {
 		t.Errorf("logstats sql want \"%s\" got \"%s\"", wantSQL, logStats1.SQL)
 	}
 	logStats2 := NewLogStats(nil, "Test", "", nil)
-	_, err = r.getPlan(emptyvc, query1, " /* comment */", map[string]*querypb.BindVariable{}, false /* skipQueryPlanCache */, logStats2)
+	_, err = r.getPlan(emptyvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false /* skipQueryPlanCache */, logStats2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1705,24 +1792,48 @@ func TestGetPlanCacheNormalized(t *testing.T) {
 	if logStats2.SQL != wantSQL {
 		t.Errorf("logstats sql want \"%s\" got \"%s\"", wantSQL, logStats2.SQL)
 	}
+
+	// Skip cache using directive
+	r, _, _, _ = createExecutorEnv()
+	r.normalize = true
+	unshardedvc := newVCursorImpl(context.Background(), nil, KsTestUnsharded, 0, makeComments(""), r, nil)
+
+	query1 = "insert /*vt+ SKIP_QUERY_PLAN_CACHE=1 */ into user(id) values (1), (2)"
+	logStats1 = NewLogStats(nil, "Test", "", nil)
+	_, err = r.getPlan(unshardedvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(r.plans.Keys()) != 0 {
+		t.Errorf("Plan keys should be 0, got: %v", len(r.plans.Keys()))
+	}
+
+	query1 = "insert into user(id) values (1), (2)"
+	_, err = r.getPlan(unshardedvc, query1, makeComments(" /* comment */"), map[string]*querypb.BindVariable{}, false, logStats1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(r.plans.Keys()) != 1 {
+		t.Errorf("Plan keys should be 1, got: %v", len(r.plans.Keys()))
+	}
 }
 
 func TestGetPlanNormalized(t *testing.T) {
 	r, _, _, _ := createExecutorEnv()
 	r.normalize = true
-	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, "", r, nil)
-	unshardedvc := newVCursorImpl(context.Background(), nil, KsTestUnsharded, 0, "", r, nil)
+	emptyvc := newVCursorImpl(context.Background(), nil, "", 0, makeComments(""), r, nil)
+	unshardedvc := newVCursorImpl(context.Background(), nil, KsTestUnsharded, 0, makeComments(""), r, nil)
 
 	query1 := "select * from music_user_map where id = 1"
 	query2 := "select * from music_user_map where id = 2"
 	normalized := "select * from music_user_map where id = :vtg1"
 	logStats1 := NewLogStats(nil, "Test", "", nil)
-	plan1, err := r.getPlan(emptyvc, query1, " /* comment 1 */", map[string]*querypb.BindVariable{}, false, logStats1)
+	plan1, err := r.getPlan(emptyvc, query1, makeComments(" /* comment 1 */"), map[string]*querypb.BindVariable{}, false, logStats1)
 	if err != nil {
 		t.Error(err)
 	}
 	logStats2 := NewLogStats(nil, "Test", "", nil)
-	plan2, err := r.getPlan(emptyvc, query1, " /* comment 2 */", map[string]*querypb.BindVariable{}, false, logStats2)
+	plan2, err := r.getPlan(emptyvc, query1, makeComments(" /* comment 2 */"), map[string]*querypb.BindVariable{}, false, logStats2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1746,7 +1857,7 @@ func TestGetPlanNormalized(t *testing.T) {
 	}
 
 	logStats3 := NewLogStats(nil, "Test", "", nil)
-	plan3, err := r.getPlan(emptyvc, query2, " /* comment 3 */", map[string]*querypb.BindVariable{}, false, logStats3)
+	plan3, err := r.getPlan(emptyvc, query2, makeComments(" /* comment 3 */"), map[string]*querypb.BindVariable{}, false, logStats3)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1759,7 +1870,7 @@ func TestGetPlanNormalized(t *testing.T) {
 	}
 
 	logStats4 := NewLogStats(nil, "Test", "", nil)
-	plan4, err := r.getPlan(emptyvc, normalized, " /* comment 4 */", map[string]*querypb.BindVariable{}, false, logStats4)
+	plan4, err := r.getPlan(emptyvc, normalized, makeComments(" /* comment 4 */"), map[string]*querypb.BindVariable{}, false, logStats4)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1772,7 +1883,7 @@ func TestGetPlanNormalized(t *testing.T) {
 	}
 
 	logStats5 := NewLogStats(nil, "Test", "", nil)
-	plan3, err = r.getPlan(unshardedvc, query1, " /* comment 5 */", map[string]*querypb.BindVariable{}, false, logStats5)
+	plan3, err = r.getPlan(unshardedvc, query1, makeComments(" /* comment 5 */"), map[string]*querypb.BindVariable{}, false, logStats5)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1785,7 +1896,7 @@ func TestGetPlanNormalized(t *testing.T) {
 	}
 
 	logStats6 := NewLogStats(nil, "Test", "", nil)
-	plan4, err = r.getPlan(unshardedvc, query1, " /* comment 6 */", map[string]*querypb.BindVariable{}, false, logStats6)
+	plan4, err = r.getPlan(unshardedvc, query1, makeComments(" /* comment 6 */"), map[string]*querypb.BindVariable{}, false, logStats6)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1802,13 +1913,13 @@ func TestGetPlanNormalized(t *testing.T) {
 
 	// Errors
 	logStats7 := NewLogStats(nil, "Test", "", nil)
-	_, err = r.getPlan(emptyvc, "syntax", "", map[string]*querypb.BindVariable{}, false, logStats7)
+	_, err = r.getPlan(emptyvc, "syntax", makeComments(""), map[string]*querypb.BindVariable{}, false, logStats7)
 	wantErr := "syntax error at position 7 near 'syntax'"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("getPlan(syntax): %v, want %s", err, wantErr)
 	}
 	logStats8 := NewLogStats(nil, "Test", "", nil)
-	_, err = r.getPlan(emptyvc, "create table a(id int)", "", map[string]*querypb.BindVariable{}, false, logStats8)
+	_, err = r.getPlan(emptyvc, "create table a(id int)", makeComments(""), map[string]*querypb.BindVariable{}, false, logStats8)
 	wantErr = "unsupported construct: ddl"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("getPlan(syntax): %v, want %s", err, wantErr)
@@ -1939,4 +2050,8 @@ func TestParseTargetSingleKeyspace(t *testing.T) {
 			topodatapb.TabletType_REPLICA,
 		)
 	}
+}
+
+func makeComments(text string) sqlparser.MarginComments {
+	return sqlparser.MarginComments{Trailing: text}
 }

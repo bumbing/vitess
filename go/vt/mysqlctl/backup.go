@@ -299,7 +299,7 @@ func backup(ctx context.Context, mysqld MysqlDaemon, logger logutil.Logger, bh b
 			return false, fmt.Errorf("can't get master position: %v", err)
 		}
 	} else {
-		if err = StopSlave(mysqld, hookExtraEnv); err != nil {
+		if err = mysqld.StopSlave(hookExtraEnv); err != nil {
 			return false, fmt.Errorf("can't stop slave: %v", err)
 		}
 		var slaveStatus mysql.SlaveStatus
@@ -345,7 +345,7 @@ func backup(ctx context.Context, mysqld MysqlDaemon, logger logutil.Logger, bh b
 	}
 	if slaveStartRequired {
 		logger.Infof("restarting mysql replication")
-		if err := StartSlave(mysqld, hookExtraEnv); err != nil {
+		if err := mysqld.StartSlave(hookExtraEnv); err != nil {
 			return usable, fmt.Errorf("cannot restart slave: %v", err)
 		}
 
@@ -402,7 +402,7 @@ func backupFiles(ctx context.Context, mysqld MysqlDaemon, logger logutil.Logger,
 	}
 
 	// open the MANIFEST
-	wc, err := bh.AddFile(ctx, backupManifest)
+	wc, err := bh.AddFile(ctx, backupManifest, 0)
 	if err != nil {
 		return fmt.Errorf("cannot add %v to backup: %v", backupManifest, err)
 	}
@@ -440,8 +440,13 @@ func backupFile(ctx context.Context, mysqld MysqlDaemon, logger logutil.Logger, 
 	}
 	defer source.Close()
 
+	fi, err := source.Stat()
+	if err != nil {
+		return err
+	}
+
 	// Open the destination file for writing, and a buffer.
-	wc, err := bh.AddFile(ctx, name)
+	wc, err := bh.AddFile(ctx, name, fi.Size())
 	if err != nil {
 		return fmt.Errorf("cannot add file: %v", err)
 	}
@@ -743,6 +748,21 @@ func Restore(
 		return mysql.Position{}, err
 	}
 
+	if !deleteBeforeRestore {
+		logger.Infof("Restore: checking no existing data is present")
+		ok, err := checkNoDB(ctx, mysqld, dbName)
+		if err != nil {
+			return mysql.Position{}, err
+		}
+		if !ok {
+			logger.Infof("Auto-restore is enabled, but mysqld already contains data. Assuming vttablet was just restarted.")
+			if err = populateMetadataTables(mysqld, localMetadata); err == nil {
+				err = ErrExistingDB
+			}
+			return mysql.Position{}, err
+		}
+	}
+
 	// find the right backup handle: most recent one, with a MANIFEST
 	logger.Infof("Restore: looking for a suitable backup to restore")
 	bs, err := backupstorage.GetBackupStorage()
@@ -791,21 +811,6 @@ func Restore(
 		// This implies there is data we ought to have, so it's not safe to start
 		// up empty.
 		return mysql.Position{}, errors.New("backup(s) found but none could be read, unsafe to start up empty, restart to retry restore")
-	}
-
-	if !deleteBeforeRestore {
-		logger.Infof("Restore: checking no existing data is present")
-		ok, err := checkNoDB(ctx, mysqld, dbName)
-		if err != nil {
-			return mysql.Position{}, err
-		}
-		if !ok {
-			logger.Infof("Auto-restore is enabled, but mysqld already contains data. Assuming vttablet was just restarted.")
-			if err = populateMetadataTables(mysqld, localMetadata); err == nil {
-				err = ErrExistingDB
-			}
-			return mysql.Position{}, err
-		}
 	}
 
 	// Starting from here we won't be able to recover if we get stopped by a cancelled

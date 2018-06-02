@@ -118,6 +118,7 @@ var keywords = map[string]int{
 	"collate":             COLLATE,
 	"column":              COLUMN,
 	"comment":             COMMENT_KEYWORD,
+	"committed":           COMMITTED,
 	"commit":              COMMIT,
 	"condition":           UNUSED,
 	"constraint":          CONSTRAINT,
@@ -167,6 +168,7 @@ var keywords = map[string]int{
 	"exit":                UNUSED,
 	"explain":             EXPLAIN,
 	"expansion":           EXPANSION,
+	"extended":            EXTENDED,
 	"false":               FALSE,
 	"fetch":               UNUSED,
 	"float":               FLOAT_TYPE,
@@ -176,6 +178,7 @@ var keywords = map[string]int{
 	"force":               FORCE,
 	"foreign":             FOREIGN,
 	"from":                FROM,
+	"full":                FULL,
 	"fulltext":            FULLTEXT,
 	"generated":           UNUSED,
 	"geometry":            GEOMETRY,
@@ -210,11 +213,13 @@ var keywords = map[string]int{
 	"into":                INTO,
 	"io_after_gtids":      UNUSED,
 	"is":                  IS,
+	"isolation":           ISOLATION,
 	"iterate":             UNUSED,
 	"join":                JOIN,
 	"json":                JSON,
 	"key":                 KEY,
 	"keys":                KEYS,
+	"key_block_size":      KEY_BLOCK_SIZE,
 	"kill":                UNUSED,
 	"language":            LANGUAGE,
 	"last_insert_id":      LAST_INSERT_ID,
@@ -222,6 +227,7 @@ var keywords = map[string]int{
 	"leave":               UNUSED,
 	"left":                LEFT,
 	"less":                LESS,
+	"level":               LEVEL,
 	"like":                LIKE,
 	"limit":               LIMIT,
 	"linear":              UNUSED,
@@ -261,6 +267,7 @@ var keywords = map[string]int{
 	"numeric":             NUMERIC,
 	"offset":              OFFSET,
 	"on":                  ON,
+	"only":                ONLY,
 	"optimize":            OPTIMIZE,
 	"optimizer_costs":     UNUSED,
 	"option":              UNUSED,
@@ -275,10 +282,11 @@ var keywords = map[string]int{
 	"polygon":             POLYGON,
 	"precision":           UNUSED,
 	"primary":             PRIMARY,
+	"processlist":         PROCESSLIST,
 	"procedure":           PROCEDURE,
 	"query":               QUERY,
 	"range":               UNUSED,
-	"read":                UNUSED,
+	"read":                READ,
 	"reads":               UNUSED,
 	"read_write":          UNUSED,
 	"real":                REAL,
@@ -289,6 +297,7 @@ var keywords = map[string]int{
 	"reorganize":          REORGANIZE,
 	"repair":              REPAIR,
 	"repeat":              UNUSED,
+	"repeatable":          REPEATABLE,
 	"replace":             REPLACE,
 	"require":             UNUSED,
 	"resignal":            UNUSED,
@@ -304,6 +313,7 @@ var keywords = map[string]int{
 	"select":              SELECT,
 	"sensitive":           UNUSED,
 	"separator":           SEPARATOR,
+	"serializable":        SERIALIZABLE,
 	"session":             SESSION,
 	"set":                 SET,
 	"share":               SHARE,
@@ -346,6 +356,7 @@ var keywords = map[string]int{
 	"trigger":             TRIGGER,
 	"true":                TRUE,
 	"truncate":            TRUNCATE,
+	"uncommitted":         UNCOMMITTED,
 	"undo":                UNUSED,
 	"union":               UNION,
 	"unique":              UNIQUE,
@@ -376,7 +387,7 @@ var keywords = map[string]int{
 	"where":               WHERE,
 	"while":               UNUSED,
 	"with":                WITH,
-	"write":               UNUSED,
+	"write":               WRITE,
 	"xor":                 UNUSED,
 	"year":                YEAR,
 	"year_month":          UNUSED,
@@ -475,7 +486,11 @@ func (tkn *Tokenizer) Scan() (int, []byte) {
 				return tkn.scanBitLiteral()
 			}
 		}
-		return tkn.scanIdentifier(byte(ch))
+		isDbSystemVariable := false
+		if ch == '@' && tkn.lastChar == '@' {
+			isDbSystemVariable = true
+		}
+		return tkn.scanIdentifier(byte(ch), isDbSystemVariable)
 	case isDigit(ch):
 		return tkn.scanNumber(false)
 	case ch == ':':
@@ -607,10 +622,10 @@ func (tkn *Tokenizer) skipBlank() {
 	}
 }
 
-func (tkn *Tokenizer) scanIdentifier(firstByte byte) (int, []byte) {
+func (tkn *Tokenizer) scanIdentifier(firstByte byte, isDbSystemVariable bool) (int, []byte) {
 	buffer := &bytes2.Buffer{}
 	buffer.WriteByte(firstByte)
-	for isLetter(tkn.lastChar) || isDigit(tkn.lastChar) {
+	for isLetter(tkn.lastChar) || isDigit(tkn.lastChar) || (isDbSystemVariable && isCarat(tkn.lastChar)) {
 		buffer.WriteByte(byte(tkn.lastChar))
 		tkn.next()
 	}
@@ -912,6 +927,10 @@ func (tkn *Tokenizer) reset() {
 
 func isLetter(ch uint16) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' || ch == '@'
+}
+
+func isCarat(ch uint16) bool {
+	return ch == '.' || ch == '\'' || ch == '"' || ch == '`'
 }
 
 func digitVal(ch uint16) int {

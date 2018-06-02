@@ -614,6 +614,10 @@ var (
 	}, {
 		input: "insert /* bool in on duplicate */ into a values (1, 2) on duplicate key update b = false, c = d",
 	}, {
+		input: "insert /* bool in on duplicate */ into a values (1, 2, 3) on duplicate key update b = values(b), c = d",
+	}, {
+		input: "insert /* bool in on duplicate */ into a values (1, 2, 3) on duplicate key update b = values(a.b), c = d",
+	}, {
 		input: "insert /* bool expression on duplicate */ into a values (1, 2) on duplicate key update b = func(a), c = a > d",
 	}, {
 		input: "update /* simple */ a set b = 3",
@@ -666,11 +670,22 @@ var (
 	}, {
 		input: "delete a, b from a, b where a.id = b.id and b.name = 'test'",
 	}, {
+		input:  "delete from a1, a2 using t1 as a1 inner join t2 as a2 where a1.id=a2.id",
+		output: "delete a1, a2 from t1 as a1 join t2 as a2 where a1.id = a2.id",
+	}, {
 		input: "set /* simple */ a = 3",
 	}, {
 		input: "set #simple\n b = 4",
 	}, {
 		input: "set character_set_results = utf8",
+	}, {
+		input: "set @@session.autocommit = true",
+	}, {
+		input: "set @@session.`autocommit` = true",
+	}, {
+		input: "set @@session.'autocommit' = true",
+	}, {
+		input: "set @@session.\"autocommit\" = true",
 	}, {
 		input:  "set names utf8 collate foo",
 		output: "set names 'utf8'",
@@ -693,6 +708,46 @@ var (
 		input: "set /* list */ a = 3, b = 4",
 	}, {
 		input: "set /* mixed list */ a = 3, names 'utf8', charset 'ascii', b = 4",
+	}, {
+		input:  "set session transaction isolation level repeatable read",
+		output: "set session tx_isolation = 'repeatable read'",
+	}, {
+		input:  "set global transaction isolation level repeatable read",
+		output: "set global tx_isolation = 'repeatable read'",
+	}, {
+		input:  "set transaction isolation level repeatable read",
+		output: "set tx_isolation = 'repeatable read'",
+	}, {
+		input:  "set transaction isolation level read committed",
+		output: "set tx_isolation = 'read committed'",
+	}, {
+		input:  "set transaction isolation level read uncommitted",
+		output: "set tx_isolation = 'read uncommitted'",
+	}, {
+		input:  "set transaction isolation level serializable",
+		output: "set tx_isolation = 'serializable'",
+	}, {
+		input:  "set transaction read write",
+		output: "set tx_read_only = 0",
+	}, {
+		input:  "set transaction read only",
+		output: "set tx_read_only = 1",
+	}, {
+		input: "set tx_read_only = 1",
+	}, {
+		input: "set tx_read_only = 0",
+	}, {
+		input: "set tx_isolation = 'repeatable read'",
+	}, {
+		input: "set tx_isolation = 'read committed'",
+	}, {
+		input: "set tx_isolation = 'read uncommitted'",
+	}, {
+		input: "set tx_isolation = 'serializable'",
+	}, {
+		input: "set sql_safe_updates = 0",
+	}, {
+		input: "set sql_safe_updates = 1",
 	}, {
 		input:  "alter ignore table a add foo",
 		output: "alter table a",
@@ -1018,7 +1073,7 @@ var (
 		output: "show processlist",
 	}, {
 		input:  "show full processlist",
-		output: "show full",
+		output: "show processlist",
 	}, {
 		input:  "show profile cpu for query 1",
 		output: "show profile",
@@ -1047,11 +1102,32 @@ var (
 		input:  "show table status",
 		output: "show table",
 	}, {
-		input:  "show tables",
-		output: "show tables",
+		input: "show tables",
 	}, {
-		input:  "show full tables",
-		output: "show full",
+		input: "show tables like '%keyspace%'",
+	}, {
+		input: "show tables where 1 = 0",
+	}, {
+		input: "show tables from a",
+	}, {
+		input: "show tables from a where 1 = 0",
+	}, {
+		input: "show tables from a like '%keyspace%'",
+	}, {
+		input: "show full tables",
+	}, {
+		input: "show full tables from a",
+	}, {
+		input:  "show full tables in a",
+		output: "show full tables from a",
+	}, {
+		input: "show full tables from a like '%keyspace%'",
+	}, {
+		input: "show full tables from a where 1 = 0",
+	}, {
+		input: "show full tables like '%keyspace%'",
+	}, {
+		input: "show full tables where 1 = 0",
 	}, {
 		input:  "show triggers",
 		output: "show triggers",
@@ -1710,12 +1786,22 @@ func TestCreateTable(t *testing.T) {
 			"	email varchar,\n" +
 			"	full_name varchar,\n" +
 			"	status_nonkeyword varchar,\n" +
-			"	primary key (id) USING BTREE,\n" +
-			"	unique key by_username (username) USING HASH,\n" +
-			"	unique by_username2 (username) USING OTHER,\n" +
-			"	unique index by_username3 (username) USING XYZ,\n" +
-			"	index by_status (status_nonkeyword) USING PDQ,\n" +
-			"	key by_full_name (full_name) USING OTHER\n" +
+			"	primary key (id) using BTREE,\n" +
+			"	unique key by_username (username) using HASH,\n" +
+			"	unique by_username2 (username) using OTHER,\n" +
+			"	unique index by_username3 (username) using XYZ,\n" +
+			"	index by_status (status_nonkeyword) using PDQ,\n" +
+			"	key by_full_name (full_name) using OTHER\n" +
+			")",
+		// test other index options
+		"create table t (\n" +
+			"	id int auto_increment,\n" +
+			"	username varchar,\n" +
+			"	email varchar,\n" +
+			"	primary key (id) comment 'hi',\n" +
+			"	unique key by_username (username) key_block_size 8,\n" +
+			"	unique index by_username4 (username) comment 'hi' using BTREE,\n" +
+			"	unique index by_username4 (username) using BTREE key_block_size 4 comment 'hi'\n" +
 			")",
 
 		// multi-column indexes
@@ -1786,6 +1872,38 @@ func TestCreateTable(t *testing.T) {
 	tree, err = ParseStrictDDL(sql)
 	if tree != nil || err == nil {
 		t.Errorf("ParseStrictDDL unexpectedly accepted input %s", sql)
+	}
+
+	testCases := []struct {
+		input  string
+		output string
+	}{{
+		// test key_block_size
+		input: "create table t (\n" +
+			"	id int auto_increment,\n" +
+			"	username varchar,\n" +
+			"	unique key by_username (username) key_block_size 8,\n" +
+			"	unique key by_username2 (username) key_block_size=8,\n" +
+			"	unique by_username3 (username) key_block_size = 4\n" +
+			")",
+		output: "create table t (\n" +
+			"	id int auto_increment,\n" +
+			"	username varchar,\n" +
+			"	unique key by_username (username) key_block_size 8,\n" +
+			"	unique key by_username2 (username) key_block_size 8,\n" +
+			"	unique by_username3 (username) key_block_size 4\n" +
+			")",
+	},
+	}
+	for _, tcase := range testCases {
+		tree, err := ParseStrictDDL(tcase.input)
+		if err != nil {
+			t.Errorf("input: %s, err: %v", tcase.input, err)
+			continue
+		}
+		if got, want := String(tree.(*DDL)), tcase.output; got != want {
+			t.Errorf("Parse(%s):\n%s, want\n%s", tcase.input, got, want)
+		}
 	}
 }
 

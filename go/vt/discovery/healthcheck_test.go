@@ -23,6 +23,8 @@ import (
 	"html/template"
 	"io"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -34,9 +36,6 @@ import (
 	"vitess.io/vitess/go/vt/vttablet/queryservice"
 	"vitess.io/vitess/go/vt/vttablet/queryservice/fakes"
 	"vitess.io/vitess/go/vt/vttablet/tabletconn"
-
-	"strings"
-	"sync"
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
@@ -50,6 +49,13 @@ func init() {
 	connMap = make(map[string]*fakeConn)
 }
 
+func testChecksum(t *testing.T, want, got int64) {
+	t.Helper()
+	if want != got {
+		t.Errorf("want checksum %v, got %v", want, got)
+	}
+}
+
 func TestHealthCheck(t *testing.T) {
 	tablet := topo.NewTablet(0, "cell", "a")
 	tablet.PortMap["vt"] = 1
@@ -59,6 +65,7 @@ func TestHealthCheck(t *testing.T) {
 	l := newListener()
 	hc := NewHealthCheck(1*time.Millisecond, time.Hour).(*HealthCheckImpl)
 	hc.SetListener(l, true)
+	testChecksum(t, 0, hc.stateChecksum())
 	hc.AddTablet(tablet, "")
 	t.Logf(`hc = HealthCheck(); hc.AddTablet({Host: "a", PortMap: {"vt": 1}}, "")`)
 
@@ -74,6 +81,7 @@ func TestHealthCheck(t *testing.T) {
 	if !reflect.DeepEqual(res, want) {
 		t.Errorf(`<-l.output: %+v; want %+v`, res, want)
 	}
+	testChecksum(t, 401258919, hc.stateChecksum())
 
 	// one tablet after receiving a StreamHealthResponse
 	shr := &querypb.StreamHealthResponse{
@@ -120,6 +128,7 @@ func TestHealthCheck(t *testing.T) {
 	if !reflect.DeepEqual(tcsl, tcslWant) {
 		t.Errorf("hc.CacheStatus() =\n%+v; want\n%+v", tcsl[0], tcslWant[0])
 	}
+	testChecksum(t, 1562785705, hc.stateChecksum())
 
 	// TabletType changed, should get both old and new event
 	shr = &querypb.StreamHealthResponse{
@@ -160,6 +169,7 @@ func TestHealthCheck(t *testing.T) {
 	if err := checkErrorCounter("k", "s", topodatapb.TabletType_REPLICA, 0); err != nil {
 		t.Errorf("%v", err)
 	}
+	testChecksum(t, 1906892404, hc.stateChecksum())
 
 	// Serving & RealtimeStats changed
 	shr = &querypb.StreamHealthResponse{
@@ -183,6 +193,7 @@ func TestHealthCheck(t *testing.T) {
 	if !reflect.DeepEqual(res, want) {
 		t.Errorf(`<-l.output: %+v; want %+v`, res, want)
 	}
+	testChecksum(t, 1200695592, hc.stateChecksum())
 
 	// HealthError
 	shr = &querypb.StreamHealthResponse{
@@ -207,6 +218,7 @@ func TestHealthCheck(t *testing.T) {
 	if !reflect.DeepEqual(res, want) {
 		t.Errorf(`<-l.output: %+v; want %+v`, res, want)
 	}
+	testChecksum(t, 1200695592, hc.stateChecksum()) // unchanged
 
 	// remove tablet
 	hc.deleteConn(tablet)
@@ -225,6 +237,7 @@ func TestHealthCheck(t *testing.T) {
 	if !reflect.DeepEqual(res, want) {
 		t.Errorf("<-l.output:\n%+v; want\n%+v", res, want)
 	}
+	testChecksum(t, 0, hc.stateChecksum())
 
 	// close healthcheck
 	hc.Close()
@@ -570,6 +583,42 @@ func TestTemplate(t *testing.T) {
 	wr := &bytes.Buffer{}
 	if err := templ.Execute(wr, []*TabletsCacheStatus{tcs}); err != nil {
 		t.Fatalf("error executing template: %v", err)
+	}
+}
+
+func TestDebugURLFormatting(t *testing.T) {
+	flag.Set("tablet_url_template", "https://{{.GetHostNameLevel 0}}.bastion.{{.Tablet.Alias.Cell}}.corp")
+	ParseTabletURLTemplateFromFlag()
+
+	tablet := topo.NewTablet(0, "cell", "host.dc.domain")
+	ts := []*TabletStats{
+		{
+			Key:     "a",
+			Tablet:  tablet,
+			Target:  &querypb.Target{Keyspace: "k", Shard: "s", TabletType: topodatapb.TabletType_REPLICA},
+			Up:      true,
+			Serving: false,
+			Stats:   &querypb.RealtimeStats{SecondsBehindMaster: 1, CpuUsage: 0.3},
+			TabletExternallyReparentedTimestamp: 0,
+		},
+	}
+	tcs := &TabletsCacheStatus{
+		Cell:         "cell",
+		Target:       &querypb.Target{Keyspace: "k", Shard: "s", TabletType: topodatapb.TabletType_REPLICA},
+		TabletsStats: ts,
+	}
+	templ := template.New("").Funcs(status.StatusFuncs)
+	templ, err := templ.Parse(HealthCheckTemplate)
+	if err != nil {
+		t.Fatalf("error parsing template: %v", err)
+	}
+	wr := &bytes.Buffer{}
+	if err := templ.Execute(wr, []*TabletsCacheStatus{tcs}); err != nil {
+		t.Fatalf("error executing template: %v", err)
+	}
+	expectedURL := `"https://host.bastion.cell.corp"`
+	if !strings.Contains(wr.String(), expectedURL) {
+		t.Fatalf("output missing formatted URL, expectedURL: %s , output: %s", expectedURL, wr.String())
 	}
 }
 

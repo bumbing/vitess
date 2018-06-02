@@ -84,7 +84,7 @@ func (agent *ActionAgent) stopSlaveLocked(ctx context.Context) error {
 		}
 	}()
 
-	return mysqlctl.StopSlave(agent.MysqlDaemon, agent.hookExtraEnv())
+	return agent.MysqlDaemon.StopSlave(agent.hookExtraEnv())
 }
 
 // StopSlaveMinimum will stop the slave after it reaches at least the
@@ -139,7 +139,7 @@ func (agent *ActionAgent) StartSlave(ctx context.Context) error {
 	if err := agent.fixSemiSync(agent.Tablet().Type); err != nil {
 		return err
 	}
-	return mysqlctl.StartSlave(agent.MysqlDaemon, agent.hookExtraEnv())
+	return agent.MysqlDaemon.StartSlave(agent.hookExtraEnv())
 }
 
 // GetSlaves returns the address of all the slaves
@@ -287,13 +287,18 @@ func (agent *ActionAgent) DemoteMaster(ctx context.Context) (string, error) {
 	}
 	defer agent.unlock()
 
-	// Set the server read-only. Note all active connections are not
-	// affected.
-	if err := agent.MysqlDaemon.SetReadOnly(true); err != nil {
-		return "", err
-	}
+	// Tell Orchestrator we're stopped on purpose the demotion.
+	// This is a best effort task, so run it in a goroutine.
+	go func() {
+		if agent.orc == nil {
+			return
+		}
+		if err := agent.orc.BeginMaintenance(agent.Tablet(), "vttablet has been told to DemoteMaster"); err != nil {
+			log.Warningf("Orchestrator BeginMaintenance failed: %v", err)
+		}
+	}()
 
-	// Now disallow queries, to make sure nobody is writing to the
+	// First, disallow queries, to make sure nobody is writing to the
 	// database.
 	tablet := agent.Tablet()
 	// We don't care if the QueryService state actually changed because we'll
@@ -301,6 +306,12 @@ func (agent *ActionAgent) DemoteMaster(ctx context.Context) (string, error) {
 	log.Infof("DemoteMaster disabling query service")
 	if _ /* state changed */, err := agent.QueryServiceControl.SetServingType(tablet.Type, false, nil); err != nil {
 		return "", fmt.Errorf("SetServingType(serving=false) failed: %v", err)
+	}
+
+	// Now, set the server read-only. Note all active connections are not
+	// affected.
+	if err := agent.MysqlDaemon.SetReadOnly(true); err != nil {
+		return "", err
 	}
 
 	// If using semi-sync, we need to disable master-side.
@@ -397,6 +408,21 @@ func (agent *ActionAgent) setMasterLocked(ctx context.Context, parentAlias *topo
 	parent, err := agent.TopoServer.GetTablet(ctx, parentAlias)
 	if err != nil {
 		return err
+	}
+
+	// If this tablet used to be a master, end orchestrator maintenance after we are connected to the new master.
+	// This is a best effort operation, so it should happen in a goroutine
+	if agent.Tablet().Type == topodatapb.TabletType_MASTER {
+		defer func() {
+			go func() {
+				if agent.orc == nil {
+					return
+				}
+				if err := agent.orc.EndMaintenance(agent.Tablet()); err != nil {
+					log.Warningf("Orchestrator EndMaintenance failed: %v", err)
+				}
+			}()
+		}()
 	}
 
 	// See if we were replicating at all, and should be replicating
@@ -618,10 +644,10 @@ func (agent *ActionAgent) fixSemiSyncAndReplication(tabletType topodatapb.Tablet
 
 	// We need to restart replication
 	log.Infof("Restarting replication for semi-sync flag change to take effect from %v to %v", acking, shouldAck)
-	if err := mysqlctl.StopSlave(agent.MysqlDaemon, agent.hookExtraEnv()); err != nil {
+	if err := agent.MysqlDaemon.StopSlave(agent.hookExtraEnv()); err != nil {
 		return fmt.Errorf("failed to StopSlave: %v", err)
 	}
-	if err := mysqlctl.StartSlave(agent.MysqlDaemon, agent.hookExtraEnv()); err != nil {
+	if err := agent.MysqlDaemon.StartSlave(agent.hookExtraEnv()); err != nil {
 		return fmt.Errorf("failed to StartSlave: %v", err)
 	}
 	return nil

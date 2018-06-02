@@ -112,6 +112,8 @@ func Init(prefix string) {
 
 		backend := &openTSDBBackend{
 			prefix: prefix,
+			// If you want to global service values like host, service name, git revision, etc,
+			// this is the place to do it.
 			commonTags: map[string]string{
 				"version": gitRev,
 				"host":    hostname,
@@ -175,8 +177,8 @@ func (dc *dataCollector) addFloat(metric string, val float64, tags map[string]st
 	// Restrict metric and tag name/values to legal characters:
 	// http://opentsdb.net/docs/build/html/user_guide/writing.html#metrics-and-tags
 	//
-	// Also make everything lowercase, since opentsdb is case sensitive and lowercase is our
-	// convention.
+	// Also make everything lowercase, since opentsdb is case sensitive and lowercase
+	// simplifies the convention.
 	sanitize := func(text string) string {
 		var b bytes.Buffer
 		for _, r := range text {
@@ -225,26 +227,24 @@ func (dc *dataCollector) addExpVar(kv expvar.KeyValue) {
 	case *stats.Counter:
 		dc.addInt(k, v.Get(), nil)
 	case *stats.CounterFunc:
-		dc.addFloat(k, v.Mf.FloatVal(), nil)
+		dc.addInt(k, v.F(), nil)
 	case *stats.Gauge:
 		dc.addInt(k, v.Get(), nil)
 	case *stats.GaugeFunc:
-		dc.addFloat(k, v.Mf.FloatVal(), nil)
-	case stats.IntFunc:
-		dc.addInt(k, v(), nil)
-	case *stats.Duration:
+		dc.addInt(k, v.F(), nil)
+	case *stats.CounterDuration:
 		dc.addInt(k, int64(v.Get()/time.Millisecond), nil)
-	case stats.DurationFunc:
-		dc.addInt(k, int64(v()/time.Millisecond), nil)
+	case *stats.CounterDurationFunc:
+		dc.addInt(k, int64(v.F()/time.Millisecond), nil)
 	case *stats.MultiTimings:
 		dc.addTimings(v.Labels(), &v.Timings, k)
 	case *stats.Timings:
 		dc.addTimings([]string{"Histograms"}, v, k)
 	case *stats.Histogram:
 		dc.addHistogram(v, 1, k, make(map[string]string))
-	case *stats.CountersWithLabels:
+	case *stats.CountersWithSingleLabel:
 		for labelVal, val := range v.Counts() {
-			dc.addInt(k, val, makeLabel(v.LabelName(), labelVal))
+			dc.addInt(k, val, makeLabel(v.Label(), labelVal))
 		}
 	case *stats.CountersWithMultiLabels:
 		for labelVals, val := range v.Counts() {
@@ -262,9 +262,9 @@ func (dc *dataCollector) addExpVar(kv expvar.KeyValue) {
 		for labelVals, val := range v.Counts() {
 			dc.addInt(k, val, makeLabels(v.Labels(), labelVals))
 		}
-	case *stats.GaugesWithLabels:
+	case *stats.GaugesWithSingleLabel:
 		for labelVal, val := range v.Counts() {
-			dc.addInt(k, val, makeLabel(v.LabelName(), labelVal))
+			dc.addInt(k, val, makeLabel(v.Label(), labelVal))
 		}
 	default:
 		// Deal with generic expvars by converting them to JSON and pulling out
@@ -312,6 +312,7 @@ func (dc *dataCollector) addUnrecognizedExpvars(prefix string, obj map[string]in
 func (dc *dataCollector) addTimings(labels []string, timings *stats.Timings, prefix string) {
 	histograms := timings.Histograms()
 	for labelValsCombined, histogram := range histograms {
+		// If you prefer millisecond timings over nanoseconds you can pass 1000000 here instead of 1.
 		dc.addHistogram(histogram, millisecond, prefix, makeLabels(labels, labelValsCombined))
 	}
 }

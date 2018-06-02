@@ -1105,7 +1105,7 @@ func (ct *ColumnType) walkSubtree(visit Visit) error {
 type IndexDefinition struct {
 	Info    *IndexInfo
 	Columns []*IndexColumn
-	Using   ColIdent
+	Options []*IndexOption
 }
 
 // Format formats the node.
@@ -1122,8 +1122,14 @@ func (idx *IndexDefinition) Format(buf *TrackedBuffer) {
 		}
 	}
 	buf.Myprintf(")")
-	if !idx.Using.IsEmpty() {
-		buf.Myprintf(" USING %v", idx.Using)
+
+	for _, opt := range idx.Options {
+		buf.Myprintf(" %s", opt.Name)
+		if opt.Using != "" {
+			buf.Myprintf(" %s", opt.Using)
+		} else {
+			buf.Myprintf(" %v", opt.Value)
+		}
 	}
 }
 
@@ -1174,6 +1180,13 @@ type IndexColumn struct {
 type LengthScaleOption struct {
 	Length *SQLVal
 	Scale  *SQLVal
+}
+
+// IndexOption is used for trailing options for indexes: COMMENT, KEY_BLOCK_SIZE, USING
+type IndexOption struct {
+	Name  string
+	Value *SQLVal
+	Using string
 }
 
 // ColumnKeyOption indicates whether or not the given column is defined as an
@@ -1267,13 +1280,31 @@ func (node VindexParam) walkSubtree(visit Visit) error {
 
 // Show represents a show statement.
 type Show struct {
-	Type    string
-	OnTable TableName
-	Scope   string
+	Type          string
+	OnTable       TableName
+	ShowTablesOpt *ShowTablesOpt
+	Scope         string
 }
 
 // Format formats the node.
 func (node *Show) Format(buf *TrackedBuffer) {
+	if node.Type == "tables" && node.ShowTablesOpt != nil {
+		opt := node.ShowTablesOpt
+		if opt.DbName != "" {
+			if opt.Filter != nil {
+				buf.Myprintf("show %s%stables from %s %v", opt.Extended, opt.Full, opt.DbName, opt.Filter)
+			} else {
+				buf.Myprintf("show %s%stables from %s", opt.Extended, opt.Full, opt.DbName)
+			}
+		} else {
+			if opt.Filter != nil {
+				buf.Myprintf("show %s%stables %v", opt.Extended, opt.Full, opt.Filter)
+			} else {
+				buf.Myprintf("show %s%stables", opt.Extended, opt.Full)
+			}
+		}
+		return
+	}
 	if node.Scope == "" {
 		buf.Myprintf("show %s", node.Type)
 	} else {
@@ -1290,6 +1321,33 @@ func (node *Show) HasOnTable() bool {
 }
 
 func (node *Show) walkSubtree(visit Visit) error {
+	return nil
+}
+
+// ShowTablesOpt is show tables option
+type ShowTablesOpt struct {
+	Extended string
+	Full     string
+	DbName   string
+	Filter   *ShowFilter
+}
+
+// ShowFilter is show tables filter
+type ShowFilter struct {
+	Like   string
+	Filter Expr
+}
+
+// Format formats the node.
+func (node *ShowFilter) Format(buf *TrackedBuffer) {
+	if node.Like != "" {
+		buf.Myprintf("like '%s'", node.Like)
+	} else {
+		buf.Myprintf("where %v", node.Filter)
+	}
+}
+
+func (node *ShowFilter) walkSubtree(visit Visit) error {
 	return nil
 }
 
@@ -2688,12 +2746,12 @@ func (node *GroupConcatExpr) replace(from, to Expr) bool {
 
 // ValuesFuncExpr represents a function call.
 type ValuesFuncExpr struct {
-	Name ColIdent
+	Name *ColName
 }
 
 // Format formats the node.
 func (node *ValuesFuncExpr) Format(buf *TrackedBuffer) {
-	buf.Myprintf("values(%s)", node.Name.String())
+	buf.Myprintf("values(%v)", node.Name)
 }
 
 func (node *ValuesFuncExpr) walkSubtree(visit Visit) error {
@@ -3337,8 +3395,13 @@ func (node *TableIdent) UnmarshalJSON(b []byte) error {
 }
 
 func formatID(buf *TrackedBuffer, original, lowered string) {
+	isDbSystemVariable := false
+	if len(original) > 1 && original[:2] == "@@" {
+		isDbSystemVariable = true
+	}
+
 	for i, c := range original {
-		if !isLetter(uint16(c)) {
+		if !isLetter(uint16(c)) && (!isDbSystemVariable || !isCarat(uint16(c))) {
 			if i == 0 || !isDigit(uint16(c)) {
 				goto mustEscape
 			}

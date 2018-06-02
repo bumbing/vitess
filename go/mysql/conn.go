@@ -579,31 +579,31 @@ func (c *Conn) writeEphemeralPacket(direct bool) error {
 		// Just write c.buffer as a single buffer.
 		// It has both header and data.
 		if n, err := w.Write(c.buffer); err != nil {
-			return fmt.Errorf("Write(c.buffer) failed: %v", err)
+			return fmt.Errorf("Conn %v: Write(c.buffer) failed: %v", c.ID(), err)
 		} else if n != len(c.buffer) {
-			return fmt.Errorf("Write(c.buffer) returned a short write: %v < %v", n, len(c.buffer))
+			return fmt.Errorf("Conn %v: Write(c.buffer) returned a short write: %v < %v", c.ID(), n, len(c.buffer))
 		}
 	case ephemeralWriteSingleBuffer:
 		// Write the allocated buffer as a single buffer.
 		// It has both header and data.
 		if n, err := w.Write(c.currentEphemeralPacket); err != nil {
-			return fmt.Errorf("Write(c.currentEphemeralPacket) failed: %v", err)
+			return fmt.Errorf("Conn %v: Write(c.currentEphemeralPacket) failed: %v", c.ID(), err)
 		} else if n != len(c.currentEphemeralPacket) {
-			return fmt.Errorf("Write(c.currentEphemeralPacket) returned a short write: %v < %v", n, len(c.currentEphemeralPacket))
+			return fmt.Errorf("Conn %v: Write(c.currentEphemeralPacket) returned a short write: %v < %v", c.ID(), n, len(c.currentEphemeralPacket))
 		}
 	case ephemeralWriteBigBuffer:
 		// This is the slower path for big data.
 		// With direct=true, the caller expects a flush, so we call it
 		// manually.
 		if err := c.writePacket(c.currentEphemeralPacket); err != nil {
-			return err
+			return fmt.Errorf("Conn %v: %v", c.ID(), err)
 		}
 		if direct {
 			return c.flush()
 		}
 	case ephemeralUnused, ephemeralReadGlobalBuffer, ephemeralReadSingleBuffer, ephemeralReadBigBuffer:
 		// Programming error.
-		panic(fmt.Errorf("trying to call writeEphemeralPacket while currentEphemeralPolicy is %v", c.currentEphemeralPolicy))
+		panic(fmt.Errorf("Conn %v: trying to call writeEphemeralPacket while currentEphemeralPolicy is %v", c.ID(), c.currentEphemeralPolicy))
 	}
 
 	return nil
@@ -613,7 +613,7 @@ func (c *Conn) writeEphemeralPacket(direct bool) error {
 // This method returns a generic error, not a SQLError.
 func (c *Conn) flush() error {
 	if err := c.writer.Flush(); err != nil {
-		return fmt.Errorf("Flush() failed: %v", err)
+		return fmt.Errorf("Conn %v: Flush() failed: %v", c.ID(), err)
 	}
 	return nil
 }
@@ -765,6 +765,36 @@ func (c *Conn) writeEOFPacket(flags uint16, warnings uint16) error {
 // Packet parsing methods, for generic packets.
 //
 
+// isEOFPacket determines whether or not a data packet is a "true" EOF. DO NOT blindly compare the
+// first byte of a packet to EOFPacket as you might do for other packet types, as 0xfe is overloaded
+// as a first byte.
+//
+// Per https://dev.mysql.com/doc/internals/en/packet-EOF_Packet.html, a packet starting with 0xfe
+// but having length >= 9 (on top of 4 byte header) is not a true EOF but a LengthEncodedInteger
+// (typically preceding a LengthEncodedString). Thus, all EOF checks must validate the payload size
+// before exiting.
+//
+// More specifically, an EOF packet can have 3 different lengths (1, 5, 7) depending on the client
+// flags that are set. 7 comes from server versions of 5.7.5 or greater where ClientDeprecateEOF is
+// set (i.e. uses an OK packet starting with 0xfe instead of 0x00 to signal EOF). Regardless, 8 is
+// an upper bound otherwise it would be ambiguous w.r.t. LengthEncodedIntegers.
+//
+// More docs here:
+// https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_response_packets.html
+func isEOFPacket(data []byte) bool {
+	return data[0] == EOFPacket && len(data) < 9
+}
+
+// parseEOFPacket returns true if there are more results to receive.
+func parseEOFPacket(data []byte) (bool, error) {
+	// The status flag is in position 4 & 5
+	statusFlags, _, ok := readUint16(data, 3)
+	if !ok {
+		return false, fmt.Errorf("invalid EOF packet statusFlags: %v", data)
+	}
+	return (statusFlags & ServerMoreResultsExists) != 0, nil
+}
+
 func parseOKPacket(data []byte) (uint64, uint64, uint16, uint16, error) {
 	// We already read the type.
 	pos := 1
@@ -794,6 +824,12 @@ func parseOKPacket(data []byte) (uint64, uint64, uint16, uint16, error) {
 	}
 
 	return affectedRows, lastInsertID, statusFlags, warnings, nil
+}
+
+// isErrorPacket determines whether or not the packet is an error packet. Mostly here for
+// consistency with isEOFPacket
+func isErrorPacket(data []byte) bool {
+	return data[0] == ErrPacket
 }
 
 // ParseErrorPacket parses the error packet and returns a SQLError.

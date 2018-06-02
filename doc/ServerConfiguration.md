@@ -57,11 +57,11 @@ Vitess relies on adding comments to DMLs, which are later parsed on the other en
 
 In order to achieve this, Vitess also rewrites all your DMLs to be primary-key based. In a way, this also makes statement based replication almost as efficient as row-based replication (RBR). So, there should be no major loss of performance if you switched to SBR in Vitess.
 
-RBR will eventually be supported by Vitess.
+In Vitess 2.2 preliminary support for Row Based Replication (RBR) was added. See [this document]({% link user-guide/row-based-replication.md %}) for more information.
 
 ### Data types
 
-Vitess supports data types at the MySQL 5.5 level. The newer data types like spatial or JSON are not supported yet. Additionally, the TIMESTAMP data type should not be used in a primary key or sharding column. Otherwise, Vitess cannot predict those values correctly and this may result in data corruption.
+Vitess supports all data types including newer data types like spatial and JSON. Additionally, the TIMESTAMP data type should not be used in a primary key or sharding column. Otherwise, Vitess cannot predict those values correctly and this may result in data corruption.
 
 ### No side effects
 
@@ -513,10 +513,6 @@ This URL has an MRU list of consolidations. This is a way of identifying if mult
 
 This URL displays the currently active query blacklist rules.
 
-#### /debug/health
-
-This URL prints out a simple "ok" or “not ok” string that can be used to check if the server is healthy.
-
 ### Alerting
 
 Alerting is built on top of the variables you monitor. Before setting up alerts, you should get some baseline stats and variance, and then you can build meaningful alerting rules. You can use the following list as a guideline to build your own:
@@ -676,4 +672,3 @@ Orchestrator, it also means new instances will be discovered immediately,
 and the topology will automatically repopulate even if Orchestrator's
 backing store is wiped out. Note that Orchestrator will forget stale
 instances after a configurable timeout.
-

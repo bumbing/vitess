@@ -234,24 +234,24 @@ func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tab
 	qe.accessCheckerLogger = logutil.NewThrottledLogger("accessChecker", 1*time.Second)
 
 	qeOnce.Do(func() {
-		stats.NewGaugeFunc("MaxResultSize", "Query engine max result size", stats.IntFunc(qe.maxResultSize.Get))
-		stats.NewGaugeFunc("WarnResultSize", "Query engine warn result size", stats.IntFunc(qe.warnResultSize.Get))
-		stats.NewGaugeFunc("MaxDMLRows", "Query engine max DML rows", stats.IntFunc(qe.maxDMLRows.Get))
-		stats.NewGaugeFunc("StreamBufferSize", "Query engine stream buffer size", stats.IntFunc(qe.streamBufferSize.Get))
-		stats.NewCounterFunc("TableACLExemptCount", "Query engine table ACL exempt count", stats.IntFunc(qe.tableaclExemptCount.Get))
-		stats.NewGaugeFunc("QueryPoolWaiters", "Query engine query pool waiters", stats.IntFunc(qe.queryPoolWaiters.Get))
+		stats.NewGaugeFunc("MaxResultSize", "Query engine max result size", qe.maxResultSize.Get)
+		stats.NewGaugeFunc("WarnResultSize", "Query engine warn result size", qe.warnResultSize.Get)
+		stats.NewGaugeFunc("MaxDMLRows", "Query engine max DML rows", qe.maxDMLRows.Get)
+		stats.NewGaugeFunc("StreamBufferSize", "Query engine stream buffer size", qe.streamBufferSize.Get)
+		stats.NewCounterFunc("TableACLExemptCount", "Query engine table ACL exempt count", qe.tableaclExemptCount.Get)
+		stats.NewGaugeFunc("QueryPoolWaiters", "Query engine query pool waiters", qe.queryPoolWaiters.Get)
 
-		stats.NewGaugeFunc("QueryCacheLength", "Query engine query cache length", stats.IntFunc(qe.plans.Length))
-		stats.NewGaugeFunc("QueryCacheSize", "Query engine query cache size", stats.IntFunc(qe.plans.Size))
-		stats.NewGaugeFunc("QueryCacheCapacity", "Query engine query cache capacity", stats.IntFunc(qe.plans.Capacity))
-		stats.NewCounterFunc("QueryCacheEvictions", "Query engine query cache evictions", stats.IntFunc(qe.plans.Evictions))
+		stats.NewGaugeFunc("QueryCacheLength", "Query engine query cache length", qe.plans.Length)
+		stats.NewGaugeFunc("QueryCacheSize", "Query engine query cache size", qe.plans.Size)
+		stats.NewGaugeFunc("QueryCacheCapacity", "Query engine query cache capacity", qe.plans.Capacity)
+		stats.NewCounterFunc("QueryCacheEvictions", "Query engine query cache evictions", qe.plans.Evictions)
 		stats.Publish("QueryCacheOldest", stats.StringFunc(func() string {
 			return fmt.Sprintf("%v", qe.plans.Oldest())
 		}))
-		_ = stats.NewCountersFuncWithMultiLabels("QueryCounts", []string{"Table", "Plan"}, "query counts", qe.getQueryCount)
-		_ = stats.NewCountersFuncWithMultiLabels("QueryTimesNs", []string{"Table", "Plan"}, "query times in ns", qe.getQueryTime)
-		_ = stats.NewCountersFuncWithMultiLabels("QueryRowCounts", []string{"Table", "Plan"}, "query row counts", qe.getQueryRowCount)
-		_ = stats.NewCountersFuncWithMultiLabels("QueryErrorCounts", []string{"Table", "Plan"}, "query error counts", qe.getQueryErrorCount)
+		_ = stats.NewCountersFuncWithMultiLabels("QueryCounts", "query counts", []string{"Table", "Plan"}, qe.getQueryCount)
+		_ = stats.NewCountersFuncWithMultiLabels("QueryTimesNs", "query times in ns", []string{"Table", "Plan"}, qe.getQueryTime)
+		_ = stats.NewCountersFuncWithMultiLabels("QueryRowCounts", "query row counts", []string{"Table", "Plan"}, qe.getQueryRowCount)
+		_ = stats.NewCountersFuncWithMultiLabels("QueryErrorCounts", "query error counts", []string{"Table", "Plan"}, qe.getQueryErrorCount)
 
 		http.Handle("/debug/hotrows", qe.txSerializer)
 
@@ -326,7 +326,11 @@ func (qe *QueryEngine) GetPlan(ctx context.Context, logStats *tabletenv.LogStats
 	// acceptable because those numbers are best effort.
 	qe.mu.RLock()
 	defer qe.mu.RUnlock()
-	splan, err := planbuilder.Build(sql, qe.tables)
+	statement, err := sqlparser.Parse(sql)
+	if err != nil {
+		return nil, err
+	}
+	splan, err := planbuilder.Build(statement, qe.tables)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +358,7 @@ func (qe *QueryEngine) GetPlan(ctx context.Context, logStats *tabletenv.LogStats
 	} else if plan.PlanID == planbuilder.PlanDDL || plan.PlanID == planbuilder.PlanSet {
 		return plan, nil
 	}
-	if !skipQueryPlanCache {
+	if !skipQueryPlanCache && !sqlparser.SkipQueryPlanCacheDirective(statement) {
 		qe.plans.Set(sql, plan)
 	}
 	return plan, nil
