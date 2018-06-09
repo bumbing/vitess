@@ -289,6 +289,12 @@ func makeLabel(labelName string, labelVal string) map[string]string {
 func makeLabels(labelNames []string, labelValsCombined string) map[string]string {
 	tags := make(map[string]string)
 	labelVals := strings.Split(labelValsCombined, ".")
+
+	if len(labelVals) != len(labelNames) {
+		log.Fatalf("Internal error: expected tags %v but got wrong number: %s", labelNames, labelValsCombined)
+		return tags
+	}
+
 	for i, v := range labelVals {
 		tags[labelNames[i]] = v
 	}
