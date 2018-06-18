@@ -57,8 +57,12 @@ func sendDataPoints(data []dataPoint) error {
 		return err
 	}
 
-	_, err = http.Post(*openTsdbURI, "application/json", bytes.NewReader(json))
-	return err
+	resp, err := http.Post(*openTsdbURI, "application/json", bytes.NewReader(json))
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 // A millisecond in nanoseconds, for ease of conversion.
