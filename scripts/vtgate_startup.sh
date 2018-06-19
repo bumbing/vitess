@@ -59,6 +59,18 @@ if [[ ! -z "${TELETRAAN_TABLET_TYPES_TO_WAIT}" ]]; then
     -tablet_types_to_wait ${TELETRAAN_TABLET_TYPES_TO_WAIT}"
 fi
 
+if [[ ! -z "${TELETRAAN_TOPO_GLOBAL_ROOT}" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -topo_global_root ${TELETRAAN_TOPO_GLOBAL_ROOT}"
+fi
+
+if [[ ! -z "${TELETRAAN_ALLOWED_TABLET_TYPES}" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -allowed_tablet_types ${TELETRAAN_ALLOWED_TABLET_TYPES}"
+fi
+
 ${VTGATE_COMMAND} \
   -topo_implementation zk2 \
   -topo_global_root /vitess/global \
