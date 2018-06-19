@@ -47,6 +47,18 @@ if [[ ${DEV} == true ]]; then
     -opentsdb_service vtgate_test"
 fi
 
+if [[ ! -z "${TELETRAAN_ZK_SERVERS}" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -topo_global_server_address ${TELETRAAN_ZK_SERVERS}"
+fi
+
+if [[ ! -z "${TELETRAAN_TABLET_TYPES_TO_WAIT}" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -tablet_types_to_wait ${TELETRAAN_TABLET_TYPES_TO_WAIT}"
+fi
+
 ${VTGATE_COMMAND} \
   -topo_implementation zk2 \
   -topo_global_root /vitess/global \

@@ -8,4 +8,4 @@ for dir in /var/log/vtgate /mnt/vtdataroot; do
   fi
 done
 
-configure-serviceset -c teletraan/config/serviceset.${STAGE_NAME}.conf
+configure-serviceset -c teletraan/config/serviceset.${TELETRAAN_ENV_TYPE}.conf
