@@ -158,6 +158,8 @@ func (backend *openTSDBBackend) getDataPoints() []dataPoint {
 		dataCollector.addExpVar(kv)
 	})
 
+	dataCollector.fillCommonTags()
+
 	return dataCollector.dataPoints
 }
 
@@ -166,8 +168,38 @@ func combineMetricName(parts ...string) string {
 	return strings.Join(parts, ".")
 }
 
+func (dc *dataCollector) fillCommonTags() {
+	for idx := range dc.dataPoints {
+		for k, v := range dc.settings.commonTags {
+			if _, ok := dc.dataPoints[idx].Tags[k]; ok {
+				// Let any explicit tag on a metric override a common tag.
+				continue
+			}
+			dc.dataPoints[idx].Tags[sanitize(k)] = sanitize(v)
+		}
+	}
+}
+
 func (dc *dataCollector) addInt(metric string, val int64, tags map[string]string) {
 	dc.addFloat(metric, float64(val), tags)
+}
+
+// Restrict metric and tag name/values to legal characters:
+// http://opentsdb.net/docs/build/html/user_guide/writing.html#metrics-and-tags
+//
+// Also make everything lowercase, since opentsdb is case sensitive and lowercase
+// simplifies the convention.
+func sanitize(text string) string {
+	var b bytes.Buffer
+	for _, r := range text {
+		if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '-' || r == '_' || r == '/' || r == '.' {
+			b.WriteRune(r)
+		} else {
+			// For characters that would cause errors, write underscore instead
+			b.WriteRune('_')
+		}
+	}
+	return strings.ToLower(b.String())
 }
 
 func (dc *dataCollector) addFloat(metric string, val float64, tags map[string]string) {
@@ -178,28 +210,7 @@ func (dc *dataCollector) addFloat(metric string, val float64, tags map[string]st
 		fullMetric = metric
 	}
 
-	// Restrict metric and tag name/values to legal characters:
-	// http://opentsdb.net/docs/build/html/user_guide/writing.html#metrics-and-tags
-	//
-	// Also make everything lowercase, since opentsdb is case sensitive and lowercase
-	// simplifies the convention.
-	sanitize := func(text string) string {
-		var b bytes.Buffer
-		for _, r := range text {
-			if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '-' || r == '_' || r == '/' || r == '.' {
-				b.WriteRune(r)
-			} else {
-				// For characters that would cause errors, write underscore instead
-				b.WriteRune('_')
-			}
-		}
-		return strings.ToLower(b.String())
-	}
-
 	fullTags := make(map[string]string)
-	for k, v := range dc.settings.commonTags {
-		fullTags[sanitize(k)] = sanitize(v)
-	}
 	for k, v := range tags {
 		fullTags[sanitize(k)] = sanitize(v)
 	}
@@ -269,6 +280,13 @@ func (dc *dataCollector) addExpVar(kv expvar.KeyValue) {
 	case *stats.GaugesWithSingleLabel:
 		for labelVal, val := range v.Counts() {
 			dc.addInt(k, val, makeLabel(v.Label(), labelVal))
+		}
+	case *stats.String:
+		val := v.Get()
+		switch k {
+		case "TabletType":
+			// For vttablet, we want to tag the tablet type in all other stats.
+			dc.settings.commonTags["dbtype"] = val
 		}
 	default:
 		// Deal with generic expvars by converting them to JSON and pulling out

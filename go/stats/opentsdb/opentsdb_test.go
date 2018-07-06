@@ -311,6 +311,7 @@ func checkOutput(t *testing.T, statName string, wantJSON string) {
 			found = true
 
 			dc.addExpVar(kv)
+			dc.fillCommonTags()
 			sort.Sort(byMetric(dc.dataPoints))
 
 			gotBytes, err := json.MarshalIndent(dc.dataPoints, "", "  ")
