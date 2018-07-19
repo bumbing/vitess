@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/vt/log"
 )
 
@@ -203,4 +204,6 @@ func init() {
 		log.Exitf("os.Hostname: %v", err)
 	}
 	http.HandleFunc("/debug/status", statusHandler)
+
+	stats.NewGauge("StartTime", "start time").Set(serverStart.Unix())
 }

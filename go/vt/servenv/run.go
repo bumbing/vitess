@@ -46,7 +46,8 @@ func Run(port int) {
 	}
 	go http.Serve(l, nil)
 
-	proc.Wait()
+	signal := proc.Wait()
+	log.Infof("Starting shutdown sequence in response to %v", signal)
 	l.Close()
 
 	startTime := time.Now()
