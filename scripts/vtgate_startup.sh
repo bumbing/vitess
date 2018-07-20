@@ -81,6 +81,7 @@ ${VTGATE_COMMAND} \
   -mysql_server_socket_path /tmp/mysql.sock \
   -mysql_auth_server_impl knox \
   -knox_supported_roles scriptro,longqueryro,scriptrw,longqueryrw \
+  -grpc_keepalive_time 30s \
   -cell test \
   -cells_to_watch test \
   -tablet_types_to_wait MASTER,REPLICA \
