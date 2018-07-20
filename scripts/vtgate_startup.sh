@@ -8,6 +8,7 @@
 
 DOCKER=false
 DEV=false
+LATEST=false
 
 EXTRA_ARGS=""
 if [ "$VTGATE_COMMAND" = "" ]
@@ -15,13 +16,16 @@ then
    VTGATE_COMMAND="bazel run --workspace_status_command=./scripts/workspace_status.sh go/cmd/vtgate --"
 fi
 
-while getopts ":de" opt; do
+while getopts ":det" opt; do
   case $opt in
     d)
       DOCKER=true
       ;;
     e)
       DEV=true
+      ;;
+    t)
+      LATEST=true
       ;;
     \?)
       break
@@ -37,6 +41,13 @@ if [[ ${DOCKER} == true ]]; then
     -log_queries_to_file /vt/logs/queries.log \
     -pid_file /vt/vtdataroot/vtgate.pid"
   VTGATE_COMMAND="/vt/bin/vtgate"
+fi
+
+# For new command line arguments that may be enabled for dev but not prod (yet).
+if [[ ${LATEST} == true ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -opentsdb_service vtgate_latest"
 fi
 
 # For new command line arguments that may be enabled for dev but not prod (yet).
