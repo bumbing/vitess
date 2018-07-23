@@ -1,0 +1,11 @@
+{
+  "table_groups": [
+    {
+      "name": "all_tables",
+      "table_names_or_prefixes": ["%"],
+      "readers": ["scriptro", "longqueryro", "scriptrw", "lonqueryrw"],
+      "writers": ["scriptrw", "longqueryrw"],
+      "admins": ["scriptrw", "longqueryrw"]
+    }
+  ]
+}
