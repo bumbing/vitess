@@ -78,7 +78,10 @@ func (c *Client) GetPrimaryCredentials(role string) (username string, password s
 // Knox mashes usernames and credentials in a non-standard format (sadness) so we need custom code
 // to parse it.
 //
-// The format is "<username>@%|<password>"
+// The format is "<username>@<host pattern>|<password>"
+//
+// Typically the host pattern is '%', but for credentials that should only be used
+// by vttablet authenticating to mysqld it might be "localhost".
 func parseKnoxCreds(rawCredentials string, role string) (username string, password string, err error) {
 	splitCreds := strings.Split(rawCredentials, "@%|")
 	if len(splitCreds) != 2 {
