@@ -8,7 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"strings"
+	"regexp"
 
 	"github.com/pinterest/knox"
 	"vitess.io/vitess/go/flagutil"
@@ -17,7 +17,8 @@ import (
 
 var (
 	knoxSupportedRoles flagutil.StringListValue
-	errParsingCreds    = errors.New("delimiter '@%|' is missing, which should separate username from password")
+	errParsingCreds    = errors.New("delimiter '@|' is missing, which should separate username from password")
+	knoxRe = regexp.MustCompile(`^([^@|]*)@([^@|]*)\|([^@|]*)$`)
 )
 
 // Client fetches passwords for a pre-determined set of users from knox.
@@ -50,7 +51,7 @@ func (c *Client) GetActivePassword(user string) (role string, password string, e
 				continue
 			}
 
-			candidateUsername, candidatePassword, err := parseKnoxCreds(unparsedActiveCredentials, user)
+			candidateUsername, candidatePassword, _, err := parseKnoxCreds(unparsedActiveCredentials, user)
 			if err != nil {
 				log.Errorf("Problems parsing creds for role %s: %v", role, err)
 				continue
@@ -71,8 +72,8 @@ func (c *Client) GetPrimaryCredentials(role string) (username string, password s
 	if !ok {
 		return "", "", fmt.Errorf("Role %s was not whitelisted with -knox_supported_roles", role)
 	}
-
-	return parseKnoxCreds(knoxClient.GetPrimary(), role)
+	user, pass, _, err := parseKnoxCreds(knoxClient.GetPrimary(), role)
+	return user, pass, err
 }
 
 // Knox mashes usernames and credentials in a non-standard format (sadness) so we need custom code
@@ -82,13 +83,13 @@ func (c *Client) GetPrimaryCredentials(role string) (username string, password s
 //
 // Typically the host pattern is '%', but for credentials that should only be used
 // by vttablet authenticating to mysqld it might be "localhost".
-func parseKnoxCreds(rawCredentials string, role string) (username string, password string, err error) {
-	splitCreds := strings.Split(rawCredentials, "@%|")
-	if len(splitCreds) != 2 {
-		return "", "", errParsingCreds
+func parseKnoxCreds(rawCredentials string, role string) (username string, password string, host string, err error) {
+	if match := knoxRe.FindStringSubmatch(rawCredentials); match != nil {
+		user, host, pass := match[1], match[2], match[3]
+		return user, pass, host, nil
 	}
 
-	return splitCreds[0], splitCreds[1], nil
+	return "", "", "", errParsingCreds
 }
 
 // requireFileClient is the same as NewFileClient, but panics if there is an
