@@ -76,6 +76,13 @@ if [[ ! -z "${TELETRAAN_TOPO_GLOBAL_ROOT}" ]]; then
     -topo_global_root ${TELETRAAN_TOPO_GLOBAL_ROOT}"
 fi
 
+if [[ ! -z "${TELETRAAN_CELL}" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -cell ${TELETRAAN_CELL} \
+    -cells_to_watch ${TELETRAAN_CELL}"
+fi
+
 if [[ ! -z "${TELETRAAN_ALLOWED_TABLET_TYPES}" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
