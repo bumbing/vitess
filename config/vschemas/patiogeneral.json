@@ -1,11 +1,25 @@
 {
-  "sharded": false,
   "tables": {
-    "owner_to_advertiser": {},
-    "exchange_rates": {},
-    "bulk_jobs": {},
-    "bulk_job_summaries": {},
-    "conversion_tags_v3": {},
-    "user_lists": {}
+    "conversion_tags_v3": {
+
+    },
+    "dark_write_conversion_tags_v3": {
+
+    },
+    "dark_write_exchange_rates": {
+
+    },
+    "dark_write_user_lists": {
+
+    },
+    "exchange_rates": {
+
+    },
+    "owner_to_advertiser": {
+
+    },
+    "user_lists": {
+
+    }
   }
 }

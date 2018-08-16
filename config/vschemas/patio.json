@@ -1,550 +1,145 @@
 {
-  "sharded": true,
-  "vindexes": {
-    "advertiser_gid": {
-      "type": "hash"
-    }
-  },
   "tables": {
+    "_drop_me_image_factory_ads": {
+
+    },
     "accepted_tos": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "ad_group_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "ad_groups": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "advertisers": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "gid"
-          ]
-        }
-      ]
+
     },
     "app_event_tracking_configs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "bill_details": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "billing_actions": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
+    },
+    "billing_contacts": {
+
     },
     "billing_profiles": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "bills": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "bulk_v2_jobs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "business_profiles": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "campaign_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "campaigns": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "carousel_slot_promotions": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "conversion_tags": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_accepted_tos": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_ad_group_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_ad_groups": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_advertisers": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_app_event_tracking_configs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_bill_details": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
+    },
+    "dark_write_billing_actions": {
+
     },
     "dark_write_bills": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_business_profiles": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_campaign_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_campaigns": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_notifications": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_order_line_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_order_lines": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_pin_promotion_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_pin_promotions": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_pinner_list_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "dark_write_pinner_lists": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_product_group_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_product_groups": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_targeting_attribute_history": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "dark_write_targeting_attributes": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
-    "dark_write_targeting_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
-    },
-    "image_factory_ads": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+    "goals": {
+
     },
     "notifications": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "order_line_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "order_lines": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "pin_promotion_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "pin_promotions": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "pinner_list_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "pinner_lists": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "product_group_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "product_groups": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "rule_subscriptions": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "targeting_attribute_counts_by_advertiser": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "advertiser_gid"
-          ]
-        }
-      ]
+
     },
     "targeting_attribute_counts_by_parent": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "targeting_attribute_history": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "targeting_attributes": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "targeting_specs": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     },
     "user_preferences": {
-      "columnVindexes": [
-        {
-          "name": "advertiser_gid",
-          "columns": [
-            "g_advertiser_id"
-          ]
-        }
-      ]
+
     }
   }
 }
