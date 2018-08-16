@@ -109,6 +109,7 @@ ${VTGATE_COMMAND} \
   -emit_stats \
   -stats_emit_period 1m \
   -stats_backend opentsdb \
+  -merge_keyspace_joins_to_single_shard \
   -alsologtostderr \
   -opentsdb_service vtgate \
   ${EXTRA_ARGS} \
