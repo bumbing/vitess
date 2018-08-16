@@ -31,6 +31,7 @@ import (
 
 	"golang.org/x/net/context"
 	"vitess.io/vitess/go/exit"
+	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
 	"vitess.io/vitess/go/vt/servenv"
@@ -41,6 +42,7 @@ import (
 var (
 	cell                   = flag.String("cell", "", "cell to pick servers from")
 	commandDisplayInterval = flag.Duration("command_display_interval", time.Second, "Interval between each status update when vtworker is executing a single command from the command line")
+	immediateCaller        = flag.String("callerid", "", "immediate CallerID to set when querying vttablet")
 )
 
 func init() {
@@ -87,7 +89,15 @@ func main() {
 		wi.InitInteractiveMode()
 	} else {
 		// In single command mode, just run it.
-		worker, done, err := wi.RunCommand(context.Background(), args, nil /*custom wrangler*/, true /*runFromCli*/)
+		ctx := context.Background()
+
+		if *immediateCaller != "" {
+			ctx = callerid.NewContext(ctx,
+				callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
+				callerid.NewImmediateCallerID(*immediateCaller))
+		}
+
+		worker, done, err := wi.RunCommand(ctx, args, nil /*custom wrangler*/, true /*runFromCli*/)
 		if err != nil {
 			log.Error(err)
 			exit.Return(1)
