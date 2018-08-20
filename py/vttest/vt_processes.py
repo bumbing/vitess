@@ -169,10 +169,13 @@ class VtcomboProcess(VtProcess):
            '-db-config-dba-host', mysql_db.hostname(),
            '-db-config-dba-port', str(mysql_db.port())])
     self.vtcombo_mysql_port = environment.get_port('vtcombo_mysql_port')
+    # NOTE(dweitzman): The open source vitess code sets
+    # -mysql_server_bind_address to localhost. This seems to interfere
+    # with the pepsi unit tests running in docker mode, so we removed
+    # it to be more open minded about what the bind hostname is.
     self.extraparams.extend(
         ['-mysql_auth_server_impl', 'none',
-         '-mysql_server_port', str(self.vtcombo_mysql_port),
-         '-mysql_server_bind_address', 'localhost'])
+         '-mysql_server_port', str(self.vtcombo_mysql_port)])
 
 
 vtcombo_process = None

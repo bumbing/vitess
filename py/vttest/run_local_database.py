@@ -115,6 +115,12 @@ def main(cmdline_options):
       snapshot_file=cmdline_options.snapshot_file) as local_db:
     print json.dumps(local_db.config())
     sys.stdout.flush()
+
+    if os.environ.get('PEPSI_IS_JUNIT'):
+        import time
+        time.sleep(60 * 15)
+        return
+
     try:
       raw_input()
     except EOFError:
