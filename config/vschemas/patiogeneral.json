@@ -1,0 +1,11 @@
+{
+  "sharded": false,
+  "tables": {
+    "owner_to_advertiser": {},
+    "exchange_rates": {},
+    "bulk_jobs": {},
+    "bulk_job_summaries": {},
+    "conversion_tags_v3": {},
+    "user_lists": {}
+  }
+}
