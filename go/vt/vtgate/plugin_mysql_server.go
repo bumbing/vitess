@@ -27,6 +27,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/callerid"
@@ -56,6 +57,8 @@ var (
 	mysqlConnReadTimeout  = flag.Duration("mysql_server_read_timeout", 0, "connection read timeout")
 	mysqlConnWriteTimeout = flag.Duration("mysql_server_write_timeout", 0, "connection write timeout")
 	mysqlQueryTimeout     = flag.Duration("mysql_server_query_timeout", 0, "mysql query timeout")
+	// User-specific timeouts take precedence over mysqlQueryTimeout for ComQuery
+	mysqlUserQueryTimeouts flagutil.StringDurationMapValue
 
 	busyConnections int32
 )
@@ -98,12 +101,6 @@ func (vh *vtgateHandler) ConnectionClosed(c *mysql.Conn) {
 func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.Result) error) error {
 	var ctx context.Context
 	var cancel context.CancelFunc
-	if *mysqlQueryTimeout != 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), *mysqlQueryTimeout)
-		defer cancel()
-	} else {
-		ctx = context.Background()
-	}
 
 	// Fill in the ImmediateCallerID with the UserData returned by
 	// the AuthServer plugin for that user. If nothing was
@@ -115,6 +112,14 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		c.User,                  /* principal: who */
 		c.RemoteAddr().String(), /* component: running client process */
 		"VTGate MySQL Connector" /* subcomponent: part of the client */)
+
+	ctx = context.Background()
+
+	if queryTimeout := vh.queryTimeout(im, query); queryTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, queryTimeout)
+		defer cancel()
+	}
+
 	ctx = callerid.NewContext(ctx, ef, im)
 
 	session, _ := c.ClientData.(*vtgatepb.Session)
@@ -153,6 +158,21 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		return err
 	}
 	return callback(result)
+}
+
+func (vh *vtgateHandler) queryTimeout(im *querypb.VTGateCallerID, query string) time.Duration {
+	// The reason for taking a query argument even though it's not used is to remind us that
+	// we might consider supporting SQL comment annotations to set a per-query individual timeout.
+	// sqlparser.ExtractCommentDirectives() could be useful for pulling timeout directives out of
+	// a query.
+
+	if im != nil {
+		if userSpecificTimeout := mysqlUserQueryTimeouts[im.Username]; userSpecificTimeout > 0 {
+			return userSpecificTimeout
+		}
+	}
+
+	return *mysqlQueryTimeout
 }
 
 var mysqlListener *mysql.Listener
@@ -285,6 +305,8 @@ func shutdownMysqlProtocolAndDrain() {
 }
 
 func init() {
+	flag.Var(&mysqlUserQueryTimeouts, "mysql_user_query_timeouts", "per-user query timeouts. comma separated list of username:duration pairs. Takes precedence over -mysql_server_query_timeout")
+
 	servenv.OnRun(initMySQLProtocol)
 	servenv.OnTermSync(shutdownMysqlProtocolAndDrain)
 }

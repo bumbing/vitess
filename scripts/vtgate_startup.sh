@@ -112,6 +112,8 @@ ${VTGATE_COMMAND} \
   -merge_keyspace_joins_to_single_shard \
   -alsologtostderr \
   -opentsdb_service vtgate \
+  -mysql_server_query_timeout 2h \
+  -mysql_user_query_timeouts scriptro:10s,scriptrw:10s \
   ${EXTRA_ARGS} \
   $@
 
