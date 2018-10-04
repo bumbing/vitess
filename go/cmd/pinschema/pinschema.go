@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"strings"
 
 	"vitess.io/vitess/go/exit"
@@ -46,10 +45,6 @@ type pinschemaConfig struct {
 }
 
 func init() {
-	// This regex is a case insensitive match for a comma, whitespace,
-	// the word "constraint", and anything afterwards that's not a newline
-	// or comma.
-	foreignKeyRe = regexp.MustCompile(`(?i),(\s|\n)*constraint[^,\n]*`)
 	logger := logutil.NewConsoleLogger()
 	flag.CommandLine.SetOutput(logutil.NewLoggerWriter(logger))
 }
@@ -238,21 +233,9 @@ func singularize(tableName string) string {
 	return tableName
 }
 
-var foreignKeyRe *regexp.Regexp
-
-func removeForeignKeys(ddl string) string {
-	return foreignKeyRe.ReplaceAllString(ddl, "")
-}
-
 // parseSchema pulls out the CREATE TABLE ddls from a series of SQL statements.
 // This method is copied from vtexplain.go.
 func parseSchema(sqlSchema string) ([]*sqlparser.DDL, error) {
-
-	// TODO(dweitzman): Delete this hack to ignore foreign keys after
-	// we merge https://github.com/vitessio/vitess/pull/4085 from upstream
-	// with proper parsing support for table constraints.
-	sqlSchema = removeForeignKeys(sqlSchema)
-
 	parsedDDLs := make([]*sqlparser.DDL, 0, 16)
 	for {
 		sql, rem, err := sqlparser.SplitStatement(sqlSchema)
