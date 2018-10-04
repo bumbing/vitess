@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resharding
+package workflow
 
 import (
 	"errors"
@@ -29,7 +29,6 @@ import (
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
 	"vitess.io/vitess/go/vt/topo"
-	"vitess.io/vitess/go/vt/workflow"
 
 	workflowpb "vitess.io/vitess/go/vt/proto/workflow"
 )
@@ -47,18 +46,19 @@ func createTestTaskID(phase PhaseType, count int) string {
 }
 
 func init() {
-	workflow.Register(testWorkflowFactoryName, &TestWorkflowFactory{})
+	Register(testWorkflowFactoryName, &TestWorkflowFactory{})
 }
 
 // TestWorkflowFactory is the factory to create a test workflow.
 type TestWorkflowFactory struct{}
 
 // Init is part of the workflow.Factory interface.
-func (*TestWorkflowFactory) Init(_ *workflow.Manager, w *workflowpb.Workflow, args []string) error {
+func (*TestWorkflowFactory) Init(_ *Manager, w *workflowpb.Workflow, args []string) error {
 	subFlags := flag.NewFlagSet(testWorkflowFactoryName, flag.ContinueOnError)
 	retryFlag := subFlags.Bool("retry", false, "The retry flag should be true if the retry action should be tested")
 	count := subFlags.Int("count", 0, "The number of simple tasks")
 	enableApprovals := subFlags.Bool("enable_approvals", false, "If true, executions of tasks require user's approvals on the UI.")
+	sequential := subFlags.Bool("sequential", false, "If true, executions of tasks are sequential")
 	if err := subFlags.Parse(args); err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (*TestWorkflowFactory) Init(_ *workflow.Manager, w *workflowpb.Workflow, ar
 	checkpoint := &workflowpb.WorkflowCheckpoint{
 		CodeVersion: 0,
 		Tasks:       taskMap,
-		Settings:    map[string]string{"count": fmt.Sprintf("%v", *count), "retry": fmt.Sprintf("%v", *retryFlag), "enable_approvals": fmt.Sprintf("%v", *enableApprovals)},
+		Settings:    map[string]string{"count": fmt.Sprintf("%v", *count), "retry": fmt.Sprintf("%v", *retryFlag), "enable_approvals": fmt.Sprintf("%v", *enableApprovals), "sequential": fmt.Sprintf("%v", *sequential)},
 	}
 	var err error
 	w.Data, err = proto.Marshal(checkpoint)
@@ -87,7 +87,7 @@ func (*TestWorkflowFactory) Init(_ *workflow.Manager, w *workflowpb.Workflow, ar
 }
 
 // Instantiate is part the workflow.Factory interface.
-func (*TestWorkflowFactory) Instantiate(m *workflow.Manager, w *workflowpb.Workflow, rootNode *workflow.Node) (workflow.Workflow, error) {
+func (*TestWorkflowFactory) Instantiate(m *Manager, w *workflowpb.Workflow, rootNode *Node) (Workflow, error) {
 	checkpoint := &workflowpb.WorkflowCheckpoint{}
 	if err := proto.Unmarshal(w.Data, checkpoint); err != nil {
 		return nil, err
@@ -106,7 +106,13 @@ func (*TestWorkflowFactory) Instantiate(m *workflow.Manager, w *workflowpb.Workf
 	// Get the user control flags from the checkpoint.
 	enableApprovals, err := strconv.ParseBool(checkpoint.Settings["enable_approvals"])
 	if err != nil {
-		log.Errorf("converting retry in checkpoint.Settings to bool fails: %v", checkpoint.Settings["user_control"])
+		log.Errorf("converting enable_approvals in checkpoint.Settings to bool fails: %v", checkpoint.Settings["user_control"])
+		return nil, err
+	}
+
+	sequential, err := strconv.ParseBool(checkpoint.Settings["sequential"])
+	if err != nil {
+		log.Errorf("converting sequential in checkpoint.Settings to bool fails: %v", checkpoint.Settings["user_control"])
 		return nil, err
 	}
 
@@ -118,6 +124,7 @@ func (*TestWorkflowFactory) Instantiate(m *workflow.Manager, w *workflowpb.Workf
 		logger:          logutil.NewMemoryLogger(),
 		retryFlags:      retryFlags,
 		enableApprovals: enableApprovals,
+		sequential:      sequential,
 	}
 
 	count, err := strconv.Atoi(checkpoint.Settings["count"])
@@ -126,7 +133,7 @@ func (*TestWorkflowFactory) Instantiate(m *workflow.Manager, w *workflowpb.Workf
 		return nil, err
 	}
 
-	phaseNode := &workflow.Node{
+	phaseNode := &Node{
 		Name:     string(phaseSimple),
 		PathName: string(phaseSimple),
 	}
@@ -134,7 +141,7 @@ func (*TestWorkflowFactory) Instantiate(m *workflow.Manager, w *workflowpb.Workf
 
 	for i := 0; i < count; i++ {
 		taskName := fmt.Sprintf("%v", i)
-		taskUINode := &workflow.Node{
+		taskUINode := &Node{
 			Name:     taskName,
 			PathName: taskName,
 		}
@@ -149,7 +156,7 @@ func (*TestWorkflowFactory) Instantiate(m *workflow.Manager, w *workflowpb.Workf
 // after a retry.
 type TestWorkflow struct {
 	ctx        context.Context
-	manager    *workflow.Manager
+	manager    *Manager
 	topoServer *topo.Server
 	wi         *topo.WorkflowInfo
 	logger     *logutil.MemoryLogger
@@ -158,29 +165,31 @@ type TestWorkflow struct {
 	// retryFlags stores the retry flag for all tasks.
 	retryFlags map[string]bool
 
-	rootUINode *workflow.Node
+	rootUINode *Node
 
 	checkpoint       *workflowpb.WorkflowCheckpoint
 	checkpointWriter *CheckpointWriter
 
 	enableApprovals bool
+	sequential      bool
 }
 
 // Run implements the workflow.Workflow interface.
-func (tw *TestWorkflow) Run(ctx context.Context, manager *workflow.Manager, wi *topo.WorkflowInfo) error {
+func (tw *TestWorkflow) Run(ctx context.Context, manager *Manager, wi *topo.WorkflowInfo) error {
 	tw.ctx = ctx
 	tw.wi = wi
 	tw.checkpointWriter = NewCheckpointWriter(tw.topoServer, tw.checkpoint, tw.wi)
 
-	tw.rootUINode.Display = workflow.NodeDisplayDeterminate
+	tw.rootUINode.Display = NodeDisplayDeterminate
 	tw.rootUINode.BroadcastChanges(true /* updateChildren */)
 
 	simpleTasks := tw.getTasks(phaseSimple)
-	simpleRunner := NewParallelRunner(tw.ctx, tw.rootUINode, tw.checkpointWriter, simpleTasks, tw.runSimple, Parallel, tw.enableApprovals)
-	if err := simpleRunner.Run(); err != nil {
-		return err
+	concurrencyLevel := Parallel
+	if tw.sequential {
+		concurrencyLevel = Sequential
 	}
-	return nil
+	simpleRunner := NewParallelRunner(tw.ctx, tw.rootUINode, tw.checkpointWriter, simpleTasks, tw.runSimple, concurrencyLevel, tw.enableApprovals)
+	return simpleRunner.Run()
 }
 
 func (tw *TestWorkflow) getTasks(phaseName PhaseType) []*workflowpb.Task {

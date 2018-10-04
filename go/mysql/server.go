@@ -47,6 +47,15 @@ var (
 	connCount  = stats.NewGauge("MysqlServerConnCount", "Active MySQL server connections")
 	connAccept = stats.NewCounter("MysqlServerConnAccepted", "Connections accepted by MySQL server")
 	connSlow   = stats.NewCounter("MysqlServerConnSlow", "Connections that took more than the configured mysql_slow_connect_warn_threshold to establish")
+
+	connCountPerUser = stats.NewGaugesWithSingleLabel("MysqlServerConnCountPerUser", "Active MySQL server connections per user", "count")
+	_                = stats.NewGaugeFunc("MysqlServerConnCountUnauthenticated", "Active MySQL server connections that haven't authenticated yet", func() int64 {
+		totalUsers := int64(0)
+		for _, v := range connCountPerUser.Counts() {
+			totalUsers += v
+		}
+		return connCount.Get() - totalUsers
+	})
 )
 
 // A Handler is an interface used by Listener to send queries.
@@ -120,19 +129,22 @@ type Listener struct {
 	connReadTimeout time.Duration
 	// Write timeout on a given connection
 	connWriteTimeout time.Duration
+	// connReadBufferSize is size of buffer for reads from underlying connection.
+	// Reads are unbuffered if it's <=0.
+	connReadBufferSize int
 }
 
 // NewFromListener creares a new mysql listener from an existing net.Listener
 func NewFromListener(l net.Listener, authServer AuthServer, handler Handler, connReadTimeout time.Duration, connWriteTimeout time.Duration) (*Listener, error) {
-	return &Listener{
-		authServer:       authServer,
-		handler:          handler,
-		listener:         l,
-		ServerVersion:    DefaultServerVersion,
-		connectionID:     1,
-		connReadTimeout:  connReadTimeout,
-		connWriteTimeout: connWriteTimeout,
-	}, nil
+	cfg := ListenerConfig{
+		Listener:           l,
+		AuthServer:         authServer,
+		Handler:            handler,
+		ConnReadTimeout:    connReadTimeout,
+		ConnWriteTimeout:   connWriteTimeout,
+		ConnReadBufferSize: connBufferSize,
+	}
+	return NewListenerWithConfig(cfg)
 }
 
 // NewListener creates a new Listener.
@@ -143,6 +155,45 @@ func NewListener(protocol, address string, authServer AuthServer, handler Handle
 	}
 
 	return NewFromListener(listener, authServer, handler, connReadTimeout, connWriteTimeout)
+}
+
+// ListenerConfig should be used with NewListenerWithConfig to specify listener parameters.
+type ListenerConfig struct {
+	// Protocol-Address pair and Listener are mutually exclusive parameters
+	Protocol           string
+	Address            string
+	Listener           net.Listener
+	AuthServer         AuthServer
+	Handler            Handler
+	ConnReadTimeout    time.Duration
+	ConnWriteTimeout   time.Duration
+	ConnReadBufferSize int
+}
+
+// NewListenerWithConfig creates new listener using provided config. There are
+// no default values for config, so caller should ensure its correctness.
+func NewListenerWithConfig(cfg ListenerConfig) (*Listener, error) {
+	var l net.Listener
+	if cfg.Listener != nil {
+		l = cfg.Listener
+	} else {
+		listener, err := net.Listen(cfg.Protocol, cfg.Address)
+		if err != nil {
+			return nil, err
+		}
+		l = listener
+	}
+
+	return &Listener{
+		authServer:         cfg.AuthServer,
+		handler:            cfg.Handler,
+		listener:           l,
+		ServerVersion:      DefaultServerVersion,
+		connectionID:       1,
+		connReadTimeout:    cfg.ConnReadTimeout,
+		connWriteTimeout:   cfg.ConnWriteTimeout,
+		connReadBufferSize: cfg.ConnReadBufferSize,
+	}, nil
 }
 
 // Addr returns the listener address.
@@ -177,7 +228,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 	if l.connReadTimeout != 0 || l.connWriteTimeout != 0 {
 		conn = netutil.NewConnWithTimeouts(conn, l.connReadTimeout, l.connWriteTimeout)
 	}
-	c := newConn(conn)
+	c := newServerConn(conn, l.connReadBufferSize)
 	c.ConnectionID = connectionID
 
 	// Catch panics, and close the connection in any case.
@@ -185,6 +236,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		if x := recover(); x != nil {
 			log.Errorf("mysql_server caught panic:\n%v\n%s", x, tb.Stack(4))
 		}
+		// We call flush here in case there's a premature return after
+		// startWriterBuffering is called
+		c.flush()
+
 		conn.Close()
 	}()
 
@@ -204,7 +259,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 
 	// Wait for the client response. This has to be a direct read,
 	// so we don't buffer the TLS negotiation packets.
-	response, err := c.readPacketDirect()
+	response, err := c.readEphemeralPacketDirect()
 	if err != nil {
 		// Don't log EOF errors. They cause too much spam, same as main read loop.
 		if err != io.EOF {
@@ -217,6 +272,8 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		log.Errorf("Cannot parse client handshake response from %s: %v", c, err)
 		return
 	}
+
+	c.recycleReadPacket()
 
 	if c.Capabilities&CapabilityClientSSL > 0 {
 		// SSL was enabled. We need to re-read the auth packet.
@@ -295,6 +352,11 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		c.UserData = userData
 	}
 
+	if c.User != "" {
+		connCountPerUser.Add(c.User, 1)
+		defer connCountPerUser.Add(c.User, -1)
+	}
+
 	// Negotiation worked, send OK packet.
 	if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
 		log.Errorf("Cannot write OK packet to %s: %v", c, err)
@@ -341,6 +403,11 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 				return
 			}
 		case ComQuery:
+			// flush is called at the end of this block.
+			// We cannot encapsulate it with a defer inside a func because
+			// we have to return from this func if it fails.
+			c.startWriterBuffering()
+
 			queryStart := time.Now()
 			query := c.parseComQuery(data)
 			c.recycleReadPacket()
@@ -380,25 +447,29 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 					log.Errorf("Error writing query error to %s: %v", c, werr)
 					return
 				}
-				continue
-			}
-
-			if err != nil {
-				// We can't send an error in the middle of a stream.
-				// All we can do is abort the send, which will cause a 2013.
-				log.Errorf("Error in the middle of a stream to %s: %v", c, err)
-				return
-			}
-
-			// Send the end packet only sendFinished is false (results were streamed).
-			if !sendFinished {
-				if err := c.writeEndResult(false); err != nil {
-					log.Errorf("Error writing result to %s: %v", c, err)
+			} else {
+				if err != nil {
+					// We can't send an error in the middle of a stream.
+					// All we can do is abort the send, which will cause a 2013.
+					log.Errorf("Error in the middle of a stream to %s: %v", c, err)
 					return
+				}
+
+				// Send the end packet only sendFinished is false (results were streamed).
+				if !sendFinished {
+					if err := c.writeEndResult(false); err != nil {
+						log.Errorf("Error writing result to %s: %v", c, err)
+						return
+					}
 				}
 			}
 
 			timings.Record(queryTimingKey, queryStart)
+
+			if err := c.flush(); err != nil {
+				log.Errorf("Conn %v: Flush() failed: %v", c.ID(), err)
+				return
+			}
 
 		case ComPing:
 			// No payload to that one, just return OKPacket.
@@ -439,7 +510,6 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 				log.Errorf("Error writing error packet to %s: %s", c, err)
 				return
 			}
-
 		}
 	}
 }
@@ -537,7 +607,7 @@ func (c *Conn) writeHandshakeV10(serverVersion string, authServer AuthServer, en
 		return nil, fmt.Errorf("error building Handshake packet: got %v bytes expected %v", pos, len(data))
 	}
 
-	if err := c.writeEphemeralPacket(true); err != nil {
+	if err := c.writeEphemeralPacket(); err != nil {
 		return nil, err
 	}
 
@@ -593,8 +663,7 @@ func (l *Listener) parseClientHandshakePacket(c *Conn, firstTime bool, data []by
 		// Need to switch to TLS, and then re-read the packet.
 		conn := tls.Server(c.conn, l.TLSConfig)
 		c.conn = conn
-		c.reader.Reset(conn)
-		c.writer.Reset(conn)
+		c.bufferedReader.Reset(conn)
 		c.Capabilities |= CapabilityClientSSL
 		return "", "", nil, nil
 	}
@@ -689,5 +758,5 @@ func (c *Conn) writeAuthSwitchRequest(pluginName string, pluginData []byte) erro
 	if pos != len(data) {
 		return fmt.Errorf("error building AuthSwitchRequestPacket packet: got %v bytes expected %v", pos, len(data))
 	}
-	return c.writeEphemeralPacket(true)
+	return c.writeEphemeralPacket()
 }

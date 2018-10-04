@@ -143,6 +143,22 @@ func (th *testHandler) ComQuery(c *Conn, query string, callback func(*sqltypes.R
 			},
 		})
 	default:
+		if strings.HasPrefix(query, benchmarkQueryPrefix) {
+			callback(&sqltypes.Result{
+				Fields: []*querypb.Field{
+					{
+						Name: "result",
+						Type: querypb.Type_VARCHAR,
+					},
+				},
+				Rows: [][]sqltypes.Value{
+					{
+						sqltypes.MakeTrusted(querypb.Type_VARCHAR, []byte(query)),
+					},
+				},
+			})
+		}
+
 		callback(&sqltypes.Result{})
 	}
 	return nil
@@ -396,6 +412,83 @@ func TestClientFoundRows(t *testing.T) {
 		t.Errorf("FoundRows flag: %x, second bit must be set", th.lastConn.Capabilities)
 	}
 	c.Close()
+}
+
+func TestConnCounts(t *testing.T) {
+	th := &testHandler{}
+
+	initialNumUsers := len(connCountPerUser.Counts())
+
+	user := "anotherNotYetConnectedUser1"
+	passwd := "password1"
+
+	authServer := NewAuthServerStatic()
+	authServer.Entries[user] = []*AuthServerStaticEntry{{
+		Password: passwd,
+		UserData: "userData1",
+	}}
+	l, err := NewListener("tcp", ":0", authServer, th, 0, 0)
+	if err != nil {
+		t.Fatalf("NewListener failed: %v", err)
+	}
+	defer l.Close()
+	go l.Accept()
+
+	host, port := getHostPort(t, l.Addr())
+
+	// Test with one new connection.
+	params := &ConnParams{
+		Host:  host,
+		Port:  port,
+		Uname: user,
+		Pass:  passwd,
+	}
+
+	c, err := Connect(context.Background(), params)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	connCounts := connCountPerUser.Counts()
+	if l := len(connCounts); l-initialNumUsers != 1 {
+		t.Errorf("Expected 1 new user, got %d", l)
+	}
+	checkCountsForUser(t, user, 1)
+
+	// Test with a second new connection.
+	c2, err := Connect(context.Background(), params)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	connCounts = connCountPerUser.Counts()
+	// There is still only one new user.
+	if l2 := len(connCounts); l2-initialNumUsers != 1 {
+		t.Errorf("Expected 1 new user, got %d", l2)
+	}
+	checkCountsForUser(t, user, 2)
+
+	// Test after closing connections. time.Sleep lets it work, but seems flakey.
+	c.Close()
+	//time.Sleep(10 * time.Millisecond)
+	//checkCountsForUser(t, user, 1)
+
+	c2.Close()
+	//time.Sleep(10 * time.Millisecond)
+	//checkCountsForUser(t, user, 0)
+}
+
+func checkCountsForUser(t *testing.T, user string, expected int64) {
+	connCounts := connCountPerUser.Counts()
+
+	userCount, ok := connCounts[user]
+	if ok {
+		if userCount != expected {
+			t.Errorf("Expected connection count for user to be %d, got %d", expected, userCount)
+		}
+	} else {
+		t.Errorf("No count found for user %s", user)
+	}
 }
 
 func TestServer(t *testing.T) {

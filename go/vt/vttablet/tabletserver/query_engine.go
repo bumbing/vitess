@@ -118,13 +118,16 @@ func (ep *TabletPlan) buildAuthorized() {
 // function is called.
 type QueryEngine struct {
 	se        *schema.Engine
-	dbconfigs dbconfigs.DBConfigs
+	dbconfigs *dbconfigs.DBConfigs
 
 	// mu protects the following fields.
 	mu               sync.RWMutex
 	tables           map[string]*schema.Table
 	plans            *cache.LRUCache
 	queryRuleSources *rules.Map
+
+	queryStatsMu sync.RWMutex
+	queryStats   map[string]*QueryStats
 
 	// Pools
 	conns       *connpool.Pool
@@ -182,6 +185,7 @@ func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tab
 		plans:              cache.NewLRUCache(int64(config.QueryPlanCacheSize)),
 		queryRuleSources:   rules.NewMap(),
 		queryPoolWaiterCap: sync2.NewAtomicInt64(int64(config.QueryPoolWaiterCap)),
+		queryStats:         make(map[string]*QueryStats),
 	}
 
 	qe.conns = connpool.New(
@@ -262,6 +266,7 @@ func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tab
 			"/debug/query_stats",
 			"/debug/query_rules",
 			"/debug/consolidations",
+			"/debug/acl",
 		}
 		for _, ep := range endpoints {
 			http.Handle(ep, qe)
@@ -272,13 +277,13 @@ func NewQueryEngine(checker connpool.MySQLChecker, se *schema.Engine, config tab
 }
 
 // InitDBConfig must be called before Open.
-func (qe *QueryEngine) InitDBConfig(dbcfgs dbconfigs.DBConfigs) {
+func (qe *QueryEngine) InitDBConfig(dbcfgs *dbconfigs.DBConfigs) {
 	qe.dbconfigs = dbcfgs
 }
 
 // Open must be called before sending requests to QueryEngine.
 func (qe *QueryEngine) Open() error {
-	qe.conns.Open(&qe.dbconfigs.App, &qe.dbconfigs.Dba, &qe.dbconfigs.AppDebug)
+	qe.conns.Open(qe.dbconfigs.AppWithDB(), qe.dbconfigs.DbaWithDB(), qe.dbconfigs.AppDebugWithDB())
 
 	conn, err := qe.conns.Get(tabletenv.LocalContext())
 	if err != nil {
@@ -293,7 +298,7 @@ func (qe *QueryEngine) Open() error {
 		return err
 	}
 
-	qe.streamConns.Open(&qe.dbconfigs.App, &qe.dbconfigs.Dba, &qe.dbconfigs.AppDebug)
+	qe.streamConns.Open(qe.dbconfigs.AppWithDB(), qe.dbconfigs.DbaWithDB(), qe.dbconfigs.AppDebugWithDB())
 	qe.se.RegisterNotifier("qe", qe.schemaChanged)
 	return nil
 }
@@ -427,7 +432,7 @@ func (qe *QueryEngine) ClearQueryPlanCache() {
 
 // IsMySQLReachable returns true if we can connect to MySQL.
 func (qe *QueryEngine) IsMySQLReachable() bool {
-	conn, err := dbconnpool.NewDBConnection(&qe.dbconfigs.App, tabletenv.MySQLStats)
+	conn, err := dbconnpool.NewDBConnection(qe.dbconfigs.AppWithDB(), tabletenv.MySQLStats)
 	if err != nil {
 		if mysql.IsConnErr(err) {
 			return false
@@ -477,53 +482,88 @@ func (qe *QueryEngine) QueryPlanCacheCap() int {
 	return int(qe.plans.Capacity())
 }
 
-func (qe *QueryEngine) getQueryCount() map[string]int64 {
-	f := func(plan *TabletPlan) int64 {
-		queryCount, _, _, _, _ := plan.Stats()
-		return queryCount
+// QueryStats tracks query stats for export per planName/tableName
+type QueryStats struct {
+	mu         sync.Mutex
+	queryCount int64
+	time       time.Duration
+	mysqlTime  time.Duration
+	rowCount   int64
+	errorCount int64
+}
+
+// AddStats adds the given stats for the planName.tableName
+func (qe *QueryEngine) AddStats(planName, tableName string, queryCount int64, duration, mysqlTime time.Duration, rowCount, errorCount int64) {
+	key := tableName + "." + planName
+
+	qe.queryStatsMu.RLock()
+	stats, ok := qe.queryStats[key]
+	qe.queryStatsMu.RUnlock()
+
+	if !ok {
+		// Check again with the write lock held and
+		// create a new record only if none exists
+		qe.queryStatsMu.Lock()
+		if stats, ok = qe.queryStats[key]; !ok {
+			stats = &QueryStats{}
+			qe.queryStats[key] = stats
+		}
+		qe.queryStatsMu.Unlock()
 	}
-	return qe.getQueryStats(f)
+
+	stats.mu.Lock()
+	stats.queryCount += queryCount
+	stats.time += duration
+	stats.mysqlTime += mysqlTime
+	stats.rowCount += rowCount
+	stats.errorCount += errorCount
+	stats.mu.Unlock()
+}
+
+func (qe *QueryEngine) getQueryCount() map[string]int64 {
+	qstats := make(map[string]int64)
+	qe.queryStatsMu.RLock()
+	defer qe.queryStatsMu.RUnlock()
+	for k, qs := range qe.queryStats {
+		qs.mu.Lock()
+		qstats[k] = qs.queryCount
+		qs.mu.Unlock()
+	}
+	return qstats
 }
 
 func (qe *QueryEngine) getQueryTime() map[string]int64 {
-	f := func(plan *TabletPlan) int64 {
-		_, time, _, _, _ := plan.Stats()
-		return int64(time)
+	qstats := make(map[string]int64)
+	qe.queryStatsMu.RLock()
+	defer qe.queryStatsMu.RUnlock()
+	for k, qs := range qe.queryStats {
+		qs.mu.Lock()
+		qstats[k] = int64(qs.time)
+		qs.mu.Unlock()
 	}
-	return qe.getQueryStats(f)
+	return qstats
 }
 
 func (qe *QueryEngine) getQueryRowCount() map[string]int64 {
-	f := func(plan *TabletPlan) int64 {
-		_, _, _, rowCount, _ := plan.Stats()
-		return rowCount
+	qstats := make(map[string]int64)
+	qe.queryStatsMu.RLock()
+	defer qe.queryStatsMu.RUnlock()
+	for k, qs := range qe.queryStats {
+		qs.mu.Lock()
+		qstats[k] = qs.rowCount
+		qs.mu.Unlock()
 	}
-	return qe.getQueryStats(f)
+	return qstats
 }
 
 func (qe *QueryEngine) getQueryErrorCount() map[string]int64 {
-	f := func(plan *TabletPlan) int64 {
-		_, _, _, _, errorCount := plan.Stats()
-		return errorCount
-	}
-	return qe.getQueryStats(f)
-}
-
-type queryStatsFunc func(*TabletPlan) int64
-
-func (qe *QueryEngine) getQueryStats(f queryStatsFunc) map[string]int64 {
-	keys := qe.plans.Keys()
 	qstats := make(map[string]int64)
-	for _, v := range keys {
-		if plan := qe.peekQuery(v); plan != nil {
-			table := plan.TableName()
-			if table.IsEmpty() {
-				table = sqlparser.NewTableIdent("Join")
-			}
-			planType := plan.PlanID.String()
-			data := f(plan)
-			qstats[table.String()+"."+planType] += data
-		}
+	qe.queryStatsMu.RLock()
+	defer qe.queryStatsMu.RUnlock()
+	for k, qs := range qe.queryStats {
+		qs.mu.Lock()
+		qstats[k] = qs.errorCount
+		qs.mu.Unlock()
 	}
 	return qstats
 }
@@ -551,6 +591,8 @@ func (qe *QueryEngine) ServeHTTP(response http.ResponseWriter, request *http.Req
 		qe.handleHTTPQueryStats(response, request)
 	case "/debug/query_rules":
 		qe.handleHTTPQueryRules(response, request)
+	case "/debug/acl":
+		qe.handleHTTPAclJSON(response, request)
 	case "/debug/consolidations":
 		qe.handleHTTPConsolidations(response, request)
 	default:
@@ -586,6 +628,7 @@ func (qe *QueryEngine) handleHTTPQueryStats(response http.ResponseWriter, reques
 			pqstats.Table = plan.TableName().String()
 			pqstats.Plan = plan.PlanID
 			pqstats.QueryCount, pqstats.Time, pqstats.MysqlTime, pqstats.RowCount, pqstats.ErrorCount = plan.Stats()
+
 			qstats = append(qstats, pqstats)
 		}
 	}
@@ -599,6 +642,23 @@ func (qe *QueryEngine) handleHTTPQueryStats(response http.ResponseWriter, reques
 func (qe *QueryEngine) handleHTTPQueryRules(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json; charset=utf-8")
 	b, err := json.MarshalIndent(qe.queryRuleSources, "", " ")
+	if err != nil {
+		response.Write([]byte(err.Error()))
+		return
+	}
+	buf := bytes.NewBuffer(nil)
+	json.HTMLEscape(buf, b)
+	response.Write(buf.Bytes())
+}
+
+func (qe *QueryEngine) handleHTTPAclJSON(response http.ResponseWriter, request *http.Request) {
+	aclConfig := tableacl.GetCurrentConfig()
+	if aclConfig == nil {
+		response.WriteHeader(http.StatusNotFound)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json; charset=utf-8")
+	b, err := json.MarshalIndent(aclConfig, "", " ")
 	if err != nil {
 		response.Write([]byte(err.Error()))
 		return

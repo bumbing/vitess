@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc.
+Copyright 2018 Google Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,19 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tmutils
+package stats
 
-// This file contains helper methods for dealing with the proto3 data
-// structures related to binlog playback.
+import (
+	"strings"
+)
 
-import tabletmanagerdatapb "vitess.io/vitess/go/vt/proto/tabletmanagerdata"
-
-// FindBlpPositionByID returns the BlpPosition with the given id, or error
-func FindBlpPositionByID(list []*tabletmanagerdatapb.BlpPosition, uid uint32) *tabletmanagerdatapb.BlpPosition {
-	for _, pos := range list {
-		if pos.Uid == uid {
-			return pos
-		}
-	}
-	return nil
+// safeLabel turns a label into a safe label for stats export.
+// It is in its own file so it can be customized.
+func safeLabel(label string) string {
+	return strings.Replace(label, ".", "_", -1)
 }

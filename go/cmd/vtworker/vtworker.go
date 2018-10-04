@@ -42,7 +42,7 @@ import (
 var (
 	cell                   = flag.String("cell", "", "cell to pick servers from")
 	commandDisplayInterval = flag.Duration("command_display_interval", time.Second, "Interval between each status update when vtworker is executing a single command from the command line")
-	immediateCaller        = flag.String("callerid", "", "immediate CallerID to set when querying vttablet")
+	username               = flag.String("username", "", "If set, value is set as immediate caller id in the request and used by vttablet for TableACL check")
 )
 
 func init() {
@@ -91,10 +91,10 @@ func main() {
 		// In single command mode, just run it.
 		ctx := context.Background()
 
-		if *immediateCaller != "" {
+		if *username != "" {
 			ctx = callerid.NewContext(ctx,
 				callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
-				callerid.NewImmediateCallerID(*immediateCaller))
+				callerid.NewImmediateCallerID(*username))
 		}
 
 		worker, done, err := wi.RunCommand(ctx, args, nil /*custom wrangler*/, true /*runFromCli*/)

@@ -199,8 +199,8 @@
       "Name": "main",
       "Sharded": false
     },
-    "Query": "select 'targetString' from dual",
-    "FieldQuery": "select 'targetString' from dual where 1 != 1"
+    "Query": "select database() from dual",
+    "FieldQuery": "select database() from dual where 1 != 1"
   }
 }
 
@@ -253,6 +253,26 @@
     "FieldQuery": "select @@session.auto_increment_increment from dual where 1 != 1"
   }
 }
+
+# select from pinned table
+"select * from pin_test"
+{
+  "Original": "select * from pin_test",
+  "Instructions": {
+    "Opcode": "SelectEqualUnique",
+    "Keyspace": {
+      "Name": "user",
+      "Sharded": true
+    },
+    "Query": "select * from pin_test",
+    "FieldQuery": "select * from pin_test where 1 != 1",
+    "Vindex": "binary",
+    "Values": [
+      "\ufffd"
+    ]
+  }
+}
+
 
 # select from dual on sharded keyspace
 "select @@session.auto_increment_increment from user.dual"

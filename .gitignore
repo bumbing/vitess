@@ -19,6 +19,9 @@ bazel/go_repos.bzl
 *.swp
 tags
 
+# emacs
+*~
+
 # Eclipse files
 .classpath
 .project
@@ -78,3 +81,6 @@ releases
 /web/vtctld2/bower.json~
 /web/vtctld2/public/bower_components/
 
+
+# Vagrant
+.vagrant

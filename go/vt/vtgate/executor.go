@@ -608,6 +608,13 @@ func (e *Executor) handleSet(ctx context.Context, safeSession *SafeSession, sql 
 				return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "invalid transaction_mode: %s", val)
 			}
 			safeSession.TransactionMode = vtgatepb.TransactionMode(out)
+		case sqlparser.TransactionStr:
+			// Parser ensures it's well-formed.
+
+			// TODO: This is a NOP, modeled off of tx_isolation and tx_read_only.  It's incredibly
+			// dangerous that it's a NOP, but fixing that is left to. Note that vtqueryservice needs
+			// to be updated as well:
+			// https://github.com/vitessio/vitess/issues/4127
 		case "tx_isolation":
 			val, ok := v.(string)
 			if !ok {
@@ -615,7 +622,7 @@ func (e *Executor) handleSet(ctx context.Context, safeSession *SafeSession, sql 
 			}
 			switch val {
 			case "repeatable read", "read committed", "read uncommitted", "serializable":
-				// no op
+				// TODO (4127): This is a dangerous NOP.
 			default:
 				return nil, fmt.Errorf("unexpected value for tx_isolation: %v", val)
 			}
@@ -626,7 +633,7 @@ func (e *Executor) handleSet(ctx context.Context, safeSession *SafeSession, sql 
 			}
 			switch val {
 			case 0, 1:
-				// no op
+				// TODO (4127): This is a dangerous NOP.
 			default:
 				return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "unexpected value for tx_read_only: %d", val)
 			}
@@ -713,9 +720,10 @@ func validateSetOnOff(v interface{}, typ string) (int64, error) {
 	case int64:
 		val = v
 	case string:
-		if v == "on" {
+		lcaseV := strings.ToLower(v)
+		if lcaseV == "on" {
 			val = 1
-		} else if v == "off" {
+		} else if lcaseV == "off" {
 			val = 0
 		} else {
 			return -1, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "unexpected value for %s: %s", typ, v)
@@ -819,6 +827,14 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 		}
 		return &sqltypes.Result{
 			Fields:       buildVarCharFields("Cell", "Keyspace", "Shard", "TabletType", "State", "Alias", "Hostname"),
+			Rows:         rows,
+			RowsAffected: uint64(len(rows)),
+		}, nil
+	case sqlparser.KeywordString(sqlparser.VITESS_TARGET):
+		var rows [][]sqltypes.Value
+		rows = append(rows, buildVarCharRow(safeSession.TargetString))
+		return &sqltypes.Result{
+			Fields:       buildVarCharFields("Target"),
 			Rows:         rows,
 			RowsAffected: uint64(len(rows)),
 		}, nil

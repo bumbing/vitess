@@ -23,9 +23,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
+	"strings"
 	"syscall"
 	"time"
+
+	"vitess.io/vitess/go/vt/log"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -134,15 +136,16 @@ func (vtp *VtProcess) WaitStart() (err error) {
 
 	vtp.proc.Args = append(vtp.proc.Args, vtp.ExtraArgs...)
 
-	logfile := path.Join(vtp.LogDirectory, fmt.Sprintf("%s.%d.log", vtp.Name, vtp.Port))
-	vtp.proc.Stderr, err = os.Create(logfile)
-	if err != nil {
-		return
-	}
+	vtp.proc.Stderr = os.Stderr
+	vtp.proc.Stdout = os.Stdout
 
 	vtp.proc.Env = append(vtp.proc.Env, os.Environ()...)
 	vtp.proc.Env = append(vtp.proc.Env, vtp.Env...)
 
+	vtp.proc.Stderr = os.Stderr
+	vtp.proc.Stderr = os.Stdout
+
+	log.Infof("%v %v", strings.Join(vtp.proc.Args, " "))
 	err = vtp.proc.Start()
 	if err != nil {
 		return
@@ -208,12 +211,11 @@ func VtcomboProcess(env Environment, args *Config, mysql MySQLManager) *VtProces
 	}
 
 	vt.ExtraArgs = append(vt.ExtraArgs, []string{
-		"-db-config-app-charset", charset,
-		"-db-config-app-uname", user,
-		"-db-config-app-pass", pass,
-		"-db-config-dba-charset", charset,
-		"-db-config-dba-uname", user,
-		"-db-config-dba-pass", pass,
+		"-db_charset", charset,
+		"-db_app_user", user,
+		"-db_app_password", pass,
+		"-db_dba_user", user,
+		"-db_dba_password", pass,
 		"-proto_topo", proto.CompactTextString(args.Topology),
 		"-mycnf_server_id", "1",
 		"-mycnf_socket_file", socket,
@@ -232,21 +234,21 @@ func VtcomboProcess(env Environment, args *Config, mysql MySQLManager) *VtProces
 	if args.WebDir2 != "" {
 		vt.ExtraArgs = append(vt.ExtraArgs, []string{"-web_dir2", args.WebDir2}...)
 	}
+	if args.TransactionMode != "" {
+		vt.ExtraArgs = append(vt.ExtraArgs, []string{"-transaction_mode", args.TransactionMode}...)
+	}
 
 	if socket != "" {
 		vt.ExtraArgs = append(vt.ExtraArgs, []string{
-			"-db-config-app-unixsocket", socket,
-			"-db-config-dba-unixsocket", socket,
+			"-db_socket", socket,
 		}...)
 	} else {
 		hostname, p := mysql.Address()
 		port := fmt.Sprintf("%d", p)
 
 		vt.ExtraArgs = append(vt.ExtraArgs, []string{
-			"-db-config-app-host", hostname,
-			"-db-config-app-port", port,
-			"-db-config-dba-host", hostname,
-			"-db-config-dba-port", port,
+			"-db_host", hostname,
+			"-db_port", port,
 		}...)
 	}
 
