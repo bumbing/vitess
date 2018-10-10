@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -65,6 +66,68 @@ CREATE TABLE accepted_tos (
   CONSTRAINT accepted_tos_ibfk_1 FOREIGN KEY (advertiser_id) REFERENCES advertisers (id)
 ) ENGINE=InnoDB AUTO_INCREMENT=526723 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table campaigns
+--
+
+DROP TABLE IF EXISTS campaigns;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE campaigns (
+  id bigint(20) NOT NULL AUTO_INCREMENT,
+  active tinyint(1) NOT NULL DEFAULT '1',
+  creation_date timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  campaign_spec_id bigint(20) DEFAULT NULL,
+  advertiser_id bigint(20) NOT NULL,
+  name varchar(128) DEFAULT NULL,
+  unique_line_count_id bigint(20) DEFAULT NULL,
+  action_type int(11) DEFAULT NULL,
+  gid bigint(20) DEFAULT NULL,
+  g_campaign_spec_id bigint(20) DEFAULT NULL,
+  g_advertiser_id bigint(20) DEFAULT NULL,
+  properties text,
+  creative_type int(11) NOT NULL DEFAULT '0',
+  objective_type int(11) DEFAULT NULL,
+  updated_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_campaigns_advertiser_id (advertiser_id),
+  KEY campaign_spec_id (campaign_spec_id),
+  KEY active (active),
+  KEY updated_time (updated_time),
+  CONSTRAINT campaigns_ibfk_1 FOREIGN KEY (advertiser_id) REFERENCES advertisers (id),
+  CONSTRAINT campaigns_ibfk_2 FOREIGN KEY (campaign_spec_id) REFERENCES campaign_specs (id)
+) ENGINE=InnoDB AUTO_INCREMENT=8264670178 DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table ad_groups
+--
+
+DROP TABLE IF EXISTS ad_groups;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE ad_groups (
+  id bigint(20) NOT NULL AUTO_INCREMENT,
+  gid bigint(20) DEFAULT NULL,
+  active tinyint(1) NOT NULL DEFAULT '1',
+  creation_date timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  spec_id bigint(20) DEFAULT NULL,
+  campaign_id bigint(20) NOT NULL,
+  properties mediumtext,
+  updated_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  g_campaign_id bigint(20) DEFAULT NULL,
+  g_spec_id bigint(20) DEFAULT NULL,
+  advertiser_id bigint(20) DEFAULT NULL,
+  g_advertiser_id bigint(20) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY spec_id (spec_id),
+  KEY campaign_id (campaign_id),
+  KEY updated_time (updated_time),
+  CONSTRAINT ad_groups_ibfk_1 FOREIGN KEY (spec_id) REFERENCES ad_group_specs (id),
+  CONSTRAINT ad_groups_ibfk_2 FOREIGN KEY (campaign_id) REFERENCES campaigns (id)
+) ENGINE=InnoDB AUTO_INCREMENT=3228108 DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
 `
 
 func TestPinschemaOriginal(t *testing.T) {
@@ -74,7 +137,7 @@ func TestPinschemaOriginal(t *testing.T) {
 	}
 
 	config := pinschemaConfig{}
-	got, err := ddlsToVSchema(ddls, config)
+	got, err := newVschemaBuilder(ddls, config).ddlsToVSchema()
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,6 +145,8 @@ func TestPinschemaOriginal(t *testing.T) {
 		Tables: map[string]*vschemapb.Table{
 			"accepted_tos": {},
 			"advertisers":  {},
+			"campaigns":    {},
+			"ad_groups":    {},
 		},
 	}
 	if !proto.Equal(got, want) {
@@ -96,7 +161,7 @@ func TestPinschemaSequences(t *testing.T) {
 	}
 
 	config := pinschemaConfig{createSeq: true}
-	got, err := ddlsToVSchema(ddls, config)
+	got, err := newVschemaBuilder(ddls, config).ddlsToVSchema()
 	if err != nil {
 		t.Error(err)
 	}
@@ -114,10 +179,48 @@ func TestPinschemaSequences(t *testing.T) {
 					Sequence: "advertisers_seq",
 				},
 			},
+			"campaigns": {
+				AutoIncrement: &vschemapb.AutoIncrement{
+					Column:   "id",
+					Sequence: "campaigns_seq",
+				},
+			},
+			"ad_groups": {
+				AutoIncrement: &vschemapb.AutoIncrement{
+					Column:   "id",
+					Sequence: "ad_groups_seq",
+				},
+			},
 		},
 	}
 	if !proto.Equal(got, want) {
 		t.Errorf("GetVSchema: %s, want %s", got, want)
+	}
+}
+
+func TestPinschemaSequenceDDLs(t *testing.T) {
+	ddls, err := parseSchema(ddls)
+	if err != nil {
+		t.Error(err)
+	}
+
+	got := buildSequenceDDLs(ddls)
+	want := strings.Join(
+		[]string{
+			"create table `advertisers_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"insert into `advertisers_seq`(id, next_id, cache) values(0, 1, 1);",
+			"",
+			"create table `accepted_tos_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"insert into `accepted_tos_seq`(id, next_id, cache) values(0, 1, 1);",
+			"",
+			"create table `campaigns_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"insert into `campaigns_seq`(id, next_id, cache) values(0, 1, 1);",
+			"",
+			"create table `ad_groups_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"insert into `ad_groups_seq`(id, next_id, cache) values(0, 1, 1);",
+		}, "\n") + "\n\n"
+	if got != want {
+		t.Errorf("buildSequenceDDLs: \"%s\", want \"%s\"", got, want)
 	}
 }
 
@@ -128,7 +231,7 @@ func TestPinschemaPrimaryVindex(t *testing.T) {
 	}
 
 	config := pinschemaConfig{createPrimary: true}
-	got, err := ddlsToVSchema(ddls, config)
+	got, err := newVschemaBuilder(ddls, config).ddlsToVSchema()
 	if err != nil {
 		t.Error(err)
 	}
@@ -141,22 +244,182 @@ func TestPinschemaPrimaryVindex(t *testing.T) {
 					"offset": "549755813888",
 				},
 			},
-			"advertiser_gid": {
+			"dark_write_advertiser_id": {
+				Type: "hash_offset",
+				Params: map[string]string{
+					"offset": "549755813888",
+				},
+			},
+			"g_advertiser_id": {
 				Type: "hash",
 			},
 		},
 		Tables: map[string]*vschemapb.Table{
 			"accepted_tos": {
-				ColumnVindexes: []*vschemapb.ColumnVindex{{
-					Name:    "advertiser_gid",
-					Columns: []string{"g_advertiser_id"},
-				}},
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+				},
 			},
 			"advertisers": {
-				ColumnVindexes: []*vschemapb.ColumnVindex{{
-					Name:    "advertiser_id",
-					Columns: []string{"id"},
-				}},
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"id"},
+					},
+				},
+			},
+			"campaigns": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+				},
+			},
+			"ad_groups": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+				},
+			},
+		},
+	}
+	if !proto.Equal(got, want) {
+		t.Errorf("GetVSchema: %s, want %s", proto.MarshalTextString(got), proto.MarshalTextString(want))
+	}
+}
+
+func TestPinschemaSecondaryVindex(t *testing.T) {
+	ddls, err := parseSchema(ddls)
+	if err != nil {
+		t.Error(err)
+	}
+
+	config := pinschemaConfig{createPrimary: true, createSecondary: true}
+	got, err := newVschemaBuilder(ddls, config).ddlsToVSchema()
+	if err != nil {
+		t.Error(err)
+	}
+	want := &vschemapb.Keyspace{
+		Sharded: true,
+		Vindexes: map[string]*vschemapb.Vindex{
+			"g_advertiser_id": {
+				Type: "hash",
+			},
+			"dark_write_advertiser_id": {
+				Type: "hash_offset",
+				Params: map[string]string{
+					"offset": "549755813888",
+				},
+			},
+			"advertiser_id": {
+				Type: "hash_offset",
+				Params: map[string]string{
+					"offset": "549755813888",
+				},
+			},
+			"accepted_tos_id": {
+				Type: "scatter_cache",
+				Params: map[string]string{
+					"table": "accepted_tos",
+					"from":  "id",
+					"to":    "g_advertiser_id",
+				},
+			},
+			"campaign_id": {
+				Type: "scatter_cache",
+				Params: map[string]string{
+					"table": "campaigns",
+					"from":  "id",
+					"to":    "g_advertiser_id",
+				},
+			},
+			"ad_group_id": {
+				Type: "scatter_cache",
+				Params: map[string]string{
+					"table": "ad_groups",
+					"from":  "id",
+					"to":    "g_advertiser_id",
+				},
+			},
+		},
+		Tables: map[string]*vschemapb.Table{
+			"accepted_tos": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "accepted_tos_id",
+						Columns: []string{"id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+				},
+			},
+			"advertisers": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"id"},
+					},
+				},
+			},
+			"campaigns": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+					{
+						Name:    "campaign_id",
+						Columns: []string{"id"},
+					},
+				},
+			},
+			"ad_groups": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "ad_group_id",
+						Columns: []string{"id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+					{
+						Name:    "campaign_id",
+						Columns: []string{"campaign_id"},
+					},
+				},
 			},
 		},
 	}

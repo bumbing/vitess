@@ -5,14 +5,17 @@ package main
 //   pinschema gen_seq_ddls [ddl.sql] [another_ddl.sql] [...]
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 
 	"vitess.io/vitess/go/exit"
 	"vitess.io/vitess/go/json2"
+	"vitess.io/vitess/go/sqlescape"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
 	"vitess.io/vitess/go/vt/servenv"
@@ -25,6 +28,7 @@ var (
 	createPrimaryVindexes   = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
 	createSecondaryVindexes = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
 	createSequences         = flag.Bool("create-sequences", false, "Whether to make sequences")
+	sequenceTableDDLs       = flag.Bool("sequence-table-ddls", false, "Whether to output sequence table DDL instead of vschema")
 )
 
 // This is the result of running the following query in patio:
@@ -76,97 +80,133 @@ func readAndParseSchema(fname string) ([]*sqlparser.DDL, error) {
 	return ddl, nil
 }
 
-func ddlsToVSchema(ddls []*sqlparser.DDL, config pinschemaConfig) (*vschemapb.Keyspace, error) {
-	tables := map[string]*vschemapb.Table{}
-	vindexes := map[string]*vschemapb.Vindex{}
+func tableNameToColName(tableName string) string {
+	return singularize(tableName) + "_id"
+}
 
-	if config.createPrimary {
-		vindexes["advertiser_id"] = &vschemapb.Vindex{
-			Type: "hash_offset",
+type vschemaBuilder struct {
+	tables   map[string]*vschemapb.Table
+	vindexes map[string]*vschemapb.Vindex
+	ddls     []*sqlparser.DDL
+	config   pinschemaConfig
+}
+
+func newVschemaBuilder(ddls []*sqlparser.DDL, config pinschemaConfig) *vschemaBuilder {
+	return &vschemaBuilder{
+		tables:   map[string]*vschemapb.Table{},
+		vindexes: map[string]*vschemapb.Vindex{},
+		ddls:     ddls,
+		config:   config,
+	}
+}
+
+func (vb *vschemaBuilder) createPrimaryVindexes() {
+	vb.vindexes["advertiser_id"] = &vschemapb.Vindex{
+		Type: "hash_offset",
+		Params: map[string]string{
+			"offset": advertiserGIDOffset,
+		},
+	}
+	vb.vindexes["dark_write_advertiser_id"] = &vschemapb.Vindex{
+		Type: "hash_offset",
+		Params: map[string]string{
+			"offset": advertiserGIDOffset,
+		},
+	}
+	vb.vindexes["g_advertiser_id"] = &vschemapb.Vindex{
+		Type: "hash",
+	}
+}
+
+func (vb *vschemaBuilder) createSecondaryVindexes() {
+	for _, tableCreate := range vb.ddls {
+		tableName := tableCreate.NewName.Name.String()
+		foreignKeyColName := tableNameToColName(tableName)
+		if _, ok := vb.vindexes[foreignKeyColName]; ok {
+			continue
+		}
+		vb.vindexes[foreignKeyColName] = &vschemapb.Vindex{
+			Type: "scatter_cache",
 			Params: map[string]string{
-				"offset": advertiserGIDOffset,
+				"table": tableName,
+				"from":  "id",
+				"to":    "g_advertiser_id",
 			},
 		}
-		vindexes["advertiser_gid"] = &vschemapb.Vindex{
-			Type: "hash",
-		}
+	}
+}
+
+func (vb *vschemaBuilder) getVindexName(colName, tableName string) string {
+	if colName == "advertiser_gid" {
+		return "g_advertiser_id"
+	} else if colName == "id" {
+		return tableNameToColName(tableName)
+	} else if colName == "gid" {
+		return "g_" + tableNameToColName(tableName)
 	}
 
-	if config.createSecondary {
-		for _, tableCreate := range ddls {
-			tableName := tableCreate.NewName.Name.String()
+	return colName
+}
 
-			// NOTE(dweitzman): scatter_cache_unique does not exist yet as an
-			// vindex, so this won't work in practice yet. The idea is that
-			// it would resolve a campaign ID to keyspace ID by doing a scatter
-			// query across all shards and then caching the result in memory to
-			// avoid repeating the work multiple times on the same vtgate.
-			//
-			// If this has acceptable performance, it'll be lighter weight to
-			// maintain in the short term than a full table-based lookup vindex.
-			//
-			// In the very long term we'll probably want to use table-backed
-			// secondary vindexes because as the number of shards increases the
-			// cost of scatter queries and decreased reliability will eventually
-			// outweigh the simplicity of not maintaining lookup tables on disk.
-			vindexes[singularize(tableName)+"_idx"] = &vschemapb.Vindex{
-				Type: "scatter_cache_unique",
-			}
-		}
+func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
+	if vb.config.createPrimary {
+		vb.createPrimaryVindexes()
 	}
 
-	for _, tableCreate := range ddls {
+	if vb.config.createSecondary {
+		vb.createSecondaryVindexes()
+	}
+
+	for _, tableCreate := range vb.ddls {
 		tableName := tableCreate.NewName.Name.String()
 
 		tbl := &vschemapb.Table{}
 
 		tblVindexes := make([]*vschemapb.ColumnVindex, 0)
 
-		advertiserGIDColName := "g_advertiser_id"
-		if tableName == "advertisers" {
-			advertiserGIDColName = "gid"
-		} else if tableName == "targeting_attribute_counts_by_advertiser" {
-			// This one table uses the wrong name.
-			advertiserGIDColName = "advertiser_gid"
-		}
-
-		if config.createPrimary {
-			if tableName == "advertisers" {
-				tblVindexes = append(tblVindexes, &vschemapb.ColumnVindex{
-					Name:    "advertiser_id",
-					Columns: []string{"id"},
-				})
-			} else {
-				tblVindexes = append(tblVindexes, &vschemapb.ColumnVindex{
-					Name:    "advertiser_gid",
-					Columns: []string{advertiserGIDColName},
-				})
-			}
-		}
-
+		// For each column in the current table.
 		for _, col := range tableCreate.TableSpec.Columns {
 			colName := col.Name.String()
-			refTable := ""
+			vindexName := vb.getVindexName(colName, tableName)
 
-			// Reference the scatter_unique index for columns like "campaign_id", or like "id"
-			// in the campaigns table.
-			if strings.HasSuffix(colName, "_id") {
-				refTable = singularize(colName[0 : len(colName)-3])
-			} else if colName == "id" {
-				refTable = singularize(tableName)
+			// For the advertisers table we use "id" as the primary vindex and we have no
+			// secondary vindex on "gid" because it's initially null.
+			isPrimaryVindex := false
+			if tableName == "advertisers" || tableName == "dark_write_advertisers" {
+				isPrimaryVindex = colName == "id"
+				if colName == "gid" {
+					// Can't set a secondary index on advertisers.gid because it's initially NULL.
+					continue
+				}
+			} else {
+				// For every other table, "g_advertiser_id" is the primary vindex.
+				isPrimaryVindex = vindexName == "g_advertiser_id"
 			}
 
-			// Only reference secondary vindexes that actually exist. This protects against misinterpretting
-			// "pin_id" as a foreign key to a "pin" table with a "pin_idx" vindex. No such table
-			// or index exists in patio.
-			if _, ok := vindexes[refTable+"_idx"]; ok {
-				tblVindexes = append(tblVindexes, &vschemapb.ColumnVindex{
-					Name:    refTable + "_idx",
+			// Add the relevant vindex for this column. If it's the primary vindex, it
+			// needs to be added to the beginning of the list.
+			if _, ok := vb.vindexes[vindexName]; ok {
+				tableVindex := &vschemapb.ColumnVindex{
+					Name:    vindexName,
 					Columns: []string{colName},
+				}
+
+				if isPrimaryVindex {
+					tblVindexes = append([]*vschemapb.ColumnVindex{tableVindex}, tblVindexes...)
+				} else {
+					tblVindexes = append(tblVindexes, tableVindex)
+				}
+			}
+
+			// Sort secondary indexes alphabetically by name to simplify unit testing.
+			if len(tblVindexes) > 1 {
+				secondaryVindexes := tblVindexes[1:]
+				sort.Slice(secondaryVindexes, func(i, j int) bool {
+					return secondaryVindexes[i].Name < secondaryVindexes[j].Name
 				})
 			}
 
-			if bool(col.Type.Autoincrement) && config.createSeq {
+			if bool(col.Type.Autoincrement) && vb.config.createSeq && !strings.HasPrefix(tableName, "dark_write") {
 				tbl.AutoIncrement = &vschemapb.AutoIncrement{
 					Column:   colName,
 					Sequence: tableName + "_seq",
@@ -177,15 +217,15 @@ func ddlsToVSchema(ddls []*sqlparser.DDL, config pinschemaConfig) (*vschemapb.Ke
 		if len(tblVindexes) > 0 {
 			tbl.ColumnVindexes = tblVindexes
 		}
-		tables[tableName] = tbl
+		vb.tables[tableName] = tbl
 	}
 
 	var vs vschemapb.Keyspace
-	vs.Tables = tables
-	if len(vindexes) > 0 {
-		vs.Vindexes = vindexes
+	vs.Tables = vb.tables
+	if len(vb.vindexes) > 0 {
+		vs.Vindexes = vb.vindexes
 	}
-	vs.Sharded = config.createPrimary
+	vs.Sharded = vb.config.createPrimary
 
 	return &vs, nil
 }
@@ -204,11 +244,16 @@ func parseAndRun(args []string) error {
 		ddls = append(ddls, ddl...)
 	}
 
-	vs, err := ddlsToVSchema(ddls, pinschemaConfig{
+	if *sequenceTableDDLs {
+		fmt.Print(buildSequenceDDLs(ddls))
+		return nil
+	}
+
+	vs, err := newVschemaBuilder(ddls, pinschemaConfig{
 		createPrimary:   *createPrimaryVindexes,
 		createSecondary: *createSecondaryVindexes,
 		createSeq:       *createSequences,
-	})
+	}).ddlsToVSchema()
 	if err != nil {
 		return err
 	}
@@ -221,6 +266,24 @@ func parseAndRun(args []string) error {
 	fmt.Printf("%s", b)
 
 	return nil
+}
+
+func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
+	var b bytes.Buffer
+	for _, tableCreate := range ddls {
+		tableName := tableCreate.NewName.Name.String()
+		if strings.HasPrefix(tableName, "dark_write") {
+			continue
+		}
+
+		seqTableName := sqlescape.EscapeID(tableName + "_seq")
+		fmt.Fprintf(
+			&b,
+			"create table %s(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';\n",
+			seqTableName)
+		fmt.Fprintf(&b, "insert into %s(id, next_id, cache) values(0, 1, 1);\n\n", seqTableName)
+	}
+	return b.String()
 }
 
 // singularize removes the "s" from a table name.
