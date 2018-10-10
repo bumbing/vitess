@@ -44,6 +44,7 @@ pkg_tar(
     srcs = [
         "//go/cmd/mysqlctl",
         "//go/cmd/mysqlctld",
+        "//go/cmd/pinschema",
         "//go/cmd/query_analyzer",
         "//go/cmd/topo2topo",
         "//go/cmd/vtclient",
