@@ -34,6 +34,25 @@
           "type": "lookup_test",
           "owner": "user_metadata"
         },
+        "advertiser_idx": {
+          "type": "hash_test"
+        },
+        "billing_profile_idx": {
+          "type": "scatter_cache",
+          "params": {
+            "table": "billing_profiles",
+            "from": "id",
+            "to": "advertiser_id"
+          }
+        },
+        "campaign_idx": {
+          "type": "scatter_cache",
+          "params": {
+            "table": "campaigns",
+            "from": "id",
+            "to": "advertiser_id"
+          }
+        },
         "address_user_map": {
           "type": "lookup_test",
           "owner": "user_metadata"
@@ -164,6 +183,30 @@
             {
               "column": "a`b*c",
               "name": "user_index"
+            }
+          ]
+        },
+        "advertisers": {
+          "column_vindexes": [
+            {
+              "column": "id",
+              "name": "advertiser_idx"
+            },
+            {
+              "column": "billing_profile_id",
+              "name": "billing_profile_idx"
+            }
+          ]
+        },
+        "campaigns": {
+          "column_vindexes": [
+            {
+              "column": "advertiser_id",
+              "name": "advertiser_idx"
+            },
+            {
+              "column": "id",
+              "name": "campaign_idx"
             }
           ]
         }

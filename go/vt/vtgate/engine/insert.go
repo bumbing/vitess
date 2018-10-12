@@ -514,6 +514,26 @@ func (ins *Insert) processUnowned(vcursor VCursor, vindexColumnsKeys [][]sqltype
 	var verifyKeys []sqltypes.Value
 	var verifyKsids [][]byte
 
+	// This is a Pinterest-specific hack. Normally when an "insert" statement includes columns that have
+	// a secondary vindex on them, vtgate wants to double-check that those column values map to the expected
+	// keyspace ID (the same one as the primary vindex).
+	//
+	// This is a pretty reasonable thing to want to do, however things get a little weird for the Pinterest
+	// advertiser db because we have columns with a secondary vindex that might start out as NULL and later
+	// get filled in with a value. An example would be advertiser.billing_profile_id. It's ok for a newly-created
+	// advertiser to have a NULL billing_profile_id which may be filled in later.
+	//
+	// In practice we're not going to be doing queries to get advertisers with a null billing_profile_id and
+	// expecting results from only a single keyspace ID.
+	//
+	// ScatterCache.Verify() is actually a no-op, so saying that we verify NULLs being inserted basically means
+	// that we're disabling verification. Verification was already disabled for non-NULL values with ScatterCache.
+	//
+	// This is all a long-winded way of saying: vtgate verification doesn't quite work for our use case, but it's
+	// ok and we can turn off those extra safety checks.
+	scatterCache, ok := colVindex.Vindex.(*vindexes.ScatterCache)
+	canVerifyNull := ok && scatterCache.CanVerifyNull()
+
 	for rowNum, rowColumnKeys := range vindexColumnsKeys {
 		// Right now, we only validate against the first column of a colvindex.
 		// TODO(sougou): address this when we add multicolumn Map support.
@@ -521,7 +541,8 @@ func (ins *Insert) processUnowned(vcursor VCursor, vindexColumnsKeys [][]sqltype
 		if ksids[rowNum] == nil {
 			continue
 		}
-		if vindexKey.IsNull() {
+
+		if vindexKey.IsNull() && !canVerifyNull {
 			reverseIndexes = append(reverseIndexes, rowNum)
 			reverseKsids = append(reverseKsids, ksids[rowNum])
 		} else {

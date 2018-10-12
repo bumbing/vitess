@@ -37,7 +37,6 @@ package vindexes
 //   }
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -120,9 +119,19 @@ func (sc *ScatterCache) IsFunctional() bool {
 	return false
 }
 
+// CanVerifyNull returns true if null values can be verified.
+func (sc *ScatterCache) CanVerifyNull() bool {
+	return true
+}
+
 // Map can map ids to key.Destination objects.
 func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
 	// NOT YET IMPLEMENTED: Consult an LRU cache before querying.
+	// However, it's important not to cache NULL values. If you look up a campaign_id that doesn't exist
+	// yet, it could come into existence momentarily.
+	// The bad news is that invalid secondary IDs will always result in an expensive scatter query. The
+	// vast majority of requests should have valid IDs, though, so we expect the common, non-erroneous
+	// case to have better performance.
 
 	// TODO: Run a single big "select toCol, fromCol where fromCol in (... all ids ...)" query instead
 	// of many small individual queries. It'll be a little more complicated to put the results back into
@@ -187,9 +196,4 @@ func (sc *ScatterCache) Update(vcursor VCursor, oldValues []sqltypes.Value, ksid
 func (sc *ScatterCache) Delete(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksid []byte) error {
 	// TODO: clear the cache
 	return nil
-}
-
-// MarshalJSON returns a JSON representation of ScatterCache.
-func (sc *ScatterCache) MarshalJSON() ([]byte, error) {
-	return json.Marshal(sc)
 }

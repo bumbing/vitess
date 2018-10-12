@@ -143,6 +143,19 @@ func buildChangedVindexesValues(eupd *engine.Update, update *sqlparser.Update, c
 		if _, ok := vindex.Vindex.(vindexes.Lookup); !ok {
 			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update lookup vindexes. Invalid update on vindex: %v", vindex.Name)
 		}
+
+		// This is Pinterest-specific logic.
+		// ScatterCache is a special case: it's like an unowned lookup vindex.
+		// We categorically allow changing the value of a secondary ID with ScatterCache, since by definition
+		// the ID belongs to whatever shard the corresponding item (campaign, ad group, etc.) resides in.
+		// But beware: using an incorrect column value like setting the campaign ID for an ad group to a
+		// campaign that belongs to an entirely different advertiser could lead to queries involving that ad
+		// group ending up in the wrong shard. If we have foreign keys connecting data across multiple advertisers,
+		// we're already in trouble, though...
+		if _, changable := vindex.Vindex.(*vindexes.ScatterCache); changable {
+			continue
+		}
+
 		if !vindex.Owned {
 			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update owned vindexes. Invalid update on vindex: %v", vindex.Name)
 		}
