@@ -24,7 +24,7 @@ if [ -z "$GOPATH" ]; then
 fi
 
 if [ -z "$(which golint)" ]; then
-  echo "golint not found, please run: go get github.com/golang/lint/golint"
+  echo "golint not found, please run: go get golang.org/x/lint/golint"
   exit 1
 fi
 

@@ -266,7 +266,7 @@ install_dep "chromedriver" "2.40" "$VTROOT/dist/chromedriver" install_chromedriv
 # Note: We explicitly do not vendor the tools below because a) we want to stay
 # on their latest version and b) it's easier to "go install" them this way.
 gotools=" \
-       github.com/golang/lint/golint \
+       golang.org/x/lint/golint \
        github.com/golang/mock/mockgen \
        github.com/kardianos/govendor \
        golang.org/x/tools/cmd/cover \
