@@ -1,3 +1,0 @@
-FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu14.04:latest
-COPY vtgate /bin/
-COPY scripts/vtgate_startup.sh .

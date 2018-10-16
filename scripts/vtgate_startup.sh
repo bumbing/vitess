@@ -13,7 +13,7 @@ LATEST=false
 EXTRA_ARGS=""
 if [ "$VTGATE_COMMAND" = "" ]
 then
-   VTGATE_COMMAND="bazel run --workspace_status_command=./scripts/workspace_status.sh go/cmd/vtgate --"
+   VTGATE_COMMAND="go run vitess.io/vitess/go/cmd/vtgate "
 fi
 
 while getopts ":det" opt; do

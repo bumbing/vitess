@@ -4,14 +4,6 @@
 # For mac users
 .DS_Store
 
-# Bazel personal configuration
-.bazelrc
-
-# Output from bazel builds
-bazel-*
-bazel/go_repos.bzl
-**/BUILD.bazel
-
 # Produced by yacc
 *.output
 
