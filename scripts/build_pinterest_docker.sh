@@ -48,14 +48,6 @@ then
   docker push $REGISTRY/vitess:$GIT_COMMIT
 fi
 
-# Unit tests pass, making the build artifact succeeded. Let's push the base and vtgate images out!
-if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
-then
-  docker push $REGISTRY/vitess/base:$GIT_COMMIT
-  docker push $REGISTRY/vitess:$GIT_COMMIT
-fi
-
-
 if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]
 then
 # Package a .deb file where /vt/* has the contents of the build artifact
