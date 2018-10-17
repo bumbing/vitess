@@ -32,13 +32,13 @@ then
   docker build --no-cache -f docker/base/Dockerfile.percona -t $REGISTRY/vitess/base:$GIT_COMMIT .
 
   # Run unit tests and build a pinterest-specific image
-  docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t vitess:$GIT_COMMIT .
+  docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess:$GIT_COMMIT .
 fi
 
 # We'll need to make a build artifact
 if [ "$TARBALL_GZ" != '' ]
 then
-  docker run -i vitess:$GIT_COMMIT /vt/scripts/write_build_artifact_to_stdout.sh > $TARBALL_GZ
+  docker run -i $REGISTRY/vitess:$GIT_COMMIT /vt/scripts/write_build_artifact_to_stdout.sh > $TARBALL_GZ
 fi
 
 # Unit tests pass, making the build artifact succeeded. Let's push the base and vtgate images out!
