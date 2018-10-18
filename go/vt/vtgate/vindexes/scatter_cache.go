@@ -1,6 +1,5 @@
 package vindexes
 
-// !!!! WORK IN PROGRESS !!!!
 // This secondary vindex is experimental / incomplete.
 //
 // The concept is a unique vindex where an individual vtgate does a scatter query to
@@ -8,8 +7,7 @@ package vindexes
 // associated advertiser GID in memory to avoid repeating the scatter in the near feature.
 //
 // Not yet implemented:
-// - LRU cache. For now, the scatter re-executes for every query. This is bad for performance
-//   but it lets us proceed with certain types of validation testing work.
+// - Run a single big scatter query instead of many small queries in serial
 // - vtexplain support. vtexplain returns fake results from tablets to simulate a lookup vindex
 //   running. Because scatter_cache is a unique vindex, vtexplain's fake query service needs to
 //   return results from only one shard. HandleQuery() in go/vt/vtexplain/vtexplain_vttablet.go
@@ -30,6 +28,7 @@ package vindexes
 //     "type": "scatter_cache",
 //     "owner": "campaigns",
 //     "params": {
+//       "capacity": "1000",
 //       "table": "campaigns",
 //       "from": "id",
 //       "to": "g_advertiser_id"
@@ -38,9 +37,12 @@ package vindexes
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
@@ -50,6 +52,35 @@ var (
 	_ Lookup = (*ScatterCache)(nil)
 )
 
+// RegisterScatterCacheStats arranges for scatter cache stats to be available given a way to fetch the
+// current vschema.
+func RegisterScatterCacheStats(getVSchema func() *VSchema) {
+	collectStats := func(statFn func(*ScatterCache) int64) func() map[string]int64 {
+		return func() map[string]int64 {
+			tstats := make(map[string]int64)
+
+			vschema := getVSchema()
+			for name, vindex := range vschema.uniqueVindexes {
+				scatterVindex, ok := vindex.(*ScatterCache)
+				if !ok {
+					continue
+				}
+
+				tstats[name] = statFn(scatterVindex)
+			}
+
+			return tstats
+		}
+	}
+
+	_ = stats.NewGaugesFuncWithMultiLabels("ScatterCacheLength", "scatter cache length", []string{"Vindex"},
+		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.keyspaceIDCache.Length() }))
+	_ = stats.NewGaugesFuncWithMultiLabels("ScatterCacheCapacity", "scatter cache capacity", []string{"Vindex"},
+		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.keyspaceIDCache.Capacity() }))
+	_ = stats.NewCountersFuncWithMultiLabels("ScatterCacheEvictions", "scatter cache evictions", []string{"Vindex"},
+		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.keyspaceIDCache.Evictions() }))
+}
+
 func init() {
 	Register("scatter_cache", NewScatterCache)
 }
@@ -58,10 +89,32 @@ func init() {
 // in an LRU cache. The table is expected to define the id column as unique. It's
 // Unique and a Lookup.
 type ScatterCache struct {
-	name    string
-	fromCol string
-	toCol   string
-	table   string
+	name            string
+	fromCol         string
+	toCol           string
+	table           string
+	capacity        uint64
+	keyspaceIDCache *scatterLRUCache
+}
+
+// scatterLRU is a thread-safe object for remembering the keyspace ID of recently-searched
+// secondary IDs.
+type scatterLRUCache struct {
+	*cache.LRUCache
+}
+
+// scatterKeyspaceID is a cache.Value representing a keyspace ID.
+type scatterKeyspaceID []byte
+
+// Size always returns 1 because we use the cache only to track keyspace IDs.
+// This implements the cache.Value interface.
+func (ski scatterKeyspaceID) Size() int {
+	return 1
+}
+
+// newScatterLRUCache creates a new cache with the given capacity.
+func newScatterLRUCache(capacity int64) *scatterLRUCache {
+	return &scatterLRUCache{cache.NewLRUCache(capacity)}
 }
 
 // Inspired by scanBindVar in token.go.
@@ -83,7 +136,7 @@ func NewScatterCache(name string, m map[string]string) (Vindex, error) {
 		return !isAllowedCharInBindVar(uint16(r))
 	}
 
-	requiredFields := []string{"from", "to", "table"}
+	requiredFields := []string{"from", "to", "table", "capacity"}
 	for _, field := range requiredFields {
 		if m[field] == "" {
 			return nil, fmt.Errorf("scatter_cache: missing required field: %v", field)
@@ -93,7 +146,19 @@ func NewScatterCache(name string, m map[string]string) (Vindex, error) {
 		}
 	}
 
-	sc := &ScatterCache{name: name, fromCol: m["from"], toCol: m["to"], table: m["table"]}
+	capacity, err := strconv.ParseUint(m["capacity"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("scatter_cache: failed to parse capacity: %v", err)
+	}
+
+	sc := &ScatterCache{
+		name:            name,
+		fromCol:         m["from"],
+		toCol:           m["to"],
+		table:           m["table"],
+		capacity:        capacity,
+		keyspaceIDCache: newScatterLRUCache(100000),
+	}
 
 	return sc, nil
 }
@@ -126,13 +191,6 @@ func (sc *ScatterCache) CanVerifyNull() bool {
 
 // Map can map ids to key.Destination objects.
 func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
-	// NOT YET IMPLEMENTED: Consult an LRU cache before querying.
-	// However, it's important not to cache NULL values. If you look up a campaign_id that doesn't exist
-	// yet, it could come into existence momentarily.
-	// The bad news is that invalid secondary IDs will always result in an expensive scatter query. The
-	// vast majority of requests should have valid IDs, though, so we expect the common, non-erroneous
-	// case to have better performance.
-
 	// TODO: Run a single big "select toCol, fromCol where fromCol in (... all ids ...)" query instead
 	// of many small individual queries. It'll be a little more complicated to put the results back into
 	// a slice at the end, but the reduced mysql queries and network round-trips will be worth it.
@@ -145,6 +203,12 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 
 	out := make([]key.Destination, 0, len(ids))
 	for _, id := range ids {
+		cachedKeyspaceID, ok := sc.keyspaceIDCache.Get(id.String())
+		if ok {
+			out = append(out, key.DestinationKeyspaceID(cachedKeyspaceID.(scatterKeyspaceID)))
+			continue
+		}
+
 		bindVars := map[string]*querypb.BindVariable{
 			sc.fromCol: sqltypes.ValueBindVariable(id),
 		}
@@ -154,13 +218,20 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 		}
 		switch len(result.Rows) {
 		case 0:
+			// It's important not to cache NULL values. If you look up a campaign_id that doesn't exist
+			// yet, it could come into existence momentarily.
+			// The bad news is that invalid secondary IDs will always result in an expensive scatter query. The
+			// vast majority of requests should have valid IDs, though, so we expect the common, non-erroneous
+			// case to have better performance.
 			out = append(out, key.DestinationNone{})
 		case 1:
 			unhashedVal, err := sqltypes.ToUint64(result.Rows[0][0])
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, key.DestinationKeyspaceID(vhash(unhashedVal)))
+			destinationKeyspace := vhash(unhashedVal)
+			sc.keyspaceIDCache.Set(id.String(), scatterKeyspaceID(destinationKeyspace))
+			out = append(out, key.DestinationKeyspaceID(destinationKeyspace))
 		default:
 			return nil, fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %s: %v, %v", sc.table, id, result)
 		}

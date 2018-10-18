@@ -18,10 +18,9 @@ import (
 	"vitess.io/vitess/go/sqlescape"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
+	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
 	"vitess.io/vitess/go/vt/servenv"
 	"vitess.io/vitess/go/vt/sqlparser"
-
-	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
 )
 
 var (
@@ -128,9 +127,10 @@ func (vb *vschemaBuilder) createSecondaryVindexes() {
 		vb.vindexes[foreignKeyColName] = &vschemapb.Vindex{
 			Type: "scatter_cache",
 			Params: map[string]string{
-				"table": tableName,
-				"from":  "id",
-				"to":    "g_advertiser_id",
+				"capacity": "10000",
+				"table":    tableName,
+				"from":     "id",
+				"to":       "g_advertiser_id",
 			},
 		}
 	}

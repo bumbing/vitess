@@ -338,25 +338,28 @@ func TestPinschemaSecondaryVindex(t *testing.T) {
 			"accepted_tos_id": {
 				Type: "scatter_cache",
 				Params: map[string]string{
-					"table": "accepted_tos",
-					"from":  "id",
-					"to":    "g_advertiser_id",
+					"capacity": "10000",
+					"table":    "accepted_tos",
+					"from":     "id",
+					"to":       "g_advertiser_id",
 				},
 			},
 			"campaign_id": {
 				Type: "scatter_cache",
 				Params: map[string]string{
-					"table": "campaigns",
-					"from":  "id",
-					"to":    "g_advertiser_id",
+					"capacity": "10000",
+					"table":    "campaigns",
+					"from":     "id",
+					"to":       "g_advertiser_id",
 				},
 			},
 			"ad_group_id": {
 				Type: "scatter_cache",
 				Params: map[string]string{
-					"table": "ad_groups",
-					"from":  "id",
-					"to":    "g_advertiser_id",
+					"capacity": "10000",
+					"table":    "ad_groups",
+					"from":     "id",
+					"to":       "g_advertiser_id",
 				},
 			},
 		},

@@ -40,6 +40,7 @@
         "billing_profile_idx": {
           "type": "scatter_cache",
           "params": {
+            "capacity": "10000",
             "table": "billing_profiles",
             "from": "id",
             "to": "advertiser_id"
@@ -48,6 +49,7 @@
         "campaign_idx": {
           "type": "scatter_cache",
           "params": {
+            "capacity": "10000",
             "table": "campaigns",
             "from": "id",
             "to": "advertiser_id"
