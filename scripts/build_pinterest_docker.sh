@@ -22,6 +22,7 @@ then
   if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
   then
     docker push $REGISTRY/vitess/bootstrap:latest
+    docker push $REGISTRY/vitess/bootstrap:percona
   fi
 fi
 
