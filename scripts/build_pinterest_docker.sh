@@ -18,6 +18,7 @@ then
   ./docker/bootstrap/build.sh percona
 
   docker tag vitess/bootstrap:percona $REGISTRY/vitess/bootstrap:latest
+  docker tag vitess/bootstrap:percona $REGISTRY/vitess/bootstrap:percona
 
   if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
   then
