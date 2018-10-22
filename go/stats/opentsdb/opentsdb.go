@@ -31,7 +31,7 @@ var (
 	// Most servers at pinterest have the opentsdb telnet protocol available on port 18126.
 	openTsdbURI     = flag.String("opentsdb_uri", "http://localhost:18126/api/put?details", "URI of opentsdb /api/put method")
 	openTsdbService = flag.String("opentsdb_service", "", "the service name for opentsdb stats")
-	// This will be filled in at build time by bazel settings (see BUILD.bazel in this directory).
+	// This will be filled in at build time (see tools/build_version_flags.sh)
 	buildGitRev = ""
 
 	percentileBuckets     = []float64{.5, .9, .95, .99, .999}
@@ -101,9 +101,6 @@ func Init(prefix string) {
 			return
 		}
 
-		// The way we're filling in buildGitRev with bazel requires that the declaration be
-		// an empty string, so here's where we fill in "unknown" if bazel wasn't configured
-		// to know how to report a git revision (or couldn't detect one for some reason).
 		gitRev := buildGitRev
 		if gitRev == "" {
 			gitRev = "unknown"

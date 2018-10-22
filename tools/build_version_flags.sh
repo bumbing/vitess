@@ -18,6 +18,7 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source $DIR/shell_functions.inc
 
 echo "\
+  -X 'vitess.io/vitess/go/stats/opentsdb.buildGitRev=$(git rev-parse --short HEAD)' \
   -X 'vitess.io/vitess/go/vt/servenv.buildHost=$(hostname)' \
   -X 'vitess.io/vitess/go/vt/servenv.buildUser=$(whoami)' \
   -X 'vitess.io/vitess/go/vt/servenv.buildGitRev=$(git rev-parse --short HEAD)' \

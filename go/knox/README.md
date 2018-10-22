@@ -35,7 +35,7 @@ gives any grpc user the role `unsecure_grpc_client` which we haven't forbidden
 from accessing or doing anything.
 
 ```
-./bazel_boostrap.sh && bazel-run.sh go/cmd/vtclient -- -server <vtgatehost:port> -grpc_auth_knox_role longqueryro -knox_supported_roles longqueryro "select sleep(1)"
+go run vitess.io/vitess/go/cmd/vtclient -server <vtgatehost:port> -grpc_auth_knox_role longqueryro -knox_supported_roles longqueryro "select sleep(1)"
 ```
 
 *TODO: Remove the need for `-knox_supported_roles` on the client side*
