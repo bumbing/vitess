@@ -664,6 +664,8 @@ var (
 		input:  "update foo f join bar b on f.name = b.name set f.id = b.id where b.name = 'test'",
 		output: "update foo as f join bar as b on f.name = b.name set f.id = b.id where b.name = 'test'",
 	}, {
+		input: "update /* ignore */ ignore a set b = 3",
+	}, {
 		input: "delete /* simple */ from a",
 	}, {
 		input: "delete /* a.b */ from a.b",
@@ -992,6 +994,12 @@ var (
 	}, {
 		input:  "analyze table a",
 		output: "alter table a",
+	}, {
+		input:  "flush tables",
+		output: "flush",
+	}, {
+		input:  "flush tables with read lock",
+		output: "flush",
 	}, {
 		input:  "show binary logs",
 		output: "show binary logs",
