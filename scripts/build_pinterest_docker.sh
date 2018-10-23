@@ -31,7 +31,7 @@ fi
 if [ "$SKIP_BUILD" != 'true' ] && [ "$PUSH_IMAGES" != '1' ]
 then
   # Copy the most recent files into the bootstrap image to create a base image
-  docker build --no-cache -f docker/base/Dockerfile.percona -t $REGISTRY/vitess/base:$GIT_COMMIT .
+  docker build --no-cache -f docker/base/Dockerfile.percona --build-arg BASE_IMAGE=$REGISTRY/vitess/bootstrap:percona -t $REGISTRY/vitess/base:$GIT_COMMIT .
 
   # Run unit tests and build a pinterest-specific image
   docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess:$GIT_COMMIT .

@@ -1,4 +1,5 @@
-FROM vitess/bootstrap:percona
+ARG BASE_IMAGE=vitess/bootstrap:percona
+FROM $BASE_IMAGE
 
 # Re-copy sources from working tree
 USER root
