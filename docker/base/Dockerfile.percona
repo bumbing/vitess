@@ -7,6 +7,8 @@ COPY . /vt/src/vitess.io/vitess
 # Fix permissions
 RUN chown -R vitess:vitess /vt
 USER vitess
+# Required by e2e test dependencies e.g. test/environment.py.
+ENV USER vitess
 
 # Build Vitess
 RUN make build
