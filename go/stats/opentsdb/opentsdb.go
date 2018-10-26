@@ -280,8 +280,11 @@ func (dc *dataCollector) addExpVar(kv expvar.KeyValue) {
 		val := v.Get()
 		switch k {
 		case "TabletType":
-			// For vttablet, we want to tag the tablet type in all other stats.
 			dc.settings.commonTags["dbtype"] = val
+		case "TabletShard":
+			dc.settings.commonTags["shard"] = val
+		case "TabletKeyspace":
+			dc.settings.commonTags["keyspace"] = val
 		}
 	default:
 		// Deal with generic expvars by converting them to JSON and pulling out
