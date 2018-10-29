@@ -19,14 +19,13 @@ package endtoend
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
-
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
@@ -285,6 +284,12 @@ func doTestWarnings(t *testing.T, disableClientDeprecateEOF bool) {
 }
 
 func TestWarningsDeprecateEOF(t *testing.T) {
+	// ClientDeprecateEOF does not appear to be supported in mysql56
+	flavor := os.Getenv("MYSQL_FLAVOR")
+	if flavor == "MySQL56" {
+		return
+	}
+
 	doTestWarnings(t, false)
 }
 

@@ -2,12 +2,12 @@ package endtoend
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 )
@@ -232,6 +232,12 @@ func doTestMultiResult(t *testing.T, disableClientDeprecateEOF bool) {
 }
 
 func TestMultiResultDeprecateEOF(t *testing.T) {
+	// ClientDeprecateEOF does not appear to be supported in mysql56
+	flavor := os.Getenv("MYSQL_FLAVOR")
+	if flavor == "MySQL56" {
+		return
+	}
+
 	doTestMultiResult(t, false)
 }
 func TestMultiResultNoDeprecateEOF(t *testing.T) {
