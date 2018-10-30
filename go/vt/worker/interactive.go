@@ -57,7 +57,7 @@ const subIndexHTML = `
 `
 
 func httpError(w http.ResponseWriter, format string, args ...interface{}) {
-	log.Errorf(format, args)
+	log.Errorf(format, args...)
 	http.Error(w, fmt.Sprintf(format, args...), http.StatusInternalServerError)
 }
 

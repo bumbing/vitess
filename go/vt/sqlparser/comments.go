@@ -32,6 +32,9 @@ const (
 	DirectiveQueryTimeout = "QUERY_TIMEOUT_MS"
 	// DirectiveForceScatter disables the use of vindexes in query planning.
 	DirectiveForceScatter = "FORCE_SCATTER"
+
+	// DirectiveScatterErrorsAsWarnings enables partial success scatter select queries
+	DirectiveScatterErrorsAsWarnings = "SCATTER_ERRORS_AS_WARNINGS"
 )
 
 func isNonSpace(r rune) bool {

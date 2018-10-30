@@ -86,7 +86,12 @@ func (pb *primitiveBuilder) processSelect(sel *sqlparser.Select, outer *symtab) 
 		if directives.IsSet(sqlparser.DirectiveForceScatter) {
 			rb.forceScatter = true
 		}
+
+		if directives.IsSet(sqlparser.DirectiveScatterErrorsAsWarnings) {
+			rb.ERoute.ScatterErrorsAsWarnings = true
+		}
 	}
+
 	// Set the outer symtab after processing of FROM clause.
 	// This is because correlation is not allowed there.
 	pb.st.Outer = outer

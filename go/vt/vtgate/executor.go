@@ -159,6 +159,17 @@ func (e *Executor) execute(ctx context.Context, safeSession *SafeSession, sql st
 	stmtType := sqlparser.Preview(sql)
 	logStats.StmtType = sqlparser.StmtType(stmtType)
 
+	// Mysql warnings are scoped to the current session, but are
+	// cleared when a "non-diagnostic statement" is executed:
+	// https://dev.mysql.com/doc/refman/8.0/en/show-warnings.html
+	//
+	// To emulate this behavior, clear warnings from the session
+	// for all statements _except_ SHOW, so that SHOW WARNINGS
+	// can actually return them.
+	if stmtType != sqlparser.StmtShow {
+		safeSession.ClearWarnings()
+	}
+
 	switch stmtType {
 	case sqlparser.StmtSelect:
 		return e.handleExec(ctx, safeSession, sql, bindVars, destKeyspace, destTabletType, dest, logStats)
@@ -969,7 +980,28 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 			Rows:         rows,
 			RowsAffected: uint64(len(rows)),
 		}, nil
+	case sqlparser.KeywordString(sqlparser.WARNINGS):
+		fields := []*querypb.Field{
+			{Name: "Level", Type: sqltypes.VarChar},
+			{Name: "Type", Type: sqltypes.Uint16},
+			{Name: "Message", Type: sqltypes.VarChar},
+		}
+		rows := make([][]sqltypes.Value, 0, 0)
 
+		if safeSession.Warnings != nil {
+			for _, warning := range safeSession.Warnings {
+				rows = append(rows, []sqltypes.Value{
+					sqltypes.NewVarChar("Warning"),
+					sqltypes.NewUint32(warning.Code),
+					sqltypes.NewVarChar(warning.Message),
+				})
+			}
+		}
+
+		return &sqltypes.Result{
+			Fields: fields,
+			Rows:   rows,
+		}, nil
 	}
 
 	// Any other show statement is passed through

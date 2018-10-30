@@ -178,6 +178,14 @@ func (vh *vtgateHandler) queryTimeout(im *querypb.VTGateCallerID, query string) 
 	return *mysqlQueryTimeout
 }
 
+func (vh *vtgateHandler) WarningCount(c *mysql.Conn) uint16 {
+	session, _ := c.ClientData.(*vtgatepb.Session)
+	if session != nil {
+		return uint16(len(session.GetWarnings()))
+	}
+	return 0
+}
+
 var mysqlListener *mysql.Listener
 var mysqlUnixListener *mysql.Listener
 

@@ -96,7 +96,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"sort"
 	"strconv"
@@ -205,9 +204,6 @@ var commands = []commandGroup{
 			{"Sleep", commandSleep,
 				"<tablet alias> <duration>",
 				"Blocks the action queue on the specified tablet for the specified amount of time. This is typically used for testing."},
-			{"Backup", commandBackup,
-				"[-concurrency=4] <tablet alias>",
-				"Stops mysqld and uses the BackupStorage service to store a new backup. This function also remembers if the tablet was replicating so that it can restore the same state after the backup completes."},
 			{"ExecuteHook", commandExecuteHook,
 				"<tablet alias> <hook name> [<param1=value1> <param2=value2> ...]",
 				"Runs the specified hook on the given tablet. A hook is a script that resides in the $VTROOT/vthook directory. You can put any script into that directory and use this command to run that script.\n" +
@@ -305,15 +301,18 @@ var commands = []commandGroup{
 			{"ValidateKeyspace", commandValidateKeyspace,
 				"[-ping-tablets] <keyspace name>",
 				"Validates that all nodes reachable from the specified keyspace are consistent."},
-			{"CancelResharding", commandCancelResharding,
-				"<keyspace/shard>",
-				"Permanently cancels a resharding in progress. All resharding related metadata will be deleted."},
 			{"MigrateServedTypes", commandMigrateServedTypes,
 				"[-cells=c1,c2,...] [-reverse] [-skip-refresh-state] <keyspace/shard> <served tablet type>",
 				"Migrates a serving type from the source shard to the shards that it replicates to. This command also rebuilds the serving graph. The <keyspace/shard> argument can specify any of the shards involved in the migration."},
 			{"MigrateServedFrom", commandMigrateServedFrom,
 				"[-cells=c1,c2,...] [-reverse] <destination keyspace/shard> <served tablet type>",
 				"Makes the <destination keyspace/shard> serve the given type. This command also rebuilds the serving graph."},
+			{"CancelResharding", commandCancelResharding,
+				"<keyspace/shard>",
+				"Permanently cancels a resharding in progress. All resharding related metadata will be deleted."},
+			{"ShowResharding", commandShowResharding,
+				"<keyspace/shard>",
+				"Displays all metadata about a resharding in progress."},
 			{"FindAllShardsInKeyspace", commandFindAllShardsInKeyspace,
 				"<keyspace>",
 				"Displays all of the shards in the specified keyspace."},
@@ -1027,40 +1026,6 @@ func commandSleep(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.Fla
 	return wr.TabletManagerClient().Sleep(ctx, ti.Tablet, duration)
 }
 
-func commandBackup(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	concurrency := subFlags.Int("concurrency", 4, "Specifies the number of compression/checksum jobs to run simultaneously")
-	if err := subFlags.Parse(args); err != nil {
-		return err
-	}
-	if subFlags.NArg() != 1 {
-		return fmt.Errorf("the Backup command requires the <tablet alias> argument")
-	}
-
-	tabletAlias, err := topoproto.ParseTabletAlias(subFlags.Arg(0))
-	if err != nil {
-		return err
-	}
-	tabletInfo, err := wr.TopoServer().GetTablet(ctx, tabletAlias)
-	if err != nil {
-		return err
-	}
-	stream, err := wr.TabletManagerClient().Backup(ctx, tabletInfo.Tablet, *concurrency)
-	if err != nil {
-		return err
-	}
-	for {
-		e, err := stream.Recv()
-		switch err {
-		case nil:
-			logutil.LogEvent(wr.Logger(), e)
-		case io.EOF:
-			return nil
-		default:
-			return err
-		}
-	}
-}
-
 func commandExecuteFetchAsDba(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
 	maxRows := subFlags.Int("max_rows", 10000, "Specifies the maximum number of rows to allow in reset")
 	disableBinlogs := subFlags.Bool("disable_binlogs", false, "Disables writing to binlogs during the query")
@@ -1682,21 +1647,6 @@ func commandValidateKeyspace(ctx context.Context, wr *wrangler.Wrangler, subFlag
 	return wr.ValidateKeyspace(ctx, keyspace, *pingTablets)
 }
 
-func commandCancelResharding(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	if err := subFlags.Parse(args); err != nil {
-		return err
-	}
-	if subFlags.NArg() != 1 {
-		return fmt.Errorf("<keyspace/shard> required for CancelResharding command")
-	}
-
-	keyspace, shard, err := topoproto.ParseKeyspaceShard(subFlags.Arg(0))
-	if err != nil {
-		return err
-	}
-	return wr.CancelResharding(ctx, keyspace, shard)
-}
-
 func commandMigrateServedTypes(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
 	cellsStr := subFlags.String("cells", "", "Specifies a comma-separated list of cells to update")
 	reverse := subFlags.Bool("reverse", false, "Moves the served tablet type backward instead of forward. Use in case of trouble")
@@ -1752,6 +1702,36 @@ func commandMigrateServedFrom(ctx context.Context, wr *wrangler.Wrangler, subFla
 		cells = strings.Split(*cellsStr, ",")
 	}
 	return wr.MigrateServedFrom(ctx, keyspace, shard, servedType, cells, *reverse, *filteredReplicationWaitTime)
+}
+
+func commandCancelResharding(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 1 {
+		return fmt.Errorf("<keyspace/shard> required for CancelResharding command")
+	}
+
+	keyspace, shard, err := topoproto.ParseKeyspaceShard(subFlags.Arg(0))
+	if err != nil {
+		return err
+	}
+	return wr.CancelResharding(ctx, keyspace, shard)
+}
+
+func commandShowResharding(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 1 {
+		return fmt.Errorf("<keyspace/shard> required for ShowResharding command")
+	}
+
+	keyspace, shard, err := topoproto.ParseKeyspaceShard(subFlags.Arg(0))
+	if err != nil {
+		return err
+	}
+	return wr.ShowResharding(ctx, keyspace, shard)
 }
 
 func commandFindAllShardsInKeyspace(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
