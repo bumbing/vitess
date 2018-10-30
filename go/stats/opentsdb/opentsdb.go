@@ -103,7 +103,7 @@ func Init(prefix string) {
 
 		gitRev := buildGitRev
 		if gitRev == "" {
-			gitRev = "unknown"
+			gitRev = "empty"
 		}
 
 		hostname, err := os.Hostname()
@@ -187,6 +187,10 @@ func (dc *dataCollector) addInt(metric string, val int64, tags map[string]string
 // Also make everything lowercase, since opentsdb is case sensitive and lowercase
 // simplifies the convention.
 func sanitize(text string) string {
+	if text == "" {
+		return "empty"
+	}
+
 	var b bytes.Buffer
 	for _, r := range text {
 		if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '-' || r == '_' || r == '/' || r == '.' {

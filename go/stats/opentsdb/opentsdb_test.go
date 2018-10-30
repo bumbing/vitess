@@ -79,8 +79,8 @@ func TestOpenTsdbCounterFunc(t *testing.T) {
 
 func TestGaugesWithMultiLabels(t *testing.T) {
 	name := "gauges_with_multi_labels_name"
-	gauges := stats.NewGaugesWithMultiLabels(name, "help", []string{"flavor", "texture"})
-	gauges.Add([]string{"sour", "brittle"}, 3)
+	gauges := stats.NewGaugesWithMultiLabels(name, "help", []string{"flavor", "texture", "missing"})
+	gauges.Add([]string{"sour", "brittle", ""}, 3)
 
 	checkOutput(t, name, `
 		[
@@ -91,6 +91,7 @@ func TestGaugesWithMultiLabels(t *testing.T) {
 		    "tags": {
 		      "flavor": "sour",
 		      "host": "localhost",
+		      "missing": "empty",
 		      "texture": "brittle"
 		    }
 		  }
