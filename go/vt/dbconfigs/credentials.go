@@ -129,7 +129,7 @@ func WithCredentials(cp *mysql.ConnParams) (*mysql.ConnParams, error) {
 // from knox using the golang knox client.
 type knoxCredentialsServer struct {
 	once       sync.Once
-	knoxClient *knox.Client
+	knoxClient knox.Client
 }
 
 // GetUserAndPassword is part of the CredentialsServer interface

@@ -4,29 +4,57 @@ package knoxauth
 
 import (
 	"bytes"
+	"flag"
 	"net"
+	"strings"
 
+	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/mysql"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
+var (
+	knoxRoleMapping flagutil.StringMapValue
+)
+
+func init() {
+	flag.Var(&knoxRoleMapping, "knox_role_mapping", "comma separated list of role1:group1:group2:...,role2:group1:... mappings from knox to table acl roles")
+}
+
 // Init registers a knox-based authenticator for vtgate.
 func Init() {
 	knoxClient := knox.CreateFromFlags()
-	mysql.RegisterAuthServerImpl("knox", newAuthServerKnox(knoxClient))
+	parsedKnoxRoleMapping := make(map[string][]string)
+	for knoxRole, unparsedTableACLGroups := range knoxRoleMapping {
+		groups := strings.Split(unparsedTableACLGroups, ":")
+		// Make sure the group includes the role name itself, if it wasn't explicitly provided on the command line.
+		shouldAddKnoxRole := true
+		for _, group := range groups {
+			if group == knoxRole {
+				shouldAddKnoxRole = false
+			}
+		}
+		if shouldAddKnoxRole {
+			groups = append(groups, knoxRole)
+		}
+		parsedKnoxRoleMapping[knoxRole] = groups
+	}
+	mysql.RegisterAuthServerImpl("knox", newAuthServerKnox(knoxClient, parsedKnoxRoleMapping))
 }
 
 // authServerKnox can authenticate against credentials from knox.
 type authServerKnox struct {
-	knoxClient *knox.Client
+	knoxClient  knox.Client
+	roleMapping map[string][]string
 }
 
 // newAuthServerKnox returns a new authServerKnox that authenticates with the provided
 // username -> knox.Client pairs.
-func newAuthServerKnox(knoxClient *knox.Client) *authServerKnox {
+func newAuthServerKnox(knoxClient knox.Client, roleMapping map[string][]string) *authServerKnox {
 	return &authServerKnox{
-		knoxClient: knoxClient,
+		knoxClient:  knoxClient,
+		roleMapping: roleMapping,
 	}
 }
 
@@ -44,17 +72,17 @@ func (a *authServerKnox) Salt() ([]byte, error) {
 func (a *authServerKnox) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (mysql.Getter, error) {
 	role, password, err := a.knoxClient.GetActivePassword(user)
 	if err != nil {
-		return &knoxUserData{""}, mysql.NewSQLError(
+		return &knoxUserData{user: "", groups: nil}, mysql.NewSQLError(
 			mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied: %s", err.Error())
 	}
 
 	computedAuthResponse := mysql.ScramblePassword(salt, []byte(password))
 	if bytes.Compare(authResponse, computedAuthResponse) == 0 {
-		return &knoxUserData{role}, nil
+		return &knoxUserData{user: user, groups: a.roleMapping[role]}, nil
 	}
 
 	// None of the active credentials matched.
-	return &knoxUserData{""}, mysql.NewSQLError(
+	return &knoxUserData{user: "", groups: nil}, mysql.NewSQLError(
 		mysql.ERAccessDeniedError, mysql.SSAccessDeniedError,
 		"Access denied for user '%v' (credentials don't match knox)", user)
 }
@@ -67,10 +95,11 @@ func (a *authServerKnox) Negotiate(c *mysql.Conn, user string, remotAddr net.Add
 
 // knoxUserData holds the username
 type knoxUserData struct {
-	value string
+	user   string
+	groups []string
 }
 
 // Get returns the wrapped username
 func (kud *knoxUserData) Get() *querypb.VTGateCallerID {
-	return &querypb.VTGateCallerID{Username: kud.value}
+	return &querypb.VTGateCallerID{Username: kud.user, Groups: kud.groups}
 }

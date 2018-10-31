@@ -6,7 +6,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
 	"vitess.io/vitess/go/knox"
 )
 
@@ -19,7 +18,7 @@ var (
 // KnoxAuthClientCreds holder for client credentials
 type KnoxAuthClientCreds struct {
 	role       string
-	knoxClient *knox.Client
+	knoxClient knox.Client
 }
 
 // GetRequestMetadata  gets the request metadata as a map from KnoxAuthClientCreds

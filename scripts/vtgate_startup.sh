@@ -89,6 +89,10 @@ if [[ ! -z "${TELETRAAN_ALLOWED_TABLET_TYPES}" ]]; then
     -allowed_tablet_types ${TELETRAAN_ALLOWED_TABLET_TYPES}"
 fi
 
+# TODO(dweitzman): To require TLS for writing, we'll do something like this:
+# -group_tls_regexes "writer:^m10n-pepsi-prod..*,admin:^m10n-pepsi-prod..*"
+# To test with a devapp, the regex might look more like this:
+#  -group_tls_regexes "writer:^dev-dweitzman\\..*"
 ${VTGATE_COMMAND} \
   -topo_implementation zk2 \
   -topo_global_root /vitess/global \
@@ -99,6 +103,7 @@ ${VTGATE_COMMAND} \
   -mysql_server_socket_path /tmp/mysql.sock \
   -mysql_auth_server_impl knox \
   -knox_supported_roles scriptro,longqueryro,scriptrw,longqueryrw \
+  -knox_role_mapping scriptro:reader,longqueryro:reader,scriptrw:reader:writer:admin,longqueryrw:reader:writer:admin \
   -grpc_keepalive_time 30s \
   -cell test \
   -cells_to_watch test \
@@ -114,6 +119,9 @@ ${VTGATE_COMMAND} \
   -opentsdb_service vtgate \
   -mysql_server_query_timeout 2h \
   -mysql_user_query_timeouts scriptro:10s,scriptrw:10s \
+  -mysql_server_ssl_cert /var/lib/normandie/fuse/cert/generic \
+  -mysql_server_ssl_key /var/lib/normandie/fuse/key/generic \
+  -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \
   ${EXTRA_ARGS} \
   $@
 

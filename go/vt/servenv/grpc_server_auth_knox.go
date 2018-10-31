@@ -5,7 +5,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-
 	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/vt/log"
 )
@@ -22,7 +21,7 @@ var roleInfoKey key
 
 // KnoxAuthPlugin implements knox-based username/password authentication for grpc.
 type KnoxAuthPlugin struct {
-	knoxClient *knox.Client
+	knoxClient knox.Client
 }
 
 // GetKnoxAuthenticatedRole pulls out the role from a context if it's been previously authenticated.

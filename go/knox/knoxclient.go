@@ -18,23 +18,29 @@ import (
 var (
 	knoxSupportedRoles flagutil.StringListValue
 	errParsingCreds    = errors.New("delimiter '@|' is missing, which should separate username from password")
-	knoxRe = regexp.MustCompile(`^([^@|]*)@([^@|]*)\|([^@|]*)$`)
+	knoxRe             = regexp.MustCompile(`^([^@|]*)@([^@|]*)\|([^@|]*)$`)
 )
 
-// Client fetches passwords for a pre-determined set of users from knox.
-type Client struct {
+// Client provides access to username/role/password data from knox.
+type Client interface {
+	GetActivePassword(user string) (role string, password string, err error)
+	GetPrimaryCredentials(role string) (username string, password string, err error)
+}
+
+// clientImpl fetches passwords for a pre-determined set of users from knox.
+type clientImpl struct {
 	clientsByRole map[string]knox.Client
 }
 
 // CreateFromFlags creates Client for the set of users configured with -knox_supported_usernames.
-func CreateFromFlags() *Client {
+func CreateFromFlags() Client {
 	clientsByRole := make(map[string]knox.Client)
 	for _, username := range knoxSupportedRoles {
 		knoxKey := fmt.Sprintf("mysql:rbac:%s:credentials", username)
 		clientsByRole[username] = requireFileClient(knoxKey)
 	}
 
-	return &Client{
+	return &clientImpl{
 		clientsByRole: clientsByRole,
 	}
 }
@@ -42,7 +48,7 @@ func CreateFromFlags() *Client {
 // GetActivePassword the role and active password for the given user.
 // Assumes that every user has only one password at any given time, and that password rotation also
 // involves user rotation.
-func (c *Client) GetActivePassword(user string) (role string, password string, err error) {
+func (c *clientImpl) GetActivePassword(user string) (role string, password string, err error) {
 	for role, knoxClient := range c.clientsByRole {
 		for _, unparsedActiveCredentials := range knoxClient.GetActive() {
 			if unparsedActiveCredentials == "" {
@@ -67,7 +73,7 @@ func (c *Client) GetActivePassword(user string) (role string, password string, e
 }
 
 // GetPrimaryCredentials returns the primary credentials for the given user, or an error.
-func (c *Client) GetPrimaryCredentials(role string) (username string, password string, err error) {
+func (c *clientImpl) GetPrimaryCredentials(role string) (username string, password string, err error) {
 	knoxClient, ok := c.clientsByRole[role]
 	if !ok {
 		return "", "", fmt.Errorf("Role %s was not whitelisted with -knox_supported_roles", role)
