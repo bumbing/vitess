@@ -4,12 +4,13 @@ import (
 	"testing"
 )
 
-func TestparseKnoxCreds(t *testing.T) {
+func TestParseKnoxCreds(t *testing.T) {
 	testcases := []struct {
 		in           string
 		wantUser     string
 		wantPassword string
 		wantHost     string
+		wantErr      string
 	}{
 		{in: "vt_app@localhost|",
 			wantUser:     "vt_app",
@@ -27,9 +28,23 @@ func TestparseKnoxCreds(t *testing.T) {
 			wantUser:     "vt_repl",
 			wantPassword: "testing",
 			wantHost:     "%"},
+		{in: "@",
+			wantErr: `failed to parse knox creds. Should match ^([^@|]+)@([^@|]*)\|([^@|]*)$`},
+		{in: "@|",
+			wantErr: `failed to parse knox creds. Should match ^([^@|]+)@([^@|]*)\|([^@|]*)$`},
 	}
 	for _, c := range testcases {
 		gotUser, gotPass, gotHost, err := parseKnoxCreds(c.in, "vtapp")
+
+		if c.wantErr != "" {
+			if err == nil {
+				t.Errorf("Wanted error: %v. Test case: %v", c.wantErr, c)
+			} else if err.Error() != c.wantErr {
+				t.Errorf("Wanted error: %v. Got: %v", c.wantErr, err.Error())
+			}
+			continue
+		}
+
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

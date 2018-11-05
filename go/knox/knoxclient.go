@@ -5,7 +5,6 @@
 package knox
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"regexp"
@@ -17,8 +16,8 @@ import (
 
 var (
 	knoxSupportedRoles flagutil.StringListValue
-	errParsingCreds    = errors.New("delimiter '@|' is missing, which should separate username from password")
-	knoxRe             = regexp.MustCompile(`^([^@|]*)@([^@|]*)\|([^@|]*)$`)
+	knoxRe             = regexp.MustCompile(`^([^@|]+)@([^@|]*)\|([^@|]*)$`)
+	errParsingCreds    = fmt.Errorf("failed to parse knox creds. Should match %v", knoxRe)
 )
 
 // Client provides access to username/role/password data from knox.
