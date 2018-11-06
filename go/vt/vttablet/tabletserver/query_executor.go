@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/hack"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
@@ -32,6 +31,8 @@ import (
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/callinfo"
 	"vitess.io/vitess/go/vt/log"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/tableacl"
 	"vitess.io/vitess/go/vt/vterrors"
@@ -41,13 +42,15 @@ import (
 	"vitess.io/vitess/go/vt/vttablet/tabletserver/rules"
 	"vitess.io/vitess/go/vt/vttablet/tabletserver/schema"
 	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
-
-	querypb "vitess.io/vitess/go/vt/proto/query"
-	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 // TODO(sougou): remove after affected parties have transitioned to new behavior.
 var legacyTableACL = flag.Bool("legacy-table-acl", false, "deprecated: this flag can be used to revert to the older table ACL behavior, which checked access for at most one table")
+
+// NOTE(dweitzman): This is a Pinterest-specific feature since we plan to flip back and forth between sharded and unsharded query planning
+// in test environments and potentially also in prod. Stock vitess caches the value of a sequence in memory and has no way to clear that
+// cache if circumstances change. (Demoting the tablet to non-master would clear the cache with stock vitess, though)
+var sequenceDMLClearsCache = flag.Bool("sequence-dml-clears-cache", false, "if true, pass-through DMLs to a sequence table will clear out SequenceInfo and force sequence reads to hit the db again")
 
 // QueryExecutor is used for executing a query request.
 type QueryExecutor struct {
@@ -846,6 +849,18 @@ func (qre *QueryExecutor) txFetch(conn *TxConnection, parsedQuery *sqlparser.Par
 	if err != nil {
 		return nil, err
 	}
+
+	// DMLs to a sequence table should clear the in-memory cache of SequenceInfo
+	if *sequenceDMLClearsCache && qre.plan.PlanID.MinRole() == tableacl.WRITER {
+		t := qre.plan.Table
+		if t != nil && t.Type == schema.Sequence {
+			t.SequenceInfo.Lock()
+			t.SequenceInfo.NextVal = 0
+			t.SequenceInfo.LastVal = 0
+			t.SequenceInfo.Unlock()
+		}
+	}
+
 	// Only record successful queries.
 	if record {
 		conn.RecordQuery(sql)
