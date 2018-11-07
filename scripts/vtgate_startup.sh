@@ -122,6 +122,8 @@ ${VTGATE_COMMAND} \
   -mysql_server_ssl_cert /var/lib/normandie/fuse/cert/generic \
   -mysql_server_ssl_key /var/lib/normandie/fuse/key/generic \
   -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \
+  -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \
+  -mysql_server_ssl_reload_frequency 15m \
   ${EXTRA_ARGS} \
   $@
 

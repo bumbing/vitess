@@ -17,6 +17,7 @@ limitations under the License.
 package vtgate
 
 import (
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"net"
@@ -26,18 +27,16 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/callinfo"
 	"vitess.io/vitess/go/vt/log"
-	"vitess.io/vitess/go/vt/servenv"
-	"vitess.io/vitess/go/vt/vttls"
-
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
+	"vitess.io/vitess/go/vt/servenv"
+	"vitess.io/vitess/go/vt/vttls"
 )
 
 var (
@@ -49,9 +48,10 @@ var (
 	mysqlAllowClearTextWithoutTLS = flag.Bool("mysql_allow_clear_text_without_tls", false, "If set, the server will allow the use of a clear text password over non-SSL connections.")
 	mysqlServerVersion            = flag.String("mysql_server_version", mysql.DefaultServerVersion, "MySQL server version to advertise.")
 
-	mysqlSslCert = flag.String("mysql_server_ssl_cert", "", "Path to the ssl cert for mysql server plugin SSL")
-	mysqlSslKey  = flag.String("mysql_server_ssl_key", "", "Path to ssl key for mysql server plugin SSL")
-	mysqlSslCa   = flag.String("mysql_server_ssl_ca", "", "Path to ssl CA for mysql server plugin SSL. If specified, server will require and validate client certs.")
+	mysqlSslCert            = flag.String("mysql_server_ssl_cert", "", "Path to the ssl cert for mysql server plugin SSL")
+	mysqlSslKey             = flag.String("mysql_server_ssl_key", "", "Path to ssl key for mysql server plugin SSL")
+	mysqlSslCa              = flag.String("mysql_server_ssl_ca", "", "Path to ssl CA for mysql server plugin SSL. If specified, server will require and validate client certs.")
+	mysqlSslReloadFrequency = flag.Duration("mysql_server_ssl_reload_frequency", 0, "how frequently to poll for TLS cert/key/CA changes on disk")
 
 	mysqlSlowConnectWarnThreshold = flag.Duration("mysql_slow_connect_warn_threshold", 0, "Warn if it takes more than the given threshold for a mysql connection to establish")
 
@@ -227,11 +227,13 @@ func initMySQLProtocol() {
 			mysqlListener.ServerVersion = *mysqlServerVersion
 		}
 		if *mysqlSslCert != "" && *mysqlSslKey != "" {
-			mysqlListener.TLSConfig, err = vttls.ServerConfig(*mysqlSslCert, *mysqlSslKey, *mysqlSslCa)
+			originalTLSConfig, err := vttls.ServerConfig(*mysqlSslCert, *mysqlSslKey, *mysqlSslCa)
 			if err != nil {
 				log.Exitf("grpcutils.TLSServerConfig failed: %v", err)
 				return
 			}
+			mysqlListener.TLSConfig.Store(originalTLSConfig)
+			periodicallyReloadTLSCertificate(&mysqlListener.TLSConfig)
 		}
 		mysqlListener.AllowClearTextWithoutTLS = *mysqlAllowClearTextWithoutTLS
 
@@ -256,6 +258,45 @@ func initMySQLProtocol() {
 		}
 		// Listen for unix socket
 		go mysqlUnixListener.Accept()
+	}
+}
+
+// periodicallyReloadTLSCertificate is a Pinterest-specific function to make sure we can
+// reload TLS certificates from disk every few minutes. Normandie certificates expire every 12
+// hours. New certificates become available 2 hours before the old ones expire.
+func periodicallyReloadTLSCertificate(tlsConfig *atomic.Value) {
+	if *mysqlSslReloadFrequency > 0 {
+		ticker := time.NewTicker(*mysqlSslReloadFrequency)
+		go func() {
+			for range ticker.C {
+				newTLSConfig, err := vttls.ServerConfig(*mysqlSslCert, *mysqlSslKey, *mysqlSslCa)
+				if err != nil {
+					log.Errorf("Error refreshing TLS config: %v", err)
+					warnings.Add("TlsReloadFailed", 1)
+					continue
+				}
+
+				if len(newTLSConfig.Certificates) == 0 {
+					log.Warningf("Refreshing TLS failed: certificate list is empty")
+					warnings.Add("TlsReloadFailed", 1)
+					continue
+				}
+
+				for _, cert := range newTLSConfig.Certificates {
+					if len(cert.Certificate) == 0 {
+						continue
+					}
+
+					parsedCert, err := x509.ParseCertificate(cert.Certificate[0])
+					if err != nil {
+						log.Warningf("Failed to parse new certificate as x509: %v", err)
+					} else {
+						log.Infof("Refreshed TLS cert Serial: %v. Subject: %v, Expires: %v", parsedCert.SerialNumber, parsedCert.Subject, parsedCert.NotAfter)
+					}
+				}
+				tlsConfig.Store(newTLSConfig)
+			}
+		}()
 	}
 }
 

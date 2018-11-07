@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"regexp"
+	"sync/atomic"
 	"time"
 
 	"vitess.io/vitess/go/flagutil"
@@ -124,8 +125,8 @@ type Listener struct {
 	ServerVersion string
 
 	// TLSConfig is the server TLS config. If set, we will advertise
-	// that we support SSL.
-	TLSConfig *tls.Config
+	// that we support SSL. The value is *tls.Config
+	TLSConfig atomic.Value
 
 	// Pinterest-specific: regexes that much match the some TLS common name
 	// if the authenticated user has a group listed in this map.
@@ -280,7 +281,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 	defer connCount.Add(-1)
 
 	// First build and send the server handshake packet.
-	salt, err := c.writeHandshakeV10(l.ServerVersion, l.authServer, l.TLSConfig != nil)
+	salt, err := c.writeHandshakeV10(l.ServerVersion, l.authServer, l.TLSConfig.Load() != nil)
 	if err != nil {
 		log.Errorf("Cannot send HandshakeV10 packet to %s: %v", c, err)
 		return
@@ -625,9 +626,9 @@ func (l *Listener) parseClientHandshakePacket(c *Conn, firstTime bool, data []by
 	pos += 23
 
 	// Check for SSL.
-	if firstTime && l.TLSConfig != nil && clientFlags&CapabilityClientSSL > 0 {
+	if firstTime && l.TLSConfig.Load() != nil && clientFlags&CapabilityClientSSL > 0 {
 		// Need to switch to TLS, and then re-read the packet.
-		conn := tls.Server(c.conn, l.TLSConfig)
+		conn := tls.Server(c.conn, l.TLSConfig.Load().(*tls.Config))
 		c.conn = conn
 		c.bufferedReader.Reset(conn)
 		c.Capabilities |= CapabilityClientSSL

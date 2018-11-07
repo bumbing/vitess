@@ -880,7 +880,7 @@ func TestTLSServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TLSServerConfig failed: %v", err)
 	}
-	l.TLSConfig = serverConfig
+	l.TLSConfig.Store(serverConfig)
 	go l.Accept()
 
 	// Setup the right parameters.
@@ -983,7 +983,7 @@ func TestTLSServer_Pinterest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TLSServerConfig failed: %v", err)
 	}
-	l.TLSConfig = serverConfig
+	l.TLSConfig.Store(serverConfig)
 	go l.Accept()
 
 	testCases := []struct {

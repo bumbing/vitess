@@ -24,16 +24,14 @@ import (
 	"syscall"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/mysqlproxy"
+	querypb "vitess.io/vitess/go/vt/proto/query"
 	"vitess.io/vitess/go/vt/servenv"
 	"vitess.io/vitess/go/vt/vttls"
-
-	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
 var (
@@ -170,11 +168,12 @@ func initMySQLProtocol() {
 			log.Exitf("mysql.NewListener failed: %v", err)
 		}
 		if *mysqlSslCert != "" && *mysqlSslKey != "" {
-			mysqlListener.TLSConfig, err = vttls.ServerConfig(*mysqlSslCert, *mysqlSslKey, *mysqlSslCa)
+			originalTLSConfig, err := vttls.ServerConfig(*mysqlSslCert, *mysqlSslKey, *mysqlSslCa)
 			if err != nil {
 				log.Exitf("grpcutils.TLSServerConfig failed: %v", err)
 				return
 			}
+			mysqlListener.TLSConfig.Store(originalTLSConfig)
 		}
 		mysqlListener.AllowClearTextWithoutTLS = *mysqlAllowClearTextWithoutTLS
 

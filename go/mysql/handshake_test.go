@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/vt/tlstest"
 	"vitess.io/vitess/go/vt/vttls"
 )
@@ -127,7 +126,7 @@ func TestSSLConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TLSServerConfig failed: %v", err)
 	}
-	l.TLSConfig = serverConfig
+	l.TLSConfig.Store(serverConfig)
 	go func() {
 		l.Accept()
 	}()
