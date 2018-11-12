@@ -207,18 +207,11 @@ func TestPinschemaSequenceDDLs(t *testing.T) {
 	got := buildSequenceDDLs(ddls)
 	want := strings.Join(
 		[]string{
-			"create table `advertisers_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
-			"insert into `advertisers_seq`(id, next_id, cache) values(0, 1, 1);",
-			"",
-			"create table `accepted_tos_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
-			"insert into `accepted_tos_seq`(id, next_id, cache) values(0, 1, 1);",
-			"",
-			"create table `campaigns_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
-			"insert into `campaigns_seq`(id, next_id, cache) values(0, 1, 1);",
-			"",
-			"create table `ad_groups_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
-			"insert into `ad_groups_seq`(id, next_id, cache) values(0, 1, 1);",
-		}, "\n") + "\n\n"
+			"create table if not exists `advertisers_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"create table if not exists `accepted_tos_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"create table if not exists `campaigns_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+			"create table if not exists `ad_groups_seq`(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';",
+		}, "\n") + "\n"
 	if got != want {
 		t.Errorf("buildSequenceDDLs: \"%s\", want \"%s\"", got, want)
 	}

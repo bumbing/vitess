@@ -279,9 +279,8 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
 		seqTableName := sqlescape.EscapeID(tableName + "_seq")
 		fmt.Fprintf(
 			&b,
-			"create table %s(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';\n",
+			"create table if not exists %s(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';\n",
 			seqTableName)
-		fmt.Fprintf(&b, "insert into %s(id, next_id, cache) values(0, 1, 1);\n\n", seqTableName)
 	}
 	return b.String()
 }
