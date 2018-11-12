@@ -128,6 +128,21 @@ CREATE TABLE ad_groups (
   CONSTRAINT ad_groups_ibfk_2 FOREIGN KEY (campaign_id) REFERENCES campaigns (id)
 ) ENGINE=InnoDB AUTO_INCREMENT=3228108 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table targeting_attribute_counts_by_advertiser
+--
+
+DROP TABLE IF EXISTS targeting_attribute_counts_by_advertiser;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE targeting_attribute_counts_by_advertiser (
+  advertiser_gid bigint(20) NOT NULL,
+  active_keywords_count bigint(20) NOT NULL DEFAULT '0',
+  advertiser_id bigint(20) NOT NULL,
+  PRIMARY KEY (advertiser_gid)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
 `
 
 func TestPinschemaOriginal(t *testing.T) {
@@ -147,6 +162,7 @@ func TestPinschemaOriginal(t *testing.T) {
 			"advertisers":  {},
 			"campaigns":    {},
 			"ad_groups":    {},
+			"targeting_attribute_counts_by_advertiser": {},
 		},
 	}
 	if !proto.Equal(got, want) {
@@ -191,6 +207,7 @@ func TestPinschemaSequences(t *testing.T) {
 					Sequence: "ad_groups_seq",
 				},
 			},
+			"targeting_attribute_counts_by_advertiser": {},
 		},
 	}
 	if !proto.Equal(got, want) {
@@ -285,6 +302,18 @@ func TestPinschemaPrimaryVindex(t *testing.T) {
 					{
 						Name:    "g_advertiser_id",
 						Columns: []string{"g_advertiser_id"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
+					},
+				},
+			},
+			"targeting_attribute_counts_by_advertiser": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"advertiser_gid"},
 					},
 					{
 						Name:    "advertiser_id",
@@ -414,6 +443,18 @@ func TestPinschemaSecondaryVindex(t *testing.T) {
 					{
 						Name:    "campaign_id",
 						Columns: []string{"campaign_id"},
+					},
+				},
+			},
+			"targeting_attribute_counts_by_advertiser": {
+				ColumnVindexes: []*vschemapb.ColumnVindex{
+					{
+						Name:    "g_advertiser_id",
+						Columns: []string{"advertiser_gid"},
+					},
+					{
+						Name:    "advertiser_id",
+						Columns: []string{"advertiser_id"},
 					},
 				},
 			},

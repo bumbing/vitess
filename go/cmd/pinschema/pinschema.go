@@ -124,6 +124,18 @@ func (vb *vschemaBuilder) createSecondaryVindexes() {
 		if _, ok := vb.vindexes[foreignKeyColName]; ok {
 			continue
 		}
+
+		hasIDCol := false
+		for _, col := range tableCreate.TableSpec.Columns {
+			if "id" == col.Name.String() {
+				hasIDCol = true
+				break
+			}
+		}
+		if !hasIDCol {
+			continue
+		}
+
 		vb.vindexes[foreignKeyColName] = &vschemapb.Vindex{
 			Type: "scatter_cache",
 			Params: map[string]string{
@@ -273,6 +285,17 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
 	for _, tableCreate := range ddls {
 		tableName := tableCreate.NewName.Name.String()
 		if strings.HasPrefix(tableName, "dark_write") {
+			continue
+		}
+
+		hasAutoincrement := false
+		for _, col := range tableCreate.TableSpec.Columns {
+			if bool(col.Type.Autoincrement) {
+				hasAutoincrement = true
+				break
+			}
+		}
+		if !hasAutoincrement {
 			continue
 		}
 
