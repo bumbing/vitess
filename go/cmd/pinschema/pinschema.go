@@ -11,9 +11,11 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"vitess.io/vitess/go/exit"
+	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/json2"
 	"vitess.io/vitess/go/sqlescape"
 	"vitess.io/vitess/go/vt/log"
@@ -24,10 +26,12 @@ import (
 )
 
 var (
-	createPrimaryVindexes   = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
-	createSecondaryVindexes = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
-	createSequences         = flag.Bool("create-sequences", false, "Whether to make sequences")
-	sequenceTableDDLs       = flag.Bool("sequence-table-ddls", false, "Whether to output sequence table DDL instead of vschema")
+	createPrimaryVindexes       = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
+	createSecondaryVindexes     = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
+	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
+	sequenceTableDDLs           = flag.Bool("sequence-table-ddls", false, "Whether to output sequence table DDL instead of vschema")
+	defaultScatterCacheCapacity = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
+	tableScatterCacheCapacity   flagutil.StringMapValue
 )
 
 // This is the result of running the following query in patio:
@@ -42,12 +46,18 @@ var (
 const advertiserGIDOffset = "549755813888"
 
 type pinschemaConfig struct {
-	createPrimary   bool
-	createSecondary bool
-	createSeq       bool
+	createPrimary               bool
+	createSecondary             bool
+	createSeq                   bool
+	defaultScatterCacheCapacity uint64
+	tableScatterCacheCapacity   map[string]uint64
 }
 
 func init() {
+	flag.Var(&tableScatterCacheCapacity,
+		"table-scatter-cache-capacity",
+		"comma separated list of table:capacity pairs to override the default capacity")
+
 	logger := logutil.NewConsoleLogger()
 	flag.CommandLine.SetOutput(logutil.NewLoggerWriter(logger))
 }
@@ -117,6 +127,14 @@ func (vb *vschemaBuilder) createPrimaryVindexes() {
 	}
 }
 
+func (vb *vschemaBuilder) scatterCacheCapacity(tableName string) uint64 {
+	tableCapacity, ok := vb.config.tableScatterCacheCapacity[tableName]
+	if ok {
+		return tableCapacity
+	}
+	return vb.config.defaultScatterCacheCapacity
+}
+
 func (vb *vschemaBuilder) createSecondaryVindexes() {
 	for _, tableCreate := range vb.ddls {
 		tableName := tableCreate.NewName.Name.String()
@@ -139,8 +157,8 @@ func (vb *vschemaBuilder) createSecondaryVindexes() {
 		vb.vindexes[foreignKeyColName] = &vschemapb.Vindex{
 			Type: "scatter_cache",
 			Params: map[string]string{
-				"capacity": "10000",
 				"table":    tableName,
+				"capacity": strconv.FormatUint(vb.scatterCacheCapacity(tableName), 10),
 				"from":     "id",
 				"to":       "g_advertiser_id",
 			},
@@ -261,10 +279,21 @@ func parseAndRun(args []string) error {
 		return nil
 	}
 
+	tableCacheCapacityOverrides := map[string]uint64{}
+	for key, value := range tableScatterCacheCapacity {
+		parsed, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			log.Fatalf("Bad -table-scatter-cache-capacity arg: %v", err)
+		}
+		tableCacheCapacityOverrides[key] = parsed
+	}
+
 	vs, err := newVschemaBuilder(ddls, pinschemaConfig{
-		createPrimary:   *createPrimaryVindexes,
-		createSecondary: *createSecondaryVindexes,
-		createSeq:       *createSequences,
+		createPrimary:               *createPrimaryVindexes,
+		createSecondary:             *createSecondaryVindexes,
+		createSeq:                   *createSequences,
+		defaultScatterCacheCapacity: *defaultScatterCacheCapacity,
+		tableScatterCacheCapacity:   tableCacheCapacityOverrides,
 	}).ddlsToVSchema()
 	if err != nil {
 		return err
@@ -282,6 +311,7 @@ func parseAndRun(args []string) error {
 
 func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
 	var b bytes.Buffer
+
 	for _, tableCreate := range ddls {
 		tableName := tableCreate.NewName.Name.String()
 		if strings.HasPrefix(tableName, "dark_write") {

@@ -334,7 +334,14 @@ func TestPinschemaSecondaryVindex(t *testing.T) {
 		t.Error(err)
 	}
 
-	config := pinschemaConfig{createPrimary: true, createSecondary: true}
+	config := pinschemaConfig{
+		createPrimary:               true,
+		createSecondary:             true,
+		defaultScatterCacheCapacity: 10000,
+		tableScatterCacheCapacity: map[string]uint64{
+			"campaigns": 20000,
+		},
+	}
 	got, err := newVschemaBuilder(ddls, config).ddlsToVSchema()
 	if err != nil {
 		t.Error(err)
@@ -369,7 +376,7 @@ func TestPinschemaSecondaryVindex(t *testing.T) {
 			"campaign_id": {
 				Type: "scatter_cache",
 				Params: map[string]string{
-					"capacity": "10000",
+					"capacity": "20000",
 					"table":    "campaigns",
 					"from":     "id",
 					"to":       "g_advertiser_id",
