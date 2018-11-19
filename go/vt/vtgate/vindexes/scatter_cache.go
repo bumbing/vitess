@@ -93,7 +93,6 @@ type ScatterCache struct {
 	fromCol         string
 	toCol           string
 	table           string
-	capacity        uint64
 	keyspaceIDCache *scatterLRUCache
 }
 
@@ -156,8 +155,7 @@ func NewScatterCache(name string, m map[string]string) (Vindex, error) {
 		fromCol:         m["from"],
 		toCol:           m["to"],
 		table:           m["table"],
-		capacity:        capacity,
-		keyspaceIDCache: newScatterLRUCache(100000),
+		keyspaceIDCache: newScatterLRUCache(int64(capacity)),
 	}
 
 	return sc, nil
@@ -233,7 +231,7 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 			sc.keyspaceIDCache.Set(id.String(), scatterKeyspaceID(destinationKeyspace))
 			out = append(out, key.DestinationKeyspaceID(destinationKeyspace))
 		default:
-			return nil, fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %s: %v, %v", sc.table, id, result)
+			return nil, fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %v, key %v", sc.table, id)
 		}
 	}
 
