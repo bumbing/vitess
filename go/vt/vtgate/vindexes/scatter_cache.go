@@ -189,6 +189,15 @@ func (sc *ScatterCache) CanVerifyNull() bool {
 
 // Map can map ids to key.Destination objects.
 func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
+	if sc.keyspaceIDCache.Capacity() == 0 {
+		// Degenerate case: just force a scatter
+		out := make([]key.Destination, 0, len(ids))
+		for range ids {
+			out = append(out, key.DestinationAllShards{})
+		}
+		return out, nil
+	}
+
 	// TODO: Run a single big "select toCol, fromCol where fromCol in (... all ids ...)" query instead
 	// of many small individual queries. It'll be a little more complicated to put the results back into
 	// a slice at the end, but the reduced mysql queries and network round-trips will be worth it.

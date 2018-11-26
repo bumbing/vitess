@@ -155,6 +155,27 @@ func TestScatterCacheMap(t *testing.T) {
 	}
 }
 
+func TestScatterCacheMapNoCapacity(t *testing.T) {
+	scatterCache := createScatterCache(t, "0")
+	svc := &scatterVcursor{numRows: 1}
+
+	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
+	if err != nil {
+		t.Error(err)
+	}
+	want := []key.Destination{
+		key.DestinationAllShards{},
+		key.DestinationAllShards{},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Map(): %#v, want %+v", got, want)
+	}
+
+	if len(svc.queries) > 0 {
+		t.Errorf("lookup.Map unexpected queries:\n%v", svc.queries)
+	}
+}
+
 func TestScatterCacheMapQueryFail(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000")
 	svc := &scatterVcursor{numRows: 1}
