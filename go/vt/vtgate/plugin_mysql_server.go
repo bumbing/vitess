@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
 	"sync/atomic"
@@ -268,6 +269,8 @@ func periodicallyReloadTLSCertificate(tlsConfig *atomic.Value) {
 	if *mysqlSslReloadFrequency > 0 {
 		ticker := time.NewTicker(*mysqlSslReloadFrequency)
 		go func() {
+			var lastSerialNumber *big.Int
+
 			for range ticker.C {
 				newTLSConfig, err := vttls.ServerConfig(*mysqlSslCert, *mysqlSslKey, *mysqlSslCa)
 				if err != nil {
@@ -291,7 +294,10 @@ func periodicallyReloadTLSCertificate(tlsConfig *atomic.Value) {
 					if err != nil {
 						log.Warningf("Failed to parse new certificate as x509: %v", err)
 					} else {
-						log.Infof("Refreshed TLS cert Serial: %v. Subject: %v, Expires: %v", parsedCert.SerialNumber, parsedCert.Subject, parsedCert.NotAfter)
+						if lastSerialNumber == nil || parsedCert.SerialNumber == nil || lastSerialNumber.Cmp(parsedCert.SerialNumber) != 0 {
+							log.Infof("Refreshed TLS cert Serial: %v. Subject: %v, Expires: %v", parsedCert.SerialNumber, parsedCert.Subject, parsedCert.NotAfter)
+						}
+						lastSerialNumber = parsedCert.SerialNumber
 					}
 				}
 				tlsConfig.Store(newTLSConfig)
