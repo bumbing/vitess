@@ -37,12 +37,6 @@ then
   docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess:$GIT_COMMIT .
 fi
 
-# We'll need to make a build artifact
-if [ "$TARBALL_GZ" != '' ]
-then
-  docker run -i $REGISTRY/vitess:$GIT_COMMIT /vt/scripts/write_build_artifact_to_stdout.sh > $TARBALL_GZ
-fi
-
 # Unit tests pass, making the build artifact succeeded. Let's push the base and vtgate images out!
 if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
 then
@@ -52,6 +46,7 @@ fi
 
 if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]
 then
+  docker run -i $REGISTRY/vitess:$GIT_COMMIT /vt/scripts/write_build_artifact_to_stdout.sh > $TARBALL_GZ
 # Package a .deb file where /vt/* has the contents of the build artifact
   DATE=$(date +%Y%m%d.%H%M)
 
