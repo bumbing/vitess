@@ -42,7 +42,7 @@ if [[ -d ${WORKSPACE}/teletraan/config && $ARTIFACT -eq 'vitess' ]]; then
 fi
 if [[ -d $TARBALL_SRC ]]; then
     echo "packaging artifact:${ARTIFACT} to:${TARBALL_GZ} using telefig from:${TARBALL_SRC}"
-    tar -hczvf $TARBALL_GZ -C "${WORKSPACE}/teletraan" "$ARTIFACT"
+    tar -czvf $TARBALL_GZ -C $TARBALL_SRC .
     s3up $TARBALL_GZ pinterest-builds vitess/$TARBALL_FN_GZ
     export BUILT_ARTIFACTS="${BUILT_ARTIFACTS},${ARTIFACT}"
 else
