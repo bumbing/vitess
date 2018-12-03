@@ -3,7 +3,7 @@
 set -x
 set -e
 
-export VT_ARTIFACTS=${VT_ARTIFACTS:-'vitess,vtgate,vtworker'}
+export VT_ARTIFACTS=${VT_ARTIFACTS:-'vitess,vtgate,vtworker,vtctld'}
 export BUILD_DIR=$WORKSPACE/BUILD_DIR
 
 if [[ -d $BUILD_DIR ]]; then 
@@ -36,10 +36,6 @@ IFS=',';for ARTIFACT in ${VT_ARTIFACTS}; do
 export TARBALL_FN_GZ=${ARTIFACT}-${GIT_COMMIT:0:7}.tar.gz
 export TARBALL_GZ="${BUILD_DIR}/${TARBALL_FN_GZ}"
 export TARBALL_SRC="${WORKSPACE}/teletraan/${ARTIFACT}"
-if [[ -d ${WORKSPACE}/teletraan/config && $ARTIFACT -eq 'vitess' ]]; then
-    # TODO remove `vitess` artifact once the PR is merged
-    export TARBALL_SRC="${WORKSPACE}/teletraan"
-fi
 if [[ -d $TARBALL_SRC ]]; then
     echo "packaging artifact:${ARTIFACT} to:${TARBALL_GZ} using telefig from:${TARBALL_SRC}"
     tar -czvf $TARBALL_GZ -C $TARBALL_SRC .
