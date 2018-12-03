@@ -46,6 +46,7 @@ fi
 if [[ ${LATEST} == true ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
+    -security_policy= \
     -opentsdb_service vtctld_latest"
 fi
 
@@ -82,6 +83,8 @@ ${VTCTLD_COMMAND} \
   -grpc_port 15999 \
   -cell test \
   -service_map 'grpc-vtctl' \
+  -security_policy role_whitelist \
+  -whitelisted_roles monitoring,debugging \
   -opentsdb_service vtctld \
   -emit_stats \
   -stats_emit_period 1m \
