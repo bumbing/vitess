@@ -89,6 +89,19 @@ if [[ ! -z "${TELETRAAN_ALLOWED_TABLET_TYPES}" ]]; then
     -allowed_tablet_types ${TELETRAAN_ALLOWED_TABLET_TYPES}"
 fi
 
+if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "true" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -group_tls_regexes 'writer:^(m10n-pepsi-prod-|m10n-croncola-prod-).*'"
+fi
+
+if [[ "${TELETRAAN_DISABLE_TLS}" == "true" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -mysql_server_ssl_cert= \
+    -mysql_server_ssl_key= "
+fi
+
 # TODO(dweitzman): To require TLS for writing, we'll do something like this:
 # -group_tls_regexes "writer:^m10n-pepsi-prod..*,admin:^m10n-pepsi-prod..*"
 # To test with a devapp, the regex might look more like this:
@@ -121,7 +134,6 @@ ${VTGATE_COMMAND} \
   -mysql_user_query_timeouts scriptro:10s,scriptrw:10s \
   -mysql_server_ssl_cert /var/lib/normandie/fuse/cert/generic \
   -mysql_server_ssl_key /var/lib/normandie/fuse/key/generic \
-  -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \
   -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \
   -mysql_server_ssl_reload_frequency 15m \
   ${EXTRA_ARGS} \
