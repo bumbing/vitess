@@ -82,7 +82,7 @@ ${VTWORKER_COMMAND} \
   -grpc_port 15033 \
   -cell test \
   -service_map 'grpc-vtworker' \
-  -username longqueryrw
+  -username longqueryrw \
   -opentsdb_service vtworker \
   -emit_stats \
   -stats_emit_period 1m \

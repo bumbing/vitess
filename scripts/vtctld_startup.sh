@@ -82,7 +82,6 @@ ${VTCTLD_COMMAND} \
   -grpc_port 15999 \
   -cell test \
   -service_map 'grpc-vtctl' \
-  -username longqueryrw
   -opentsdb_service vtctld \
   -emit_stats \
   -stats_emit_period 1m \
