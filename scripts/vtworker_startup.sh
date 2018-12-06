@@ -78,8 +78,8 @@ fi
 ${VTWORKER_COMMAND} \
   -topo_implementation zk2 \
   -topo_global_root /vitess/global \
-  -port 15032 \
-  -grpc_port 15033 \
+  -port 15001 \
+  -grpc_port 15991 \
   -cell test \
   -service_map 'grpc-vtworker' \
   -username longqueryrw \

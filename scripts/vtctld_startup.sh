@@ -79,8 +79,8 @@ fi
 ${VTCTLD_COMMAND} \
   -topo_implementation zk2 \
   -topo_global_root /vitess/global \
-  -port 15000 \
-  -grpc_port 15999 \
+  -port 15001 \
+  -grpc_port 15991 \
   -cell test \
   -service_map 'grpc-vtctl' \
   -security_policy role_whitelist \
