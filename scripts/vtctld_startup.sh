@@ -38,7 +38,7 @@ if [[ ${DOCKER} == true ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
     -log_dir /vt/logs \
-    -pid_file /vt/vtdataroot/tmp/vtctld.pid"
+    -pid_file /tmp/vtctld.pid"
   VTCTLD_COMMAND="/vt/bin/vtctld"
 fi
 
@@ -97,5 +97,5 @@ ${VTCTLD_COMMAND} \
   -backup_storage_implementation file \
   -file_backup_storage_root $VTDATAROOT/backups \
   ${EXTRA_ARGS} \
-  $@ &
+  $@
 

@@ -38,7 +38,7 @@ if [[ ${DOCKER} == true ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
     -log_dir /vt/logs \
-    -pid_file /vt/vtdataroot/tmp/vtworker.pid"
+    -pid_file /tmp/vtworker.pid"
   VTWORKER_COMMAND="/vt/bin/vtworker"
 fi
 
@@ -90,5 +90,5 @@ ${VTWORKER_COMMAND} \
   -alsologtostderr \
   -use_v3_resharding_mode \
   ${EXTRA_ARGS} \
-  $@ &
+  $@
 
