@@ -92,7 +92,7 @@ fi
 if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "true" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -group_tls_regexes 'writer:^(m10n-pepsi-prod-|m10n-croncola-prod-).*'"
+    -group_tls_regexes 'writer:^(m10n-(pepsi|patio|croncola)(-long-jobs)?-(prod|cron|canary|staging)-.*'"
 fi
 
 if [[ "${TELETRAAN_DISABLE_TLS}" == "true" ]]; then
