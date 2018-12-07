@@ -90,8 +90,8 @@ ${VTCTLD_COMMAND} \
   -stats_emit_period 1m \
   -stats_backend opentsdb \
   -alsologtostderr \
-  -web_dir $VTTOP/web/vtctld \
-  -web_dir2 $VTTOP/web/vtctld2/app \
+  -web_dir /vt/web/vtctld \
+  -web_dir2 /vt/web/vtctld2/app \
   -workflow_manager_init \
   -workflow_manager_use_election \
   -backup_storage_implementation file \
