@@ -352,9 +352,8 @@ func (dc *dataCollector) addTimings(labels []string, timings *stats.Timings, pre
 func (dc *dataCollector) addHistogram(histogram *stats.Histogram, divideBy int64, prefix string, tags map[string]string) {
 	rawTimer := (*stats.GetTimer(histogram))
 
-	// Only report histogram data if the rate of incoming events is more than one every 5-ish
-	// minutes or so.
-	if rawTimer.Rate5() > 0.003 {
+	// Only report histogram data if we saw queries within the last minute.
+	if rawTimer.Rate1() >= 1.0/60.0 {
 		percentilesTimer := rawTimer
 		if percentilesTimer == nil {
 			log.Errorf("Pinterest hook for tracking percentiles failed to register!")
