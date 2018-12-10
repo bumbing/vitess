@@ -180,7 +180,7 @@ func skipToEnd(yylex interface{}) {
 %token <bytes> NULLX AUTO_INCREMENT APPROXNUM SIGNED UNSIGNED ZEROFILL
 
 // Supported SHOW tokens
-%token <bytes> COLLATION DATABASES TABLES VITESS_KEYSPACES VITESS_SHARDS VITESS_TABLETS VSCHEMA_TABLES VITESS_TARGET FULL PROCESSLIST COLUMNS FIELDS
+%token <bytes> COLLATION DATABASES TABLES VITESS_KEYSPACES VITESS_SHARDS VITESS_TABLETS VSCHEMA VSCHEMA_TABLES VITESS_TARGET FULL PROCESSLIST COLUMNS FIELDS ENGINES PLUGINS
 
 // SET tokens
 %token <bytes> NAMES CHARSET GLOBAL SESSION ISOLATION LEVEL READ WRITE ONLY REPEATABLE COMMITTED UNCOMMITTED SERIALIZABLE
@@ -204,7 +204,7 @@ func skipToEnd(yylex interface{}) {
 %type <selStmt> select_statement base_select union_lhs union_rhs
 %type <statement> stream_statement insert_statement update_statement delete_statement set_statement
 %type <statement> create_statement alter_statement rename_statement drop_statement truncate_statement flush_statement
-%type <ddl> create_table_prefix
+%type <ddl> create_table_prefix rename_list
 %type <statement> analyze_statement show_statement use_statement other_statement
 %type <statement> begin_statement commit_statement rollback_statement
 %type <bytes2> comment_opt comment_list
@@ -560,23 +560,15 @@ create_statement:
 | CREATE constraint_opt INDEX ID using_opt ON table_name ddl_skip_to_end
   {
     // Change this to an alter statement
-    $$ = &DDL{Action: AlterStr, Table: $7, NewName:$7}
+    $$ = &DDL{Action: AlterStr, Table: $7}
   }
 | CREATE VIEW table_name ddl_skip_to_end
   {
-    $$ = &DDL{Action: CreateStr, NewName: $3.ToViewName()}
+    $$ = &DDL{Action: CreateStr, Table: $3.ToViewName()}
   }
 | CREATE OR REPLACE VIEW table_name ddl_skip_to_end
   {
-    $$ = &DDL{Action: CreateStr, NewName: $5.ToViewName()}
-  }
-| CREATE VINDEX sql_id vindex_type_opt vindex_params_opt
-  {
-    $$ = &DDL{Action: CreateVindexStr, VindexSpec: &VindexSpec{
-        Name: $3,
-        Type: $4,
-        Params: $5,
-    }}
+    $$ = &DDL{Action: CreateStr, Table: $5.ToViewName()}
   }
 | CREATE DATABASE not_exists_opt ID ddl_skip_to_end
   {
@@ -632,7 +624,7 @@ vindex_param:
 create_table_prefix:
   CREATE TABLE not_exists_opt table_name
   {
-    $$ = &DDL{Action: CreateStr, NewName: $4}
+    $$ = &DDL{Action: CreateStr, Table: $4}
     setDDL(yylex, $$)
   }
 
@@ -1290,17 +1282,57 @@ table_opt_value:
 alter_statement:
   ALTER ignore_opt TABLE table_name non_add_drop_or_rename_operation skip_to_end
   {
-    $$ = &DDL{Action: AlterStr, Table: $4, NewName: $4}
+    $$ = &DDL{Action: AlterStr, Table: $4}
   }
 | ALTER ignore_opt TABLE table_name ADD alter_object_type skip_to_end
   {
-    $$ = &DDL{Action: AlterStr, Table: $4, NewName: $4}
+    $$ = &DDL{Action: AlterStr, Table: $4}
   }
 | ALTER ignore_opt TABLE table_name DROP alter_object_type skip_to_end
   {
-    $$ = &DDL{Action: AlterStr, Table: $4, NewName: $4}
+    $$ = &DDL{Action: AlterStr, Table: $4}
   }
-| ALTER ignore_opt TABLE table_name ADD VINDEX sql_id '(' column_list ')' vindex_type_opt vindex_params_opt
+| ALTER ignore_opt TABLE table_name RENAME to_opt table_name
+  {
+    // Change this to a rename statement
+    $$ = &DDL{Action: RenameStr, FromTables: TableNames{$4}, ToTables: TableNames{$7}}
+  }
+| ALTER ignore_opt TABLE table_name RENAME index_opt skip_to_end
+  {
+    // Rename an index can just be an alter
+    $$ = &DDL{Action: AlterStr, Table: $4}
+  }
+| ALTER VIEW table_name ddl_skip_to_end
+  {
+    $$ = &DDL{Action: AlterStr, Table: $3.ToViewName()}
+  }
+| ALTER ignore_opt TABLE table_name partition_operation
+  {
+    $$ = &DDL{Action: AlterStr, Table: $4, PartitionSpec: $5}
+  }
+| ALTER VSCHEMA CREATE VINDEX sql_id vindex_type_opt vindex_params_opt
+  {
+    $$ = &DDL{Action: CreateVindexStr, VindexSpec: &VindexSpec{
+        Name: $5,
+        Type: $6,
+        Params: $7,
+    }}
+  }
+| ALTER VSCHEMA DROP VINDEX sql_id
+  {
+    $$ = &DDL{Action: DropVindexStr, VindexSpec: &VindexSpec{
+        Name: $5,
+    }}
+  }
+| ALTER VSCHEMA ADD TABLE table_name
+  {
+    $$ = &DDL{Action: AddVschemaTableStr, Table: $5}
+  }
+| ALTER VSCHEMA DROP TABLE table_name
+  {
+    $$ = &DDL{Action: DropVschemaTableStr, Table: $5}
+  }
+| ALTER VSCHEMA ON table_name ADD VINDEX sql_id '(' column_list ')' vindex_type_opt vindex_params_opt
   {
     $$ = &DDL{
         Action: AddColVindexStr,
@@ -1313,7 +1345,7 @@ alter_statement:
         VindexCols: $9,
       }
   }
-| ALTER ignore_opt TABLE table_name DROP VINDEX sql_id
+| ALTER VSCHEMA ON table_name DROP VINDEX sql_id
   {
     $$ = &DDL{
         Action: DropColVindexStr,
@@ -1322,24 +1354,6 @@ alter_statement:
             Name: $7,
         },
       }
-  }
-| ALTER ignore_opt TABLE table_name RENAME to_opt table_name
-  {
-    // Change this to a rename statement
-    $$ = &DDL{Action: RenameStr, Table: $4, NewName: $7}
-  }
-| ALTER ignore_opt TABLE table_name RENAME index_opt skip_to_end
-  {
-    // Rename an index can just be an alter
-    $$ = &DDL{Action: AlterStr, Table: $4, NewName: $4}
-  }
-| ALTER VIEW table_name ddl_skip_to_end
-  {
-    $$ = &DDL{Action: AlterStr, Table: $3.ToViewName(), NewName: $3.ToViewName()}
-  }
-| ALTER ignore_opt TABLE table_name partition_operation
-  {
-    $$ = &DDL{Action: AlterStr, Table: $4, PartitionSpec: $5}
   }
 
 alter_object_type:
@@ -1382,24 +1396,36 @@ partition_definition:
   }
 
 rename_statement:
-  RENAME TABLE table_name TO table_name
+  RENAME TABLE rename_list
   {
-    $$ = &DDL{Action: RenameStr, Table: $3, NewName: $5}
+    $$ = $3
+  }
+
+rename_list:
+  table_name TO table_name
+  {
+    $$ = &DDL{Action: RenameStr, FromTables: TableNames{$1}, ToTables: TableNames{$3}}
+  }
+| rename_list ',' table_name TO table_name
+  {
+    $$ = $1
+    $$.FromTables = append($$.FromTables, $3)
+    $$.ToTables = append($$.ToTables, $5)
   }
 
 drop_statement:
-  DROP TABLE exists_opt table_name
+  DROP TABLE exists_opt table_name_list
   {
     var exists bool
     if $3 != 0 {
       exists = true
     }
-    $$ = &DDL{Action: DropStr, Table: $4, IfExists: exists}
+    $$ = &DDL{Action: DropStr, FromTables: $4, IfExists: exists}
   }
 | DROP INDEX ID ON table_name ddl_skip_to_end
   {
     // Change this to an alter statement
-    $$ = &DDL{Action: AlterStr, Table: $5, NewName: $5}
+    $$ = &DDL{Action: AlterStr, Table: $5}
   }
 | DROP VIEW exists_opt table_name ddl_skip_to_end
   {
@@ -1407,7 +1433,7 @@ drop_statement:
         if $3 != 0 {
           exists = true
         }
-    $$ = &DDL{Action: DropStr, Table: $4.ToViewName(), IfExists: exists}
+    $$ = &DDL{Action: DropStr, FromTables: TableNames{$4.ToViewName()}, IfExists: exists}
   }
 | DROP DATABASE exists_opt ID
   {
@@ -1430,7 +1456,7 @@ truncate_statement:
 analyze_statement:
   ANALYZE TABLE table_name
   {
-    $$ = &DDL{Action: AlterStr, Table: $3, NewName: $3}
+    $$ = &DDL{Action: AlterStr, Table: $3}
   }
 
 show_statement:
@@ -1438,9 +1464,14 @@ show_statement:
   {
     $$ = &Show{Type: string($2) + " " + string($3)}
   }
+/* SHOW CHARACTER SET and SHOW CHARSET are equivalent */
 | SHOW CHARACTER SET ddl_skip_to_end
   {
-    $$ = &Show{Type: string($2) + " " + string($3)}
+    $$ = &Show{Type: CharsetStr}
+  }
+| SHOW CHARSET ddl_skip_to_end
+  {
+    $$ = &Show{Type: string($2)}
   }
 | SHOW CREATE DATABASE ddl_skip_to_end
   {
@@ -1471,11 +1502,19 @@ show_statement:
   {
     $$ = &Show{Type: string($2)}
   }
+| SHOW ENGINES
+  {
+    $$ = &Show{Type: string($2)}
+  }
 | SHOW INDEX ddl_skip_to_end
   {
     $$ = &Show{Type: string($2)}
   }
 | SHOW KEYS ddl_skip_to_end
+  {
+    $$ = &Show{Type: string($2)}
+  }
+| SHOW PLUGINS
   {
     $$ = &Show{Type: string($2)}
   }
@@ -1510,10 +1549,6 @@ show_statement:
   {
     $$ = &Show{Scope: $2, Type: string($3)}
   }
-| SHOW VINDEXES
-  {
-    $$ = &Show{Type: string($2)}
-  }
 | SHOW COLLATION
   {
     $$ = &Show{Type: string($2)}
@@ -1523,10 +1558,6 @@ show_statement:
     // Cannot dereference $4 directly, or else the parser stackcannot be pooled. See yyParsePooled
     showCollationFilterOpt := $4
     $$ = &Show{Type: string($2), ShowCollationFilterOpt: &showCollationFilterOpt}
-  }
-| SHOW VINDEXES ON table_name
-  {
-    $$ = &Show{Type: string($2), OnTable: $4}
   }
 | SHOW VITESS_KEYSPACES
   {
@@ -1544,9 +1575,17 @@ show_statement:
   {
     $$ = &Show{Type: string($2)}
   }
-| SHOW VSCHEMA_TABLES
+| SHOW VSCHEMA TABLES
   {
-    $$ = &Show{Type: string($2)}
+    $$ = &Show{Type: string($2) + " " + string($3)}
+  }
+| SHOW VSCHEMA VINDEXES
+  {
+    $$ = &Show{Type: string($2) + " " + string($3)}
+  }
+| SHOW VSCHEMA VINDEXES ON table_name
+  {
+    $$ = &Show{Type: string($2) + " " + string($3), OnTable: $5}
   }
 | SHOW WARNINGS
   {
@@ -2452,6 +2491,30 @@ function_call_keyword:
   {
     $$ = &SubstrExpr{Name: $3, From: $5, To: $7}
   }
+| SUBSTR openb STRING ',' value_expression closeb
+  {
+    $$ = &SubstrExpr{StrVal: NewStrVal($3), From: $5, To: nil}
+  }
+| SUBSTR openb STRING ',' value_expression ',' value_expression closeb
+  {
+    $$ = &SubstrExpr{StrVal: NewStrVal($3), From: $5, To: $7}
+  }
+| SUBSTR openb STRING FROM value_expression FOR value_expression closeb
+  {
+    $$ = &SubstrExpr{StrVal: NewStrVal($3), From: $5, To: $7}
+  }
+| SUBSTRING openb STRING ',' value_expression closeb
+  {
+    $$ = &SubstrExpr{StrVal: NewStrVal($3), From: $5, To: nil}
+  }
+| SUBSTRING openb STRING ',' value_expression ',' value_expression closeb
+  {
+    $$ = &SubstrExpr{StrVal: NewStrVal($3), From: $5, To: $7}
+  }
+| SUBSTRING openb STRING FROM value_expression FOR value_expression closeb
+  {
+    $$ = &SubstrExpr{StrVal: NewStrVal($3), From: $5, To: $7}
+  }
 | MATCH openb select_expression_list closeb AGAINST openb value_expression match_option closeb
   {
   $$ = &MatchExpr{Columns: $3, Expr: $7, Option: $8}
@@ -3218,6 +3281,7 @@ non_reserved_keyword:
 | DECIMAL
 | DOUBLE
 | DUPLICATE
+| ENGINES
 | ENUM
 | EXPANSION
 | FLOAT_TYPE
@@ -3256,6 +3320,7 @@ non_reserved_keyword:
 | ONLY
 | OPTIMIZE
 | PARTITION
+| PLUGINS
 | POINT
 | POLYGON
 | PRIMARY
@@ -3300,6 +3365,7 @@ non_reserved_keyword:
 | VITESS_KEYSPACES
 | VITESS_SHARDS
 | VITESS_TABLETS
+| VSCHEMA
 | VSCHEMA_TABLES
 | VITESS_TARGET
 | WARNINGS

@@ -137,7 +137,7 @@ func (vb *vschemaBuilder) scatterCacheCapacity(tableName string) uint64 {
 
 func (vb *vschemaBuilder) createSecondaryVindexes() {
 	for _, tableCreate := range vb.ddls {
-		tableName := tableCreate.NewName.Name.String()
+		tableName := tableCreate.Table.Name.String()
 		foreignKeyColName := tableNameToColName(tableName)
 		if _, ok := vb.vindexes[foreignKeyColName]; ok {
 			continue
@@ -188,7 +188,7 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 	}
 
 	for _, tableCreate := range vb.ddls {
-		tableName := tableCreate.NewName.Name.String()
+		tableName := tableCreate.Table.Name.String()
 
 		tbl := &vschemapb.Table{}
 
@@ -313,7 +313,7 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
 	var b bytes.Buffer
 
 	for _, tableCreate := range ddls {
-		tableName := tableCreate.NewName.Name.String()
+		tableName := tableCreate.Table.Name.String()
 		if strings.HasPrefix(tableName, "dark_write") {
 			continue
 		}

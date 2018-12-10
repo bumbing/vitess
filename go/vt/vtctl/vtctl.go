@@ -117,6 +117,7 @@ import (
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
 	"vitess.io/vitess/go/vt/schemamanager"
+	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/topo"
 	"vitess.io/vitess/go/vt/topo/topoproto"
 	"vitess.io/vitess/go/vt/topotools"
@@ -208,6 +209,9 @@ var commands = []commandGroup{
 				"<tablet alias> <hook name> [<param1=value1> <param2=value2> ...]",
 				"Runs the specified hook on the given tablet. A hook is a script that resides in the $VTROOT/vthook directory. You can put any script into that directory and use this command to run that script.\n" +
 					"For this command, the param=value arguments are parameters that the command passes to the specified hook."},
+			{"ExecuteFetchAsApp", commandExecuteFetchAsApp,
+				"[-max_rows=10000] [-json] [-use_pool] <tablet alias> <sql command>",
+				"Runs the given SQL command as a App on the remote tablet."},
 			{"ExecuteFetchAsDba", commandExecuteFetchAsDba,
 				"[-max_rows=10000] [-disable_binlogs] [-json] <tablet alias> <sql command>",
 				"Runs the given SQL command as a DBA on the remote tablet."},
@@ -387,7 +391,7 @@ var commands = []commandGroup{
 				"<keyspace>",
 				"Displays the VTGate routing schema."},
 			{"ApplyVSchema", commandApplyVSchema,
-				"{-vschema=<vschema> || -vschema_file=<vschema file>} [-cells=c1,c2,...] [-skip_rebuild] <keyspace>",
+				"{-vschema=<vschema> || -vschema_file=<vschema file> || -sql=<sql> || -sql_file=<sql file>} [-cells=c1,c2,...] [-skip_rebuild] [-dry-run] <keyspace>",
 				"Applies the VTGate routing schema to the provided keyspace. Shows the result after application."},
 			{"RebuildVSchemaGraph", commandRebuildVSchemaGraph,
 				"[-cells=c1,c2,...]",
@@ -1026,8 +1030,37 @@ func commandSleep(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.Fla
 	return wr.TabletManagerClient().Sleep(ctx, ti.Tablet, duration)
 }
 
+func commandExecuteFetchAsApp(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	maxRows := subFlags.Int("max_rows", 10000, "Specifies the maximum number of rows to allow in fetch")
+	usePool := subFlags.Bool("use_pool", false, "Use connection from pool")
+	json := subFlags.Bool("json", false, "Output JSON instead of human-readable table")
+
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 2 {
+		return fmt.Errorf("the <tablet alias> and <sql command> arguments are required for the ExecuteFetchAsApp command")
+	}
+
+	alias, err := topoproto.ParseTabletAlias(subFlags.Arg(0))
+	if err != nil {
+		return err
+	}
+	query := subFlags.Arg(1)
+	qrproto, err := wr.ExecuteFetchAsApp(ctx, alias, *usePool, query, *maxRows)
+	if err != nil {
+		return err
+	}
+	qr := sqltypes.Proto3ToResult(qrproto)
+	if *json {
+		return printJSON(wr.Logger(), qr)
+	}
+	printQueryResult(loggerWriter{wr.Logger()}, qr)
+	return nil
+}
+
 func commandExecuteFetchAsDba(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
-	maxRows := subFlags.Int("max_rows", 10000, "Specifies the maximum number of rows to allow in reset")
+	maxRows := subFlags.Int("max_rows", 10000, "Specifies the maximum number of rows to allow in fetch")
 	disableBinlogs := subFlags.Bool("disable_binlogs", false, "Disables writing to binlogs during the query")
 	reloadSchema := subFlags.Bool("reload_schema", false, "Indicates whether the tablet schema will be reloaded after executing the SQL command. The default value is <code>false</code>, which indicates that the tablet schema will not be reloaded.")
 	json := subFlags.Bool("json", false, "Output JSON instead of human-readable table")
@@ -2090,6 +2123,9 @@ func commandRebuildVSchemaGraph(ctx context.Context, wr *wrangler.Wrangler, subF
 func commandApplyVSchema(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
 	vschema := subFlags.String("vschema", "", "Identifies the VTGate routing schema")
 	vschemaFile := subFlags.String("vschema_file", "", "Identifies the VTGate routing schema file")
+	sql := subFlags.String("sql", "", "A vschema ddl SQL statement (e.g. `add vindex`, `alter table t add vindex hash(id)`, etc)")
+	sqlFile := subFlags.String("sql_file", "", "A vschema ddl SQL statement (e.g. `add vindex`, `alter table t add vindex hash(id)`, etc)")
+	dryRun := subFlags.Bool("dry-run", false, "If set, do not save the altered vschema, simply echo to console.")
 	skipRebuild := subFlags.Bool("skip_rebuild", false, "If set, do no rebuild the SrvSchema objects.")
 	var cells flagutil.StringListValue
 	subFlags.Var(&cells, "cells", "If specified, limits the rebuild to the cells, after upload. Ignored if skipRebuild is set.")
@@ -2100,34 +2136,88 @@ func commandApplyVSchema(ctx context.Context, wr *wrangler.Wrangler, subFlags *f
 	if subFlags.NArg() != 1 {
 		return fmt.Errorf("the <keyspace> argument is required for the ApplyVSchema command")
 	}
-	if (*vschema == "") == (*vschemaFile == "") {
-		return fmt.Errorf("either the vschema or vschemaFile flag must be specified when calling the ApplyVSchema command")
+	keyspace := subFlags.Arg(0)
+
+	var vs *vschemapb.Keyspace
+	var err error
+
+	sqlMode := (*sql != "") != (*sqlFile != "")
+	jsonMode := (*vschema != "") != (*vschemaFile != "")
+
+	if sqlMode && jsonMode {
+		return fmt.Errorf("only one of the sql, sql_file, vschema, or vschema_file flags may be specified when calling the ApplyVSchema command")
 	}
-	var schema []byte
-	if *vschemaFile != "" {
-		var err error
-		schema, err = ioutil.ReadFile(*vschemaFile)
+
+	if !sqlMode && !jsonMode {
+		return fmt.Errorf("one of the sql, sql_file, vschema, or vschema_file flags must be specified when calling the ApplyVSchema command")
+	}
+
+	if sqlMode {
+		if *sqlFile != "" {
+			sqlBytes, err := ioutil.ReadFile(*sqlFile)
+			if err != nil {
+				return err
+			}
+			*sql = string(sqlBytes)
+		}
+
+		stmt, err := sqlparser.Parse(*sql)
+		if err != nil {
+			return fmt.Errorf("error parsing vschema statement `%s`: %v", *sql, err)
+		}
+		ddl, ok := stmt.(*sqlparser.DDL)
+		if !ok {
+			return fmt.Errorf("error parsing vschema statement `%s`: not a ddl statement", *sql)
+		}
+
+		vs, err = wr.TopoServer().GetVSchema(ctx, keyspace)
+		if err != nil {
+			if topo.IsErrType(err, topo.NoNode) {
+				vs = &vschemapb.Keyspace{}
+			} else {
+				return err
+			}
+		}
+
+		vs, err = topotools.ApplyVSchemaDDL(keyspace, vs, ddl)
 		if err != nil {
 			return err
 		}
+
 	} else {
-		schema = []byte(*vschema)
-	}
-	var vs vschemapb.Keyspace
-	err := json2.Unmarshal(schema, &vs)
-	if err != nil {
-		return err
-	}
-	keyspace := subFlags.Arg(0)
-	if err := wr.TopoServer().SaveVSchema(ctx, keyspace, &vs); err != nil {
-		return err
+		// json mode
+		var schema []byte
+		if *vschemaFile != "" {
+			var err error
+			schema, err = ioutil.ReadFile(*vschemaFile)
+			if err != nil {
+				return err
+			}
+		} else {
+			schema = []byte(*vschema)
+		}
+
+		vs = &vschemapb.Keyspace{}
+		err := json2.Unmarshal(schema, vs)
+		if err != nil {
+			return err
+		}
 	}
 
-	b, err := json2.MarshalIndentPB(&vs, "  ")
+	b, err := json2.MarshalIndentPB(vs, "  ")
 	if err != nil {
 		wr.Logger().Errorf("Failed to marshal VSchema for display: %v", err)
 	} else {
-		wr.Logger().Printf("Uploaded VSchema object:\n%s\nIf this is not what you expected, check the input data (as JSON parsing will skip unexpected fields).\n", b)
+		wr.Logger().Printf("New VSchema object:\n%s\nIf this is not what you expected, check the input data (as JSON parsing will skip unexpected fields).\n", b)
+	}
+
+	if *dryRun {
+		wr.Logger().Printf("Dry run: Skipping update of VSchema\n")
+		return nil
+	}
+
+	if err := wr.TopoServer().SaveVSchema(ctx, keyspace, vs); err != nil {
+		return err
 	}
 
 	if *skipRebuild {

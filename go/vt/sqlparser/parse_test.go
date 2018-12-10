@@ -903,37 +903,6 @@ var (
 		input:  "alter table a drop id",
 		output: "alter table a",
 	}, {
-		input: "alter table a add vindex hash (id)",
-	}, {
-		input:  "alter table a add vindex `hash` (`id`)",
-		output: "alter table a add vindex hash (id)",
-	}, {
-		input:  "alter table a add vindex hash (id) using `hash`",
-		output: "alter table a add vindex hash (id) using hash",
-	}, {
-		input: "alter table a add vindex `add` (`add`)",
-	}, {
-		input: "alter table a add vindex hash (id) using hash",
-	}, {
-		input:  "alter table a add vindex hash (id) using `hash`",
-		output: "alter table a add vindex hash (id) using hash",
-	}, {
-		input: "alter table user add vindex name_lookup_vdx (name) using lookup_hash with owner=user, table=name_user_idx, from=name, to=user_id",
-	}, {
-		input:  "alter table user2 add vindex name_lastname_lookup_vdx (name,lastname) using lookup with owner=`user`, table=`name_lastname_keyspace_id_map`, from=`name,lastname`, to=`keyspace_id`",
-		output: "alter table user2 add vindex name_lastname_lookup_vdx (name, lastname) using lookup with owner=user, table=name_lastname_keyspace_id_map, from=name,lastname, to=keyspace_id",
-	}, {
-		input: "alter table a drop vindex hash",
-	}, {
-		input:  "alter table a drop vindex `hash`",
-		output: "alter table a drop vindex hash",
-	}, {
-		input:  "alter table a drop vindex hash",
-		output: "alter table a drop vindex hash",
-	}, {
-		input:  "alter table a drop vindex `add`",
-		output: "alter table a drop vindex `add`",
-	}, {
 		input: "create table a",
 	}, {
 		input:  "create table a (\n\t`a` int\n)",
@@ -950,11 +919,48 @@ var (
 		input:  "create table a (a int, b char, c garbage)",
 		output: "create table a",
 	}, {
-		input: "create vindex hash_vdx using hash",
+		input: "alter vschema create vindex hash_vdx using hash",
 	}, {
-		input: "create vindex lookup_vdx using lookup with owner=user, table=name_user_idx, from=name, to=user_id",
+		input: "alter vschema create vindex lookup_vdx using lookup with owner=user, table=name_user_idx, from=name, to=user_id",
 	}, {
-		input: "create vindex xyz_vdx using xyz with param1=hello, param2='world', param3=123",
+		input: "alter vschema create vindex xyz_vdx using xyz with param1=hello, param2='world', param3=123",
+	}, {
+		input: "alter vschema drop vindex hash_vdx",
+	}, {
+		input: "alter vschema add table a",
+	}, {
+		input: "alter vschema drop table a",
+	}, {
+		input: "alter vschema on a add vindex hash (id)",
+	}, {
+		input:  "alter vschema on a add vindex `hash` (`id`)",
+		output: "alter vschema on a add vindex hash (id)",
+	}, {
+		input:  "alter vschema on a add vindex hash (id) using `hash`",
+		output: "alter vschema on a add vindex hash (id) using hash",
+	}, {
+		input: "alter vschema on a add vindex `add` (`add`)",
+	}, {
+		input: "alter vschema on a add vindex hash (id) using hash",
+	}, {
+		input:  "alter vschema on a add vindex hash (id) using `hash`",
+		output: "alter vschema on a add vindex hash (id) using hash",
+	}, {
+		input: "alter vschema on user add vindex name_lookup_vdx (name) using lookup_hash with owner=user, table=name_user_idx, from=name, to=user_id",
+	}, {
+		input:  "alter vschema on user2 add vindex name_lastname_lookup_vdx (name,lastname) using lookup with owner=`user`, table=`name_lastname_keyspace_id_map`, from=`name,lastname`, to=`keyspace_id`",
+		output: "alter vschema on user2 add vindex name_lastname_lookup_vdx (name, lastname) using lookup with owner=user, table=name_lastname_keyspace_id_map, from=name,lastname, to=keyspace_id",
+	}, {
+		input: "alter vschema on a drop vindex hash",
+	}, {
+		input:  "alter vschema on a drop vindex `hash`",
+		output: "alter vschema on a drop vindex hash",
+	}, {
+		input:  "alter vschema on a drop vindex hash",
+		output: "alter vschema on a drop vindex hash",
+	}, {
+		input:  "alter vschema on a drop vindex `add`",
+		output: "alter vschema on a drop vindex `add`",
 	}, {
 		input:  "create index a on b",
 		output: "alter table b",
@@ -980,11 +986,20 @@ var (
 		input:  "alter view a",
 		output: "alter table a",
 	}, {
+		input:  "rename table a to b",
+		output: "rename table a to b",
+	}, {
+		input:  "rename table a to b, b to c",
+		output: "rename table a to b, b to c",
+	}, {
 		input:  "drop view a",
 		output: "drop table a",
 	}, {
 		input:  "drop table a",
 		output: "drop table a",
+	}, {
+		input:  "drop table a, b",
+		output: "drop table a, b",
 	}, {
 		input:  "drop table if exists a",
 		output: "drop table if exists a",
@@ -1011,10 +1026,16 @@ var (
 		output: "show binlog",
 	}, {
 		input:  "show character set",
-		output: "show character set",
+		output: "show charset",
 	}, {
 		input:  "show character set like '%foo'",
-		output: "show character set",
+		output: "show charset",
+	}, {
+		input:  "show charset",
+		output: "show charset",
+	}, {
+		input:  "show charset like '%foo'",
+		output: "show charset",
 	}, {
 		input:  "show collation",
 		output: "show collation",
@@ -1180,19 +1201,17 @@ var (
 		input:  "show session variables",
 		output: "show session variables",
 	}, {
-		input:  "show vindexes",
-		output: "show vindexes",
-	}, {
-		input:  "show vindexes on t",
-		output: "show vindexes on t",
-	}, {
 		input: "show vitess_keyspaces",
 	}, {
 		input: "show vitess_shards",
 	}, {
 		input: "show vitess_tablets",
 	}, {
-		input: "show vschema_tables",
+		input: "show vschema tables",
+	}, {
+		input: "show vschema vindexes",
+	}, {
+		input: "show vschema vindexes on t",
 	}, {
 		input:  "show warnings",
 		output: "show warnings",
@@ -1740,7 +1759,7 @@ func TestSubStr(t *testing.T) {
 		input  string
 		output string
 	}{{
-		input: "select substr(a, 1) from t",
+		input: `select substr('foobar', 1) from t`,
 	}, {
 		input: "select substr(a, 1, 6) from t",
 	}, {
@@ -1755,6 +1774,12 @@ func TestSubStr(t *testing.T) {
 	}, {
 		input:  "select substring(a from 1 for 6) from t",
 		output: "select substr(a, 1, 6) from t",
+	}, {
+		input:  `select substr("foo" from 1 for 2) from t`,
+		output: `select substr('foo', 1, 2) from t`,
+	}, {
+		input:  `select substring("foo", 1, 2) from t`,
+		output: `select substr('foo', 1, 2) from t`,
 	}}
 
 	for _, tcase := range validSQL {

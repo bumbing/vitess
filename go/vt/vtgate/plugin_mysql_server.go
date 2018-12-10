@@ -49,9 +49,12 @@ var (
 	mysqlAllowClearTextWithoutTLS = flag.Bool("mysql_allow_clear_text_without_tls", false, "If set, the server will allow the use of a clear text password over non-SSL connections.")
 	mysqlServerVersion            = flag.String("mysql_server_version", mysql.DefaultServerVersion, "MySQL server version to advertise.")
 
-	mysqlSslCert            = flag.String("mysql_server_ssl_cert", "", "Path to the ssl cert for mysql server plugin SSL")
-	mysqlSslKey             = flag.String("mysql_server_ssl_key", "", "Path to ssl key for mysql server plugin SSL")
-	mysqlSslCa              = flag.String("mysql_server_ssl_ca", "", "Path to ssl CA for mysql server plugin SSL. If specified, server will require and validate client certs.")
+	mysqlServerRequireSecureTransport = flag.Bool("mysql_server_require_secure_transport", false, "Reject insecure connections but only if mysql_server_ssl_cert and mysql_server_ssl_key are provided")
+
+	mysqlSslCert = flag.String("mysql_server_ssl_cert", "", "Path to the ssl cert for mysql server plugin SSL")
+	mysqlSslKey  = flag.String("mysql_server_ssl_key", "", "Path to ssl key for mysql server plugin SSL")
+	mysqlSslCa   = flag.String("mysql_server_ssl_ca", "", "Path to ssl CA for mysql server plugin SSL. If specified, server will require and validate client certs.")
+
 	mysqlSslReloadFrequency = flag.Duration("mysql_server_ssl_reload_frequency", 0, "how frequently to poll for TLS cert/key/CA changes on disk")
 
 	mysqlSlowConnectWarnThreshold = flag.Duration("mysql_slow_connect_warn_threshold", 0, "Warn if it takes more than the given threshold for a mysql connection to establish")
@@ -233,11 +236,11 @@ func initMySQLProtocol() {
 				log.Exitf("grpcutils.TLSServerConfig failed: %v", err)
 				return
 			}
+			mysqlListener.RequireSecureTransport = *mysqlServerRequireSecureTransport
 			mysqlListener.TLSConfig.Store(originalTLSConfig)
 			periodicallyReloadTLSCertificate(&mysqlListener.TLSConfig)
 		}
 		mysqlListener.AllowClearTextWithoutTLS = *mysqlAllowClearTextWithoutTLS
-
 		// Check for the connection threshold
 		if *mysqlSlowConnectWarnThreshold != 0 {
 			log.Infof("setting mysql slow connection threshold to %v", mysqlSlowConnectWarnThreshold)
