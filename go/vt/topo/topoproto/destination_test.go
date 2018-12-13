@@ -82,6 +82,21 @@ func TestParseDestination(t *testing.T) {
 		keyspace:     "ks",
 		dest:         key.DestinationShard("-80"),
 		tabletType:   topodatapb.TabletType_MASTER,
+	}, {
+		targetString: "ks[10]@master",
+		keyspace:     "ks",
+		dest:         key.DestinationKeyspaceID(tenHexBytes),
+		tabletType:   topodatapb.TabletType_MASTER,
+	}, {
+		targetString: "ks[10]@replica",
+		keyspace:     "ks",
+		dest:         key.DestinationKeyspaceID(tenHexBytes),
+		tabletType:   topodatapb.TabletType_REPLICA,
+	}, {
+		targetString: "ks[10]",
+		keyspace:     "ks",
+		dest:         key.DestinationKeyspaceID(tenHexBytes),
+		tabletType:   topodatapb.TabletType_MASTER,
 	}}
 
 	for _, tcase := range testcases {
