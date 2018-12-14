@@ -17,7 +17,6 @@ limitations under the License.
 package topoproto
 
 import (
-	"encoding/hex"
 	"strings"
 
 	"vitess.io/vitess/go/vt/key"
@@ -46,7 +45,7 @@ func ParseDestination(targetString string, defaultTabletType topodatapb.TabletTy
 		dest = key.DestinationShard(targetString[last+1:])
 		targetString = targetString[:last]
 	}
-	// Try to parse it as a range or a single KeyspaceID
+	// Try to parse it as a range
 	last = strings.LastIndexAny(targetString, "[")
 	if last != -1 {
 		rangeEnd := strings.LastIndexAny(targetString, "]")
@@ -55,23 +54,14 @@ func ParseDestination(targetString string, defaultTabletType topodatapb.TabletTy
 
 		}
 		rangeString := targetString[last+1 : rangeEnd]
-		if strings.IndexByte(rangeString, '-') < 0 {
-			// the range is actually a single KeyspaceID in this case.
-			if ksid, err := hex.DecodeString(rangeString); err == nil {
-				dest = key.DestinationKeyspaceID(ksid)
-			} else {
-				return keyspace, tabletType, dest, err
-			}
-		} else {
-			keyRange, err := key.ParseShardingSpec(rangeString)
-			if err != nil {
-				return keyspace, tabletType, dest, err
-			}
-			if len(keyRange) != 1 {
-				return keyspace, tabletType, dest, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "single keyrange expected in %s", rangeString)
-			}
-			dest = key.DestinationExactKeyRange{KeyRange: keyRange[0]}
+		keyRange, err := key.ParseShardingSpec(rangeString)
+		if err != nil {
+			return keyspace, tabletType, dest, err
 		}
+		if len(keyRange) != 1 {
+			return keyspace, tabletType, dest, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "single keyrange expected in %s", rangeString)
+		}
+		dest = key.DestinationExactKeyRange{KeyRange: keyRange[0]}
 		targetString = targetString[:last]
 	}
 	keyspace = targetString
