@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"regexp"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -37,6 +38,7 @@ import (
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 	"vitess.io/vitess/go/vt/servenv"
+	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/vttls"
 )
 
@@ -154,6 +156,21 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 	if c.SchemaName != "" {
 		session.TargetString = c.SchemaName
 	}
+
+	// Look for Pinterest-specific comments selecting a keyspace
+	_, marginComments := sqlparser.SplitMarginComments(query)
+	targetOverride := maybeTargetOverrideFromComment(marginComments.Leading)
+
+	if targetOverride != "" {
+		originalTargetString := session.TargetString
+		session.TargetString = targetOverride
+		defer func() {
+			if session.TargetString == targetOverride {
+				session.TargetString = originalTargetString
+			}
+		}()
+	}
+
 	if session.Options.Workload == querypb.ExecuteOptions_OLAP {
 		err := vh.vtg.StreamExecute(ctx, session, query, make(map[string]*querypb.BindVariable), callback)
 		return mysql.NewSQLErrorFromError(err)
@@ -165,6 +182,22 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		return err
 	}
 	return callback(result)
+}
+
+var vitessTargetComment = regexp.MustCompile(`\sVitessTarget=([^,\s]+),?\s`)
+
+// maybeTargetOverrideFromComment is a Pinterest-specific feature that can look in a comment
+// like /* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */
+// and pull out the VitessTarget to use for a single query.
+// The choice to parse this format for leading comments is because the primary user of these comments will be
+// pepsi, which is a Java service using the connector-j jdbc driver for mysql. This is the format of commments
+// adding by that driver when setClientInfo() is called on a connection.
+func maybeTargetOverrideFromComment(comment string) string {
+	submatch := vitessTargetComment.FindStringSubmatch(comment)
+	if len(submatch) > 1 {
+		return submatch[1]
+	}
+	return ""
 }
 
 func (vh *vtgateHandler) queryTimeout(im *querypb.VTGateCallerID, query string) time.Duration {

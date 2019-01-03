@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 )
@@ -157,5 +156,41 @@ func TestConnectionRespectsExistingUnixSocket(t *testing.T) {
 	want := "listen unix"
 	if err == nil || !strings.HasPrefix(err.Error(), want) {
 		t.Errorf("Error: %v, want prefix %s", err, want)
+	}
+}
+
+func TestParsePinterestTargetOverride(t *testing.T) {
+
+	testcases := []struct {
+		in   string
+		want string
+	}{
+		{
+			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */",
+			want: "foo",
+		},
+		{
+			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=patio[-80]@master */",
+			want: "patio[-80]@master",
+		},
+		{
+			in:   "/* VitessTarget=patio:80-@rdonly */",
+			want: "patio:80-@rdonly",
+		},
+		{
+			in:   "/* VitessTarget= */",
+			want: "",
+		},
+		{
+			in:   "/* VitessTarget=, Foo=Bar */",
+			want: "",
+		},
+	}
+
+	for _, c := range testcases {
+		got := maybeTargetOverrideFromComment(c.in)
+		if got != c.want {
+			t.Errorf("maybeTargetOverrideFromComment(%#v). Want: %v. Got: %v", c.in, c.want, got)
+		}
 	}
 }
