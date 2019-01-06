@@ -45,6 +45,7 @@ import (
 	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 var (
@@ -193,7 +194,7 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 		// Degenerate case: just force a scatter
 		out := make([]key.Destination, 0, len(ids))
 		for range ids {
-			out = append(out, key.DestinationAllShards{})
+			out = append(out, key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}})
 		}
 		return out, nil
 	}
