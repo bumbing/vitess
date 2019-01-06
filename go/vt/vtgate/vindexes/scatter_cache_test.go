@@ -9,6 +9,7 @@ import (
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 type scatterVcursor struct {
@@ -164,8 +165,8 @@ func TestScatterCacheMapNoCapacity(t *testing.T) {
 		t.Error(err)
 	}
 	want := []key.Destination{
-		key.DestinationAllShards{},
-		key.DestinationAllShards{},
+		key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}},
+		key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Map(): %#v, want %+v", got, want)
