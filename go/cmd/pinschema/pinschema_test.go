@@ -145,6 +145,78 @@ CREATE TABLE targeting_attribute_counts_by_advertiser (
 /*!40101 SET character_set_client = @saved_cs_client */;
 `
 
+var advertisersColumns = []*vschemapb.Column{
+	{Name: "id"},
+	{Name: "active"},
+	{Name: "creation_date"},
+	{Name: "name"},
+	{Name: "owner_user_id"},
+	{Name: "billing_type"},
+	{Name: "billing_token"},
+	{Name: "billing_profile_id"},
+	{Name: "billing_threshold"},
+	{Name: "test_account"},
+	{Name: "gid"},
+	{Name: "is_spam"},
+	{Name: "properties"},
+	{Name: "deleted"},
+	{Name: "country"},
+	{Name: "currency"},
+	{Name: "business_profile_id"},
+	{Name: "updated_time"},
+	{Name: "g_billing_profile_id"},
+	{Name: "g_business_profile_id"},
+	{Name: "daily_spend_cap"},
+}
+
+var acceptedTosColumns = []*vschemapb.Column{
+	{Name: "advertiser_id"},
+	{Name: "g_advertiser_id"},
+	{Name: "tos_id"},
+	{Name: "accept_date"},
+	{Name: "properties"},
+	{Name: "id"},
+}
+
+var campaignsColumns = []*vschemapb.Column{
+	{Name: "id"},
+	{Name: "active"},
+	{Name: "creation_date"},
+	{Name: "campaign_spec_id"},
+	{Name: "advertiser_id"},
+	{Name: "name"},
+	{Name: "unique_line_count_id"},
+	{Name: "action_type"},
+	{Name: "gid"},
+	{Name: "g_campaign_spec_id"},
+	{Name: "g_advertiser_id"},
+	{Name: "properties"},
+	{Name: "creative_type"},
+	{Name: "objective_type"},
+	{Name: "updated_time"},
+}
+
+var adGroupsColumns = []*vschemapb.Column{
+	{Name: "id"},
+	{Name: "gid"},
+	{Name: "active"},
+	{Name: "creation_date"},
+	{Name: "spec_id"},
+	{Name: "campaign_id"},
+	{Name: "properties"},
+	{Name: "updated_time"},
+	{Name: "g_campaign_id"},
+	{Name: "g_spec_id"},
+	{Name: "advertiser_id"},
+	{Name: "g_advertiser_id"},
+}
+
+var targetingAttributeCountsByAdvertiserColumns = []*vschemapb.Column{
+	{Name: "advertiser_gid"},
+	{Name: "active_keywords_count"},
+	{Name: "advertiser_id"},
+}
+
 func TestPinschemaOriginal(t *testing.T) {
 	ddls, err := parseSchema(ddls)
 	if err != nil {
@@ -163,6 +235,49 @@ func TestPinschemaOriginal(t *testing.T) {
 			"campaigns":    {},
 			"ad_groups":    {},
 			"targeting_attribute_counts_by_advertiser": {},
+		},
+	}
+	if !proto.Equal(got, want) {
+		t.Errorf("GetVSchema: %s, want %s", got, want)
+	}
+}
+
+func TestPinschemaAuthoritative(t *testing.T) {
+	ddls, err := parseSchema(ddls)
+	if err != nil {
+		t.Error(err)
+	}
+
+	config := pinschemaConfig{
+		colsAuthoritative: true,
+		includeCols:       true,
+	}
+	got, err := newVschemaBuilder(ddls, config).ddlsToVSchema()
+	if err != nil {
+		t.Error(err)
+	}
+	want := &vschemapb.Keyspace{
+		Tables: map[string]*vschemapb.Table{
+			"accepted_tos": {
+				Columns:                 acceptedTosColumns,
+				ColumnListAuthoritative: true,
+			},
+			"advertisers": {
+				Columns:                 advertisersColumns,
+				ColumnListAuthoritative: true,
+			},
+			"campaigns": {
+				Columns:                 campaignsColumns,
+				ColumnListAuthoritative: true,
+			},
+			"ad_groups": {
+				Columns:                 adGroupsColumns,
+				ColumnListAuthoritative: true,
+			},
+			"targeting_attribute_counts_by_advertiser": {
+				Columns:                 targetingAttributeCountsByAdvertiserColumns,
+				ColumnListAuthoritative: true,
+			},
 		},
 	}
 	if !proto.Equal(got, want) {

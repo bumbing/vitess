@@ -29,6 +29,8 @@ var (
 	createPrimaryVindexes       = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
 	createSecondaryVindexes     = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
 	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
+	includeCols                 = flag.Bool("include-cols", false, "Whether to include a column list for each table")
+	colsAuthoritative           = flag.Bool("cols-authoritative", false, "Whether to mark the column list as authoriative")
 	sequenceTableDDLs           = flag.Bool("sequence-table-ddls", false, "Whether to output sequence table DDL instead of vschema")
 	defaultScatterCacheCapacity = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
 	tableScatterCacheCapacity   flagutil.StringMapValue
@@ -51,6 +53,8 @@ type pinschemaConfig struct {
 	createSeq                   bool
 	defaultScatterCacheCapacity uint64
 	tableScatterCacheCapacity   map[string]uint64
+	includeCols                 bool
+	colsAuthoritative           bool
 }
 
 func init() {
@@ -194,9 +198,21 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 
 		tblVindexes := make([]*vschemapb.ColumnVindex, 0)
 
+		if vb.config.includeCols && vb.config.colsAuthoritative {
+			tbl.ColumnListAuthoritative = true
+		}
+
 		// For each column in the current table.
 		for _, col := range tableCreate.TableSpec.Columns {
 			colName := col.Name.String()
+
+			if vb.config.includeCols {
+				colSpec := &vschemapb.Column{
+					Name: col.Name.String(),
+				}
+				tbl.Columns = append(tbl.Columns, colSpec)
+			}
+
 			vindexName := vb.getVindexName(colName, tableName)
 
 			// For the advertisers table we use "id" as the primary vindex and we have no
@@ -292,6 +308,8 @@ func parseAndRun(args []string) error {
 		createPrimary:               *createPrimaryVindexes,
 		createSecondary:             *createSecondaryVindexes,
 		createSeq:                   *createSequences,
+		includeCols:                 *includeCols,
+		colsAuthoritative:           *colsAuthoritative,
 		defaultScatterCacheCapacity: *defaultScatterCacheCapacity,
 		tableScatterCacheCapacity:   tableCacheCapacityOverrides,
 	}).ddlsToVSchema()
