@@ -333,7 +333,7 @@ var commands = []commandGroup{
 				"[-ping-tablets]",
 				"Validates that all nodes reachable from the global replication graph and that all tablets in all discoverable cells are consistent."},
 			{"ListAllTablets", commandListAllTablets,
-				"<cell name>",
+				"<cell name1>, <cell name2>, ...",
 				"Lists all tablets in an awk-friendly way."},
 			{"ListTablets", commandListTablets,
 				"<tablet alias> ...",
@@ -1799,12 +1799,24 @@ func commandListAllTablets(ctx context.Context, wr *wrangler.Wrangler, subFlags 
 	if err := subFlags.Parse(args); err != nil {
 		return err
 	}
-	if subFlags.NArg() != 1 {
-		return fmt.Errorf("the <cell name> argument is required for the ListAllTablets command")
+	var cells []string
+	var err error
+	if subFlags.NArg() == 1 {
+		cells = strings.Split(subFlags.Arg(0), ",")
+	} else {
+		cells, err = wr.TopoServer().GetKnownCells(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
-	cell := subFlags.Arg(0)
-	return dumpAllTablets(ctx, wr, cell)
+	for _, cell := range cells {
+		err := dumpAllTablets(ctx, wr, cell)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func commandListTablets(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
@@ -2206,7 +2218,7 @@ func commandApplyVSchema(ctx context.Context, wr *wrangler.Wrangler, subFlags *f
 
 	b, err := json2.MarshalIndentPB(vs, "  ")
 	if err != nil {
-		wr.Logger().Errorf("Failed to marshal VSchema for display: %v", err)
+		wr.Logger().Errorf2(err, "Failed to marshal VSchema for display")
 	} else {
 		wr.Logger().Printf("New VSchema object:\n%s\nIf this is not what you expected, check the input data (as JSON parsing will skip unexpected fields).\n", b)
 	}

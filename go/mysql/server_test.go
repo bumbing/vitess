@@ -1035,9 +1035,9 @@ func TestTLSServer_Pinterest(t *testing.T) {
 
 	authServer := NewAuthServerStatic()
 	authServer.Entries["user1"] = []*AuthServerStaticEntry{{
-		Password:  "password1",
-		UserData:  "user1",
-		GroupData: []string{"group_requiring_tls"},
+		Password: "password1",
+		UserData: "user1",
+		Groups:   []string{"group_requiring_tls"},
 	}}
 	authServer.Entries["user2"] = []*AuthServerStaticEntry{{
 		Password: "password2",
