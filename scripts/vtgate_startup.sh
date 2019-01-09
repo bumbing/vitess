@@ -100,6 +100,11 @@ if [[ ! -z "${TELETRAAN_DARK_MAX_ROWS}" ]]; then
     -pinterest_dark_read_max_compared_rows ${TELETRAAN_DARK_MAX_ROWS} "
 fi
 
+SUPPORTED_KNOX_ROLES="scriptro,longqueryro,scriptrw,longqueryrw"
+if [[ ! -z "${TELETRAAN_ADDITIONAL_KNOX_ROLES}" ]]; then
+  SUPPORTED_KNOX_ROLES="${SUPPORTED_KNOX_ROLES},${TELETRAAN_ADDITIONAL_KNOX_ROLES}"
+fi
+
 # TODO(dweitzman): To require TLS for writing, we'll do something like this:
 # -group_tls_regexes "writer:^m10n-pepsi-prod..*,admin:^m10n-pepsi-prod..*"
 # To test with a devapp, the regex might look more like this:
@@ -113,8 +118,8 @@ ${VTGATE_COMMAND} \
   -mysql_tcp_version tcp4 \
   -mysql_server_socket_path /tmp/mysql.sock \
   -mysql_auth_server_impl knox \
-  -knox_supported_roles scriptro,longqueryro,scriptrw,longqueryrw \
-  -knox_role_mapping scriptro:reader,longqueryro:reader,scriptrw:reader:writer:admin,longqueryrw:reader:writer:admin \
+  -knox_supported_roles "${SUPPORTED_KNOX_ROLES}" \
+  -knox_role_mapping scriptro:reader,longqueryro:reader,pepsirw:reader:writer:admin,scriptrw:reader:writer:admin,pepsilong:reader:writer:admin,longqueryrw:reader:writer:admin \
   -grpc_keepalive_time 30s \
   -cell test \
   -cells_to_watch test \
@@ -125,7 +130,7 @@ ${VTGATE_COMMAND} \
   -allow_select_unauthoritative_col \
   -alsologtostderr \
   -mysql_server_query_timeout 2h \
-  -mysql_user_query_timeouts scriptro:10s,scriptrw:10s \
+  -mysql_user_query_timeouts scriptro:10s,scriptrw:10s,pepsirw:10s \
   -mysql_server_ssl_cert /var/lib/normandie/fuse/cert/generic \
   -mysql_server_ssl_key /var/lib/normandie/fuse/key/generic \
   -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \

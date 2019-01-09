@@ -3,9 +3,9 @@
     {
       "name": "all_tables",
       "table_names_or_prefixes": ["%"],
-      "readers": ["scriptro", "longqueryro", "scriptrw", "longqueryrw", "reader"],
-      "writers": ["scriptrw", "longqueryrw", "writer"],
-      "admins": ["scriptrw", "longqueryrw", "admin"]
+      "readers": ["reader"],
+      "writers": ["writer"],
+      "admins": ["admin"]
     }
   ]
 }
