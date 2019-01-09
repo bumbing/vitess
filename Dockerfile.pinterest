@@ -8,4 +8,5 @@ FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu14.04:latest
 COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
 COPY --from=build /vt/src/vitess.io/vitess/config /vt/config
 COPY --from=build /vt/src/vitess.io/vitess/web /vt/web
+COPY --from=build /vt/src/vitess.io/vitess/hooks /vt/vthook
 COPY --from=build /vt/bin/vt* /vt/bin/mysql* /vt/bin/pinschema /vt/bin/zk /vt/bin/zkc* /vt/bin/query_analyzer /vt/bin/topo2topo /vt/bin/

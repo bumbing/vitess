@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo "[exec] /usr/local/bin/vitess_utils/vitess.py vttablet_state_change"
+if [ -f /usr/local/bin/vitess_utils/vitess.py ]; then
+    python /usr/local/bin/vitess_utils/vitess.py vttablet_state_change
+fi
