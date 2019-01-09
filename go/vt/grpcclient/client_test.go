@@ -34,7 +34,10 @@ func TestDialErrors(t *testing.T) {
 		"badhost:123456",
 		"[::]:12346",
 	}
+	// NOTE(dweitzman): In the Pinterest network environment this can
+	// be a deadline exceeded error instead of an unavailable error.
 	wantErr := "Unavailable"
+	pinterestWantErr := "DeadlineExceeded"
 	for _, address := range addresses {
 		gconn, err := Dial(address, FailFast(true), grpc.WithInsecure())
 		if err != nil {
@@ -45,8 +48,9 @@ func TestDialErrors(t *testing.T) {
 		_, err = vtg.Execute(ctx, &vtgatepb.ExecuteRequest{})
 		cancel()
 		gconn.Close()
-		if err == nil || !strings.Contains(err.Error(), wantErr) {
-			t.Errorf("Dial(%s, FailFast=true): %v, must contain %s", address, err, wantErr)
+		if err == nil || !(strings.Contains(err.Error(), wantErr) ||
+			strings.Contains(err.Error(), pinterestWantErr)) {
+			t.Errorf("Dial(%s, FailFast=true): %v, must contain %s or %s", address, err, wantErr, pinterestWantErr)
 		}
 	}
 
