@@ -166,31 +166,40 @@ func TestParsePinterestTargetOverride(t *testing.T) {
 		want string
 	}{
 		{
-			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */",
+			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */ select 1",
 			want: "foo",
 		},
 		{
-			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=patio[-80]@master */",
+			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=patio[-80]@master */ select 1",
 			want: "patio[-80]@master",
 		},
 		{
-			in:   "/* VitessTarget=patio:80-@rdonly */",
+			in:   "/* VitessTarget=patio:80-@rdonly */ select 1",
 			want: "patio:80-@rdonly",
 		},
 		{
-			in:   "/* VitessTarget= */",
+			in:   "/* VitessTarget=patio:80-@rdonly */ set autocommit=1",
+			want: "patio:80-@rdonly",
+		},
+		// Insert statements don't get v2 routing
+		{
+			in:   "/* VitessTarget=patio:80-@rdonly */ insert into foo (a) values (1)",
 			want: "",
 		},
 		{
-			in:   "/* VitessTarget=, Foo=Bar */",
+			in:   "/* VitessTarget= */ select 1",
+			want: "",
+		},
+		{
+			in:   "/* VitessTarget=, Foo=Bar */ select 1",
 			want: "",
 		},
 	}
 
 	for _, c := range testcases {
-		got := maybeTargetOverrideFromComment(c.in)
+		got := maybeTargetOverrideForQuery(c.in)
 		if got != c.want {
-			t.Errorf("maybeTargetOverrideFromComment(%#v). Want: %v. Got: %v", c.in, c.want, got)
+			t.Errorf("maybeTargetOverrideForQuery(%#v). Want: %v. Got: %v", c.in, c.want, got)
 		}
 	}
 }

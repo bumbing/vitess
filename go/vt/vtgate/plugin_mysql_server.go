@@ -158,9 +158,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 	}
 
 	// Look for Pinterest-specific comments selecting a keyspace
-	_, marginComments := sqlparser.SplitMarginComments(query)
-	targetOverride := maybeTargetOverrideFromComment(marginComments.Leading)
-
+	targetOverride := maybeTargetOverrideForQuery(query)
 	if targetOverride != "" {
 		originalTargetString := session.TargetString
 		session.TargetString = targetOverride
@@ -186,14 +184,26 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 
 var vitessTargetComment = regexp.MustCompile(`\sVitessTarget=([^,\s]+),?\s`)
 
-// maybeTargetOverrideFromComment is a Pinterest-specific feature that can look in a comment
+// maybeTargetOverrideForQuery is a Pinterest-specific feature that can look in a comment
 // like /* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */
 // and pull out the VitessTarget to use for a single query.
 // The choice to parse this format for leading comments is because the primary user of these comments will be
 // pepsi, which is a Java service using the connector-j jdbc driver for mysql. This is the format of commments
 // adding by that driver when setClientInfo() is called on a connection.
-func maybeTargetOverrideFromComment(comment string) string {
-	submatch := vitessTargetComment.FindStringSubmatch(comment)
+func maybeTargetOverrideForQuery(query string) string {
+	stmtType := sqlparser.Preview(query)
+	// NOTE(dweitzman): v2-targeting is disabled for insert statements
+	// because v2 execution mode doesn't respect sequences and can
+	// silently do the wrong thing. The vitess sharding model requires
+	// insert statements to have a column that can be used to determine
+	// the keyspace ID anyway, so v2-targeting an insert statement
+	// has no benefits anyway.
+	if stmtType == sqlparser.StmtInsert {
+		return ""
+	}
+
+	_, marginComments := sqlparser.SplitMarginComments(query)
+	submatch := vitessTargetComment.FindStringSubmatch(marginComments.Leading)
 	if len(submatch) > 1 {
 		return submatch[1]
 	}
