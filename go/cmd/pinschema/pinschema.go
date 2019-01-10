@@ -182,6 +182,23 @@ func (vb *vschemaBuilder) getVindexName(colName, tableName string) string {
 	return colName
 }
 
+func colShouldBeSequence(col *sqlparser.ColumnDefinition, tableCreate *sqlparser.DDL) bool {
+	tableName := tableCreate.Table.Name.String()
+	colName := col.Name.String()
+
+	// A column named "id" which has a primary key will be assigned a sequence.
+	// Previously we checked for bool(col.Type.Autoincrement) but that will
+	// break once sequences launch and auto-increment is removed.
+	if colName == "id" && !strings.HasPrefix(tableName, "dark_write") {
+		for _, idx := range tableCreate.TableSpec.Indexes {
+			if idx.Info.Primary && len(idx.Columns) == 1 && idx.Columns[0].Column.Equal(col.Name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 	if vb.config.createPrimary {
 		vb.createPrimaryVindexes()
@@ -252,7 +269,10 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 				})
 			}
 
-			if bool(col.Type.Autoincrement) && vb.config.createSeq && !strings.HasPrefix(tableName, "dark_write") {
+			// A column named "id" which has a primary key will be assigned a sequence.
+			// Previously we checked for bool(col.Type.Autoincrement) but that will
+			// break once sequences launch and auto-increment is removed.
+			if vb.config.createSeq && colShouldBeSequence(col, tableCreate) {
 				tbl.AutoIncrement = &vschemapb.AutoIncrement{
 					Column:   colName,
 					Sequence: tableName + "_seq",
@@ -338,7 +358,7 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
 
 		hasAutoincrement := false
 		for _, col := range tableCreate.TableSpec.Columns {
-			if bool(col.Type.Autoincrement) {
+			if colShouldBeSequence(col, tableCreate) {
 				hasAutoincrement = true
 				break
 			}
