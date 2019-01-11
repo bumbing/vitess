@@ -31,7 +31,7 @@ var (
 	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
 	includeCols                 = flag.Bool("include-cols", false, "Whether to include a column list for each table")
 	colsAuthoritative           = flag.Bool("cols-authoritative", false, "Whether to mark the column list as authoriative")
-	sequenceTableDDLs           = flag.Bool("sequence-table-ddls", false, "Whether to output sequence table DDL instead of vschema")
+	outputDDL                   = flag.String("output-ddl", "", "'create-seq' or 'remove-autoinc' to output DDLs instead of vschema")
 	defaultScatterCacheCapacity = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
 	tableScatterCacheCapacity   flagutil.StringMapValue
 )
@@ -310,9 +310,17 @@ func parseAndRun(args []string) error {
 		ddls = append(ddls, ddl...)
 	}
 
-	if *sequenceTableDDLs {
+	switch *outputDDL {
+	case "create-seq":
 		fmt.Print(buildSequenceDDLs(ddls))
 		return nil
+	case "remove-autoinc":
+		fmt.Print(removeAutoInc(ddls))
+		return nil
+	case "":
+		// Fall thhrough
+	default:
+		return fmt.Errorf("Bad option to -output-ddl: %v. Should be 'create-seq' or 'remove-autoinc'", *outputDDL)
 	}
 
 	tableCacheCapacityOverrides := map[string]uint64{}
@@ -372,6 +380,29 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL) string {
 			&b,
 			"create table if not exists %s(id int, next_id bigint, cache bigint, primary key(id)) comment 'vitess_sequence';\n",
 			seqTableName)
+	}
+	return b.String()
+}
+
+func removeAutoInc(ddls []*sqlparser.DDL) string {
+	var b bytes.Buffer
+
+	for _, tableCreate := range ddls {
+		tableName := tableCreate.Table.Name.String()
+
+		for _, col := range tableCreate.TableSpec.Columns {
+			if bool(col.Type.Autoincrement) {
+				col.Type.Autoincrement = sqlparser.BoolVal(false)
+
+				fmt.Fprintf(
+					&b,
+					"alter table %v modify %v;\n",
+					tableName, sqlparser.String(col))
+
+				break
+			}
+		}
+
 	}
 	return b.String()
 }

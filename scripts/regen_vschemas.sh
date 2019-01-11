@@ -12,6 +12,6 @@
 set -ex
 
 go run vitess.io/vitess/go/cmd/pinschema -create-primary-vindexes -create-secondary-vindexes -default-scatter-cache-capacity 100000 -create-sequences -table-scatter-cache-capacity campaigns:200000 ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql > patio.json
-go run vitess.io/vitess/go/cmd/pinschema -sequence-table-ddls ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql > patio_ddl.sql
+go run vitess.io/vitess/go/cmd/pinschema -output-ddl create-seq ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql > patio_ddl.sql
 go run vitess.io/vitess/go/cmd/pinschema ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio_general.sql > patiogeneral.json
 
