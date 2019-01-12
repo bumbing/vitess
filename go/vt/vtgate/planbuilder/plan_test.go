@@ -161,9 +161,11 @@ func TestPlan(t *testing.T) {
 	testFile(t, "vindex_func_cases.txt", vschema)
 	testFile(t, "wireup_cases.txt", vschema)
 	{
-		defer flag.Set("merge_keyspace_joins_to_single_shard", "false")
 		flag.Set("merge_keyspace_joins_to_single_shard", "true")
+		flag.Set("allow_select_unauthoritative_col", "true")
 		testFile(t, "pinterest_cases.txt", vschema)
+		flag.Set("merge_keyspace_joins_to_single_shard", "false")
+		flag.Set("allow_select_unauthoritative_col", "false")
 	}
 }
 

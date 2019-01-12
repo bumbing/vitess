@@ -231,6 +231,10 @@
 "select a.* from authoritative"
 "table a not found"
 
+# unlisted column in authoritative table
+"select no_such_col from authoritative"
+"symbol no_such_col not found in table or subquery"
+
 # select * from qualified authoritative table
 "select a.* from authoritative a"
 {

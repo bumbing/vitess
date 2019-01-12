@@ -1,3 +1,22 @@
+# We don't disallow selecting unknown columns from an authoritative
+# vschema at Pinterest. We only have the authoritative column list
+# to help with ad-hoc "select *" queries. It might be nice to
+# contribute some version of the -allow_select_unauthoritative_col flag back
+# upstream.
+"select col1, @@hostname from authoritative"
+{
+  "Original": "select col1, @@hostname from authoritative",
+  "Instructions": {
+    "Opcode": "SelectScatter",
+    "Keyspace": {
+      "Name": "user",
+      "Sharded": true
+    },
+    "Query": "select col1, @@hostname from authoritative",
+    "FieldQuery": "select col1, @@hostname from authoritative where 1 != 1"
+  }
+}
+
 # Force scatter directive. In select_cases.txt this test results in a SelectEqualUnique plan without the FORCE_SCATTER
 "select /*vt+ FORCE_SCATTER=1 */ * from user where name ='abc' AND (id = 4) limit 5"
 {

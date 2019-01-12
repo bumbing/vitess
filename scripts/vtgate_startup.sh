@@ -128,6 +128,7 @@ ${VTGATE_COMMAND} \
   -stats_emit_period 1m \
   -stats_backend opentsdb \
   -merge_keyspace_joins_to_single_shard \
+  -allow_select_unauthoritative_col \
   -alsologtostderr \
   -opentsdb_service vtgate \
   -mysql_server_query_timeout 2h \

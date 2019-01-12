@@ -18,6 +18,7 @@ package planbuilder
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"strconv"
 	"strings"
@@ -27,6 +28,8 @@ import (
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
+
+var allowSelectUnauthoritativeCol = flag.Bool("allow_select_unauthoritative_col", false, "whether to allow selecting a column that's missing from an authoritative vschema column list")
 
 var errNoTable = errors.New("no table info")
 
@@ -370,7 +373,7 @@ func (st *symtab) searchTables(col *sqlparser.ColName) (*column, error) {
 	c, ok := t.columns[col.Name.Lowered()]
 	if !ok {
 		// We know all the column names of a subquery. Might as well return an error if it's not found.
-		if t.isAuthoritative {
+		if t.isAuthoritative && !*allowSelectUnauthoritativeCol {
 			return nil, fmt.Errorf("symbol %s not found in table or subquery", sqlparser.String(col))
 		}
 		c = &column{
