@@ -211,7 +211,15 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 
 	out := make([]key.Destination, 0, len(ids))
 	for _, id := range ids {
-		cachedKeyspaceID, ok := sc.keyspaceIDCache.Get(id.String())
+		if id.IsNull() {
+			// If this were called with null, it should return destination none.
+			// Valid scatter_cache IDs shouldn't be null since they should be
+			// globally unique.
+			out = append(out, key.DestinationNone{})
+			continue
+		}
+
+		cachedKeyspaceID, ok := sc.keyspaceIDCache.Get(id.ToString())
 		if ok {
 			out = append(out, key.DestinationKeyspaceID(cachedKeyspaceID.(scatterKeyspaceID)))
 			continue
@@ -238,7 +246,7 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 				return nil, err
 			}
 			destinationKeyspace := vhash(unhashedVal)
-			sc.keyspaceIDCache.Set(id.String(), scatterKeyspaceID(destinationKeyspace))
+			sc.keyspaceIDCache.Set(id.ToString(), scatterKeyspaceID(destinationKeyspace))
 			out = append(out, key.DestinationKeyspaceID(destinationKeyspace))
 		default:
 			return nil, fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %v, key %v", sc.table, id)
@@ -259,20 +267,49 @@ func (sc *ScatterCache) Verify(vcursor VCursor, ids []sqltypes.Value, ksids [][]
 	return out, nil
 }
 
-// Create doesn't need to do anything for scatter_cache, but could optimistically populate the cache.
+// Create for scatter cache populate's the current vtgate's cache value.
+// This won't help across vtgates (queries on a different gate will still need a scatter),
+// but at Pinterest we often have create transactions that do an insert followed by an
+// update and with the mysql protocol they'll go though the same vtgate, so this
+// heuristic may help in many cases in practice.
 func (sc *ScatterCache) Create(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksids [][]byte, ignoreMode bool) error {
-	// TODO: add to the cache
+	if sc.keyspaceIDCache.Capacity() == 0 {
+		return nil
+	}
+
+	if len(rowsColValues) != len(ksids) {
+		return fmt.Errorf("ScatterCache.Create: internal error. %v col values != %v keyspace IDs", len(rowsColValues), len(ksids))
+	}
+
+	for idx := range rowsColValues {
+		colVals := rowsColValues[idx]
+		if len(colVals) != 1 {
+			return fmt.Errorf("ScatterCache.Create: multi-col create unsupported")
+		}
+		colVal := colVals[0]
+		if !colVal.IsNull() {
+			sc.keyspaceIDCache.Set(colVal.ToString(), scatterKeyspaceID(ksids[idx]))
+		}
+	}
+
 	return nil
 }
 
 // Update updates the entry in the vindex.
 func (sc *ScatterCache) Update(vcursor VCursor, oldValues []sqltypes.Value, ksid []byte, newValues []sqltypes.Value) error {
-	// TODO: update the cache
+	// scatter_cache is fundamentally incompatible with ids being updated to
+	// point at a different keyspace. Entity IDs should never be reused and should
+	// never transition from one advertiser to another. If there were some emergency
+	// need to reassign an entity to a new advertiser (which, again, should not happen)
+	// it would be necessary to use ApplyVSchema to re-create the scatter caches on
+	// all the vtgates.
+
 	return nil
 }
 
 // Delete deletes the entry from the vindex.
 func (sc *ScatterCache) Delete(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksid []byte) error {
-	// TODO: clear the cache
+	// See the comment for Update() above.
+
 	return nil
 }

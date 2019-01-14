@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
@@ -114,7 +115,7 @@ func TestScatterCacheString(t *testing.T) {
 }
 
 func TestScatterCacheMap(t *testing.T) {
-	scatterCache := createScatterCache(t, "1000")
+	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
 	svc := &scatterVcursor{numRows: 1}
 
 	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
@@ -154,6 +155,18 @@ func TestScatterCacheMap(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Map(): %#v, want %+v", got, want)
 	}
+
+	{
+		expected := &scatterLRUCache{cache.NewLRUCache(1000)}
+		expected.Set("1", scatterKeyspaceID(vhash(1)))
+		expected.Set("2", scatterKeyspaceID(vhash(1)))
+		want := expected.Items()
+
+		got := scatterCache.keyspaceIDCache.Items()
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Map(): got %v, want %v", got, want)
+		}
+	}
 }
 
 func TestScatterCacheMapNoCapacity(t *testing.T) {
@@ -167,6 +180,30 @@ func TestScatterCacheMapNoCapacity(t *testing.T) {
 	want := []key.Destination{
 		key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}},
 		key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Map(): %#v, want %+v", got, want)
+	}
+
+	if len(svc.queries) > 0 {
+		t.Errorf("lookup.Map unexpected queries:\n%v", svc.queries)
+	}
+}
+
+func TestScatterCacheMapNullId(t *testing.T) {
+	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
+	svc := &scatterVcursor{numRows: 1}
+
+	// Should not be used. Also should not exist in the cache, but putting it there
+	// is a way to test if the cache is accessed.
+	scatterCache.keyspaceIDCache.Set(sqltypes.NULL.ToString(), scatterKeyspaceID([]byte("foo")))
+
+	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NULL})
+	if err != nil {
+		t.Error(err)
+	}
+	want := []key.Destination{
+		key.DestinationNone{},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Map(): %#v, want %+v", got, want)
@@ -204,7 +241,7 @@ func TestScatterCacheMapTooManyResults(t *testing.T) {
 }
 
 func TestScatterCacheMapNoResults(t *testing.T) {
-	scatterCache := createScatterCache(t, "1000")
+	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
 	svc := &scatterVcursor{numRows: 0}
 
 	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
@@ -217,6 +254,10 @@ func TestScatterCacheMapNoResults(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Map(): %#v, want %+v", got, want)
+	}
+
+	if scatterCache.keyspaceIDCache.Length() != 0 {
+		t.Errorf("Map(): Cache should be empty. Has %v items", scatterCache.keyspaceIDCache.Length())
 	}
 
 	wantqueries := []*querypb.BoundQuery{{
@@ -247,6 +288,45 @@ func TestScatterCacheMapNoResults(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Map(): %#v, want %+v", got, want)
+	}
+}
+
+func TestScatterCacheCreate(t *testing.T) {
+	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
+	svc := &scatterVcursor{numRows: 0}
+
+	err := scatterCache.Create(
+		svc,
+		[][]sqltypes.Value{{sqltypes.NewInt64(1)}},
+		[][]byte{[]byte("test")},
+		false /* ignoreMode */)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expected := &scatterLRUCache{cache.NewLRUCache(1000)}
+	expected.Set("1", scatterKeyspaceID([]byte("test")))
+	want := expected.Items()
+
+	got := scatterCache.keyspaceIDCache.Items()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Map(): got %v, want %v", got, want)
+	}
+
+	// NULL should be ignored
+	err = scatterCache.Create(
+		svc,
+		[][]sqltypes.Value{{sqltypes.NewInt64(1)}},
+		[][]byte{[]byte("test")},
+		false /* ignoreMode */)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Should not have added a new entry to the cache
+	got = scatterCache.keyspaceIDCache.Items()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Map(): got %v, want %v", got, want)
 	}
 }
 
