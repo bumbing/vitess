@@ -102,6 +102,12 @@ if [[ "${TELETRAAN_DISABLE_TLS}" == "true" ]]; then
     -mysql_server_ssl_key= "
 fi
 
+if [[ "${TELETRAAN_DARK_GATE}" == "true" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -pinterest_dark_read_gate "
+fi
+
 # TODO(dweitzman): To require TLS for writing, we'll do something like this:
 # -group_tls_regexes "writer:^m10n-pepsi-prod..*,admin:^m10n-pepsi-prod..*"
 # To test with a devapp, the regex might look more like this:

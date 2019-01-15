@@ -17,6 +17,7 @@ limitations under the License.
 package vtgate
 
 import (
+	"bytes"
 	"crypto/x509"
 	"flag"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -68,6 +70,8 @@ var (
 	mysqlUserQueryTimeouts flagutil.StringDurationMapValue
 
 	busyConnections int32
+
+	pinterestDarkReadGate = flag.Bool("pinterest_dark_read_gate", false, "True if this gate is intended for dark reads")
 )
 
 // vtgateHandler implements the Listener interface.
@@ -125,6 +129,10 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 	ctx = context.Background()
 
 	if queryTimeout := vh.queryTimeout(im, query); queryTimeout > 0 {
+		if *pinterestDarkReadGate {
+			// A dark gate makes two requests, so we give it twice as much time.
+			queryTimeout = 2 * queryTimeout
+		}
 		ctx, cancel = context.WithTimeout(ctx, queryTimeout)
 		defer cancel()
 	}
@@ -169,6 +177,16 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		}()
 	}
 
+	if *pinterestDarkReadGate {
+		result, err := vh.maybeExecuteDarkRead(ctx, session, query, make(map[string]*querypb.BindVariable))
+		if err != nil {
+			return mysql.NewSQLErrorFromError(err)
+		}
+		if result != nil {
+			callback(result)
+		}
+	}
+
 	if session.Options.Workload == querypb.ExecuteOptions_OLAP {
 		err := vh.vtg.StreamExecute(ctx, session, query, make(map[string]*querypb.BindVariable), callback)
 		return mysql.NewSQLErrorFromError(err)
@@ -208,6 +226,191 @@ func maybeTargetOverrideForQuery(query string) string {
 		return submatch[1]
 	}
 	return ""
+}
+
+// compareDarkResults compares the errors and rows between queries, reporting the first
+// difference discovered.
+func compareDarkResults(masterCombinedResult *sqltypes.Result, masterErr error, rdonlyCombinedResult *sqltypes.Result, rdonlyErr error) error {
+	if masterErr != nil || rdonlyErr != nil {
+		if masterErr == nil || rdonlyErr == nil {
+			return fmt.Errorf("mismatched errors. master: %v, rdonly: %v", masterErr, rdonlyErr)
+		}
+
+		if masterErr.Error() != rdonlyErr.Error() {
+			return fmt.Errorf("mismatched errors. master: %v, rdonly: %v", masterErr, rdonlyErr)
+		}
+
+		return nil
+	}
+
+	// Check same fields
+	if len(masterCombinedResult.Fields) != len(rdonlyCombinedResult.Fields) {
+		return fmt.Errorf("mismatched field count length. master: %v, rdonly: %v", len(masterCombinedResult.Fields), len(rdonlyCombinedResult.Fields))
+	}
+
+	// Need to compare rows
+	if len(masterCombinedResult.Rows) != len(rdonlyCombinedResult.Rows) {
+		return fmt.Errorf("mismatched result length. master: %v, rdonly: %v", len(masterCombinedResult.Rows), len(rdonlyCombinedResult.Rows))
+	}
+
+	for rowIdx := range masterCombinedResult.Rows {
+		masterRow := masterCombinedResult.Rows[rowIdx]
+		rdonlyRow := rdonlyCombinedResult.Rows[rowIdx]
+		if len(masterRow) != len(rdonlyRow) {
+			return fmt.Errorf("internal error. Field lengths matched but row col length did not")
+		}
+		for colIdx := range masterRow {
+			if masterRow[colIdx].Type() != rdonlyRow[colIdx].Type() || bytes.Compare(masterRow[colIdx].Raw(), rdonlyRow[colIdx].Raw()) != 0 {
+				return fmt.Errorf("found difference at row %v col %v. master %v, rdonly %v", rowIdx, colIdx, masterRow, rdonlyRow)
+			}
+		}
+	}
+
+	return nil
+}
+
+var darkReadCommentRe = regexp.MustCompile(`\sDarkRead=true,?\s`)
+
+// maybeExecuteDarkRead looks for select queries annotated with a DarkRead=true comment
+// and returns a dark result or error for them. Statements other than SET or SELECT
+// raise an error, as people shouldn't be manually changing any data in the shadow
+// environment.
+func (vh *vtgateHandler) maybeExecuteDarkRead(ctx context.Context, session *vtgatepb.Session, query string, bindVariables map[string]*querypb.BindVariable) (qr *sqltypes.Result, err error) {
+	switch sqlparser.Preview(query) {
+	case sqlparser.StmtSet:
+		return nil, nil
+	case sqlparser.StmtSelect:
+		_, marginComments := sqlparser.SplitMarginComments(query)
+		if !darkReadCommentRe.MatchString(marginComments.Leading) {
+			// Allow non-dark selects for ad-hoc testing.
+			return nil, nil
+		}
+
+		result, err := vh.executeDarkRead(ctx, session, query, make(map[string]*querypb.BindVariable))
+		if err == nil {
+			return result, nil
+		}
+		return nil, err
+	default:
+		return nil, fmt.Errorf("Dark read only allows SELECT and SET")
+	}
+}
+
+// executeDarkRead implements does dark reads for the patio resharding effort.
+// The idea is this:
+// - pepsi sends the dark vtgate copies of all the SQL statements for read queries
+// - dark vtgate has only one shard for replica type master and two for replica type rdonly
+// - dark vtgate sends the query to "patio:0@master" and "<orig_target>@rdonly".
+//   This is not exactly the same as comparing the live prod master vs the sharded rdonly
+//   since reads against the dark master will be configured to bypass v3 query planning
+//   rather than using v3 query planning with a SelectUnsharded route. We are trusting
+//   that those two ways of running a select query do the same thing.
+// - A 1-row result is returned back to pepsi indicating what the first difference
+//   is between the result sets, if any.
+// - pepsi will log dark read descrepencies and increment counters for match vs mismatch
+//   by endpoint
+//
+// To evaluate the dark read:
+// - We expect to see live gate master traffic ~= dark gate master traffic ~= dark gate
+//   rdonly traffic ~= pepsi counters for vtgate dark reads
+// - We expect a certain number of mismatches due to filtered replication delay.
+// - While vtgate performance may be impacted by reading all the streaming result sets
+//   into memory, we'll get at least an upper bound on relative latency by looking at
+//   the master vs rdonly stats for the dark gate.
+func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.Session, query string, bindVariables map[string]*querypb.BindVariable) (qr *sqltypes.Result, err error) {
+	var masterCombinedResult *sqltypes.Result
+	var masterErr error
+
+	var rdonlyCombinedResult *sqltypes.Result
+	var rdonlyErr error
+
+	origTarget := session.TargetString
+	if strings.Contains(origTarget, "@rdonly") {
+		return nil, fmt.Errorf("dark read don't work for queries that target a replica type (%v)", origTarget)
+	}
+
+	// In streaming mode we collect all the results before comparing.
+	if session.Options.Workload == querypb.ExecuteOptions_OLAP {
+		masterCombinedResult = &sqltypes.Result{}
+		rdonlyCombinedResult = &sqltypes.Result{}
+
+		session.TargetString = "patio:0@master"
+		masterErr = vh.vtg.StreamExecute(ctx,
+			session,
+			query,
+			make(map[string]*querypb.BindVariable),
+			func(r *sqltypes.Result) error {
+				if len(r.Fields) > 0 {
+					masterCombinedResult.Fields = r.Fields
+				}
+				masterCombinedResult.Rows = append(masterCombinedResult.Rows, r.Rows...)
+				return nil
+			},
+		)
+
+		// Then run on rdonly
+		session.TargetString = origTarget + "@rdonly"
+		rdonlyErr = vh.vtg.StreamExecute(ctx,
+			session,
+			query,
+			make(map[string]*querypb.BindVariable),
+			func(r *sqltypes.Result) error {
+				if len(r.Fields) > 0 {
+					rdonlyCombinedResult.Fields = r.Fields
+				}
+				rdonlyCombinedResult.Rows = append(rdonlyCombinedResult.Rows, r.Rows...)
+				return nil
+			},
+		)
+
+		// Restore orig target string
+		session.TargetString = origTarget
+	} else {
+		// OLTP non-streaming mode
+
+		// First run on master
+		session.TargetString = "patio:0@master"
+		_, masterCombinedResult, masterErr = vh.vtg.Execute(ctx,
+			session,
+			query,
+			make(map[string]*querypb.BindVariable),
+		)
+
+		// Then run on rdonly
+		session.TargetString = origTarget + "@rdonly"
+		_, rdonlyCombinedResult, rdonlyErr = vh.vtg.Execute(ctx,
+			session,
+			query,
+			make(map[string]*querypb.BindVariable),
+		)
+
+		// Restore orig target string
+		session.TargetString = origTarget
+	}
+
+	diffErr := compareDarkResults(masterCombinedResult, masterErr, rdonlyCombinedResult, rdonlyErr)
+
+	mismatchReason := ""
+
+	if diffErr != nil {
+		mismatchReason = diffErr.Error()
+	}
+
+	happyResult := &sqltypes.Result{
+		Fields: []*querypb.Field{
+			{
+				Name:         "mismatch_reason",
+				Type:         sqltypes.VarChar,
+				ColumnLength: 1024,
+				Charset:      mysql.CharacterSetUtf8,
+			},
+		},
+		Rows: [][]sqltypes.Value{
+			{sqltypes.NewVarBinary(mismatchReason)},
+		},
+	}
+
+	return happyResult, nil
 }
 
 func (vh *vtgateHandler) queryTimeout(im *querypb.VTGateCallerID, query string) time.Duration {
