@@ -1,3 +1,11 @@
 #!/bin/bash
 
+for dir in /var/log/vtworker /mnt/vtdataroot; do
+  if [ ! -d ${dir} ]; then
+    mkdir ${dir}
+    chown prod:prod ${dir}
+    chmod 755 ${dir}
+  fi
+done
+
 configure-serviceset -c teletraan/config/serviceset.${TELETRAAN_ENV_TYPE}.conf
