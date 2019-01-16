@@ -1,3 +1,7 @@
+# TODO(dweitzman): Move this to the vitess-utils repo
+# Long term, we'll want to integrate this into the schema change process such that we create vindexes
+# prior to the db cols and update the authoritative column list in vschema after updating the db.
+#
 # This is a convenient script for regenerating the patio and patiogeneral vschemas, which can be applied using vtctl ApplyVSchema
 # Assumptions:
 # - You're in the vitess repo root directory
@@ -11,7 +15,22 @@
 
 set -ex
 
-go run vitess.io/vitess/go/cmd/pinschema -create-primary-vindexes -create-secondary-vindexes -default-scatter-cache-capacity 100000 -create-sequences -table-scatter-cache-capacity campaigns:200000 ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql > patio.json
-go run vitess.io/vitess/go/cmd/pinschema -output-ddl create-seq ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql > patio_ddl.sql
-go run vitess.io/vitess/go/cmd/pinschema ~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio_general.sql > patiogeneral.json
+# PATIO_DDLS=~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql
+# GENERAL_DDLS=~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio_general.sql
 
+PATIO_DDLS=$(find ~/code/mysql_change_management/sharded/coladb/schemas/ -name "*.sql")
+GENERAL_DDLS=$(find ~/code/mysql_change_management/sharded/patiogeneraldb/schemas/ -name "*.sql")
+
+OUTPUT_DIR=genschemas/
+INCLUDE_COLS_ARGS="-include-cols -cols-authoritative"
+VINDEX_ARGS="-create-primary-vindexes \
+-create-secondary-vindexes \
+-default-scatter-cache-capacity 100000 \
+-table-scatter-cache-capacity campaigns:200000"
+PATIO_SEQUENCE_ARGS="-create-sequences"
+
+mkdir -p $OUTPUT_DIR
+go run vitess.io/vitess/go/cmd/pinschema $INCLUDE_COLS_ARGS $VINDEX_ARGS $PATIO_SEQUENCE_ARGS $PATIO_DDLS > $OUTPUT_DIR/patio.json
+go run vitess.io/vitess/go/cmd/pinschema $INCLUDE_COLS_ARGS $GENERAL_DDLS > $OUTPUT_DIR/patiogeneral.json
+go run vitess.io/vitess/go/cmd/pinschema -output-ddl create-seq $PATIO_DDLS > $OUTPUT_DIR/create_seq.sql
+go run vitess.io/vitess/go/cmd/pinschema -output-ddl remove-autoinc $PATIO_DDLS > $OUTPUT_DIR/remove_autoinc.sql
