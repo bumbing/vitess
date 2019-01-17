@@ -7,7 +7,6 @@
 # setting of -flag will override the first, setting -flag to value2.
 
 DOCKER=false
-DEV=false
 LATEST=false
 
 EXTRA_ARGS=""
@@ -20,9 +19,6 @@ while getopts ":det" opt; do
   case $opt in
     d)
       DOCKER=true
-      ;;
-    e)
-      DEV=true
       ;;
     t)
       LATEST=true
@@ -46,16 +42,16 @@ fi
 if [[ ${LATEST} == true || "$STAGE_NAME" == "shadow" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -security_policy= \
-    -opentsdb_service vtworker_latest"
+    -security_policy= "
 fi
 
-# For new command line arguments that may be enabled for dev but not prod (yet).
-if [[ ${DEV} == true ]]; then
+if [[ ! -z "${TELETRAAN_TSDB_SERVICE}" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -emit_stats=false \
-    -opentsdb_service vtworker_test"
+    -emit_stats \
+    -stats_emit_period 1m \
+    -stats_backend opentsdb \
+    -opentsdb_service ${TELETRAAN_TSDB_SERVICE}"
 fi
 
 if [[ ! -z "${TELETRAAN_ZK_SERVERS}" ]]; then
@@ -86,10 +82,6 @@ ${VTWORKER_COMMAND} \
   -security_policy role_whitelist \
   -whitelisted_roles monitoring,debugging \
   -username longqueryrw \
-  -opentsdb_service vtworker \
-  -emit_stats \
-  -stats_emit_period 1m \
-  -stats_backend opentsdb \
   -alsologtostderr \
   -use_v3_resharding_mode \
   ${EXTRA_ARGS} \

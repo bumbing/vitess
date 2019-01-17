@@ -7,8 +7,6 @@
 # setting of -flag will override the first, setting -flag to value2.
 
 DOCKER=false
-DEV=false
-LATEST=false
 
 EXTRA_ARGS=""
 if [ "$VTGATE_COMMAND" = "" ]
@@ -20,12 +18,6 @@ while getopts ":det" opt; do
   case $opt in
     d)
       DOCKER=true
-      ;;
-    e)
-      DEV=true
-      ;;
-    t)
-      LATEST=true
       ;;
     \?)
       break
@@ -43,19 +35,13 @@ if [[ ${DOCKER} == true ]]; then
   VTGATE_COMMAND="/vt/bin/vtgate"
 fi
 
-# For new command line arguments that may be enabled for dev but not prod (yet).
-if [[ ${LATEST} == true ]]; then
+if [[ ! -z "${TELETRAAN_TSDB_SERVICE}" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -opentsdb_service vtgate_latest"
-fi
-
-# For new command line arguments that may be enabled for dev but not prod (yet).
-if [[ ${DEV} == true ]]; then
-  EXTRA_ARGS=" \
-    ${EXTRA_ARGS} \
-    -emit_stats=false \
-    -opentsdb_service vtgate_test"
+    -emit_stats \
+    -stats_emit_period 1m \
+    -stats_backend opentsdb \
+    -opentsdb_service ${TELETRAAN_TSDB_SERVICE}"
 fi
 
 if [[ ! -z "${TELETRAAN_ZK_SERVERS}" ]]; then
@@ -129,14 +115,9 @@ ${VTGATE_COMMAND} \
   -tablet_types_to_wait MASTER,REPLICA \
   -gateway_implementation discoverygateway \
   -service_map 'grpc-vtgateservice' \
-  -opentsdb_service vtgate \
-  -emit_stats \
-  -stats_emit_period 1m \
-  -stats_backend opentsdb \
   -merge_keyspace_joins_to_single_shard \
   -allow_select_unauthoritative_col \
   -alsologtostderr \
-  -opentsdb_service vtgate \
   -mysql_server_query_timeout 2h \
   -mysql_user_query_timeouts scriptro:10s,scriptrw:10s \
   -mysql_server_ssl_cert /var/lib/normandie/fuse/cert/generic \
