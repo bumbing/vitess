@@ -24,6 +24,7 @@ import (
 	"golang.org/x/net/context"
 
 	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/servenv"
 )
@@ -77,7 +78,7 @@ func executeTemplate(w http.ResponseWriter, t *template.Template, data interface
 }
 
 // InitInteractiveMode installs webserver handlers for each known command.
-func (wi *Instance) InitInteractiveMode() {
+func (wi *Instance) InitInteractiveMode(username string) {
 	indexTemplate := mustParseTemplate("index", indexHTML)
 	subIndexTemplate := mustParseTemplate("subIndex", subIndexHTML)
 
@@ -127,7 +128,15 @@ func (wi *Instance) InitInteractiveMode() {
 					return
 				}
 
-				if _, err := wi.setAndStartWorker(context.Background(), wrk, wi.wr); err != nil {
+				ctx := context.Background()
+
+				if username != "" {
+					ctx = callerid.NewContext(ctx,
+						callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
+						callerid.NewImmediateCallerID(username))
+				}
+
+				if _, err := wi.setAndStartWorker(ctx, wrk, wi.wr); err != nil {
 					httpError(w, "Could not set %s worker: %s", c.Name, err)
 					return
 				}

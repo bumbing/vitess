@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/logutil"
 	"vitess.io/vitess/go/vt/servenv"
 	"vitess.io/vitess/go/vt/vterrors"
@@ -37,12 +38,13 @@ import (
 
 // VtworkerServer is our RPC server
 type VtworkerServer struct {
-	wi *worker.Instance
+	wi       *worker.Instance
+	username string
 }
 
 // NewVtworkerServer returns a new VtworkerServer for the given vtworker instance.
-func NewVtworkerServer(wi *worker.Instance) *VtworkerServer {
-	return &VtworkerServer{wi}
+func NewVtworkerServer(wi *worker.Instance, username string) *VtworkerServer {
+	return &VtworkerServer{wi, username}
 }
 
 // ExecuteVtworkerCommand is part of the vtworkerdatapb.VtworkerServer interface
@@ -71,8 +73,16 @@ func (s *VtworkerServer) ExecuteVtworkerCommand(args *vtworkerdatapb.ExecuteVtwo
 
 	wr := s.wi.CreateWrangler(logger)
 
+	ctx := stream.Context()
+
+	if s.username != "" {
+		ctx = callerid.NewContext(ctx,
+			callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
+			callerid.NewImmediateCallerID(s.username))
+	}
+
 	// Run the command as long as the RPC Context is valid.
-	worker, done, err := s.wi.RunCommand(stream.Context(), args.Args, wr, false /*runFromCli*/)
+	worker, done, err := s.wi.RunCommand(ctx, args.Args, wr, false /*runFromCli*/)
 	if err == nil && worker != nil && done != nil {
 		err = s.wi.WaitForCommand(worker, done)
 	}
@@ -81,6 +91,6 @@ func (s *VtworkerServer) ExecuteVtworkerCommand(args *vtworkerdatapb.ExecuteVtwo
 }
 
 // StartServer registers the VtworkerServer for RPCs
-func StartServer(s *grpc.Server, wi *worker.Instance) {
-	vtworkerservicepb.RegisterVtworkerServer(s, NewVtworkerServer(wi))
+func StartServer(s *grpc.Server, wi *worker.Instance, username string) {
+	vtworkerservicepb.RegisterVtworkerServer(s, NewVtworkerServer(wi, username))
 }

@@ -43,9 +43,10 @@ if [[ ${DOCKER} == true ]]; then
 fi
 
 # For new command line arguments that may be enabled for dev but not prod (yet).
-if [[ ${LATEST} == true ]]; then
+if [[ ${LATEST} == true || "$STAGE_NAME" == "shadow" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
+    -security_policy= \
     -opentsdb_service vtworker_latest"
 fi
 
@@ -82,6 +83,8 @@ ${VTWORKER_COMMAND} \
   -grpc_port 15991 \
   -cell test \
   -service_map 'grpc-vtworker' \
+  -security_policy role_whitelist \
+  -whitelisted_roles monitoring,debugging \
   -username longqueryrw \
   -opentsdb_service vtworker \
   -emit_stats \

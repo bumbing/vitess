@@ -86,7 +86,7 @@ func main() {
 
 	if len(args) == 0 {
 		// In interactive mode, initialize the web UI to choose a command.
-		wi.InitInteractiveMode()
+		wi.InitInteractiveMode(*username)
 	} else {
 		// In single command mode, just run it.
 		ctx := context.Background()
