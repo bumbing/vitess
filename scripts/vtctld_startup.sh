@@ -38,8 +38,7 @@ if [[ ${DOCKER} == true ]]; then
   VTCTLD_COMMAND="/vt/bin/vtctld"
 fi
 
-# For new command line arguments that may be enabled for dev but not prod (yet).
-if [[ ${LATEST} == true ]]; then
+if [[ ${LATEST} == true || "$STAGE_NAME" == "shadow" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
     -security_policy= "

@@ -38,7 +38,6 @@ if [[ ${DOCKER} == true ]]; then
   VTWORKER_COMMAND="/vt/bin/vtworker"
 fi
 
-# For new command line arguments that may be enabled for dev but not prod (yet).
 if [[ ${LATEST} == true || "$STAGE_NAME" == "shadow" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
