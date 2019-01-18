@@ -183,7 +183,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 			return mysql.NewSQLErrorFromError(err)
 		}
 		if result != nil {
-			callback(result)
+			return callback(result)
 		}
 	}
 
@@ -401,12 +401,12 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 			{
 				Name:         "mismatch_reason",
 				Type:         sqltypes.VarChar,
-				ColumnLength: 1024,
+				ColumnLength: 2048,
 				Charset:      mysql.CharacterSetUtf8,
 			},
 		},
 		Rows: [][]sqltypes.Value{
-			{sqltypes.NewVarBinary(mismatchReason)},
+			{sqltypes.NewVarChar(mismatchReason)},
 		},
 	}
 
