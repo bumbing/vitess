@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	querypb "vitess.io/vitess/go/vt/proto/query"
 	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
 )
 
@@ -149,10 +150,10 @@ var advertisersColumns = []*vschemapb.Column{
 	{Name: "id"},
 	{Name: "active"},
 	{Name: "creation_date"},
-	{Name: "name"},
+	{Name: "name", Type: querypb.Type_VARCHAR},
 	{Name: "owner_user_id"},
-	{Name: "billing_type"},
-	{Name: "billing_token"},
+	{Name: "billing_type", Type: querypb.Type_VARCHAR},
+	{Name: "billing_token", Type: querypb.Type_VARCHAR},
 	{Name: "billing_profile_id"},
 	{Name: "billing_threshold"},
 	{Name: "test_account"},
@@ -184,7 +185,7 @@ var campaignsColumns = []*vschemapb.Column{
 	{Name: "creation_date"},
 	{Name: "campaign_spec_id"},
 	{Name: "advertiser_id"},
-	{Name: "name"},
+	{Name: "name", Type: querypb.Type_VARCHAR},
 	{Name: "unique_line_count_id"},
 	{Name: "action_type"},
 	{Name: "gid"},

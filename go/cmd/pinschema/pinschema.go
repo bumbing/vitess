@@ -20,6 +20,7 @@ import (
 	"vitess.io/vitess/go/sqlescape"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
+	querypb "vitess.io/vitess/go/vt/proto/query"
 	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
 	"vitess.io/vitess/go/vt/servenv"
 	"vitess.io/vitess/go/vt/sqlparser"
@@ -231,6 +232,9 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 			if vb.config.includeCols {
 				colSpec := &vschemapb.Column{
 					Name: col.Name.String(),
+				}
+				if strings.ToLower(col.Type.Type) == "varchar" {
+					colSpec.Type = querypb.Type_VARCHAR
 				}
 				tbl.Columns = append(tbl.Columns, colSpec)
 			}
