@@ -71,7 +71,8 @@ var (
 
 	busyConnections int32
 
-	pinterestDarkReadGate = flag.Bool("pinterest_dark_read_gate", false, "True if this gate is intended for dark reads")
+	pinterestDarkReadGate            = flag.Bool("pinterest_dark_read_gate", false, "True if this gate is intended for dark reads")
+	pinterestDarkReadMaxComparedRows = flag.Int("pinterest_dark_read_max_compared_rows", 200000, "Max number of rows to compare in a dark read")
 )
 
 // vtgateHandler implements the Listener interface.
@@ -331,6 +332,11 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 
 	// In streaming mode we collect all the results before comparing.
 	if session.Options.Workload == querypb.ExecuteOptions_OLAP {
+		// Protection against queries over whole tables: only compare rows up to some limit,
+		// in that case. Shouldn't be particularly common to query that many rows,
+		// but it could potentially happen for an analytics query.
+		maxComparedRows := *pinterestDarkReadMaxComparedRows
+
 		masterCombinedResult = &sqltypes.Result{}
 		rdonlyCombinedResult = &sqltypes.Result{}
 
@@ -343,10 +349,16 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 				if len(r.Fields) > 0 {
 					masterCombinedResult.Fields = r.Fields
 				}
-				masterCombinedResult.Rows = append(masterCombinedResult.Rows, r.Rows...)
+				if len(masterCombinedResult.Rows) <= maxComparedRows {
+					masterCombinedResult.Rows = append(masterCombinedResult.Rows, r.Rows...)
+				}
 				return nil
 			},
 		)
+
+		if len(masterCombinedResult.Rows) > maxComparedRows {
+			masterCombinedResult.Rows = masterCombinedResult.Rows[:maxComparedRows]
+		}
 
 		// Then run on rdonly
 		session.TargetString = origTarget + "@rdonly"
@@ -358,10 +370,16 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 				if len(r.Fields) > 0 {
 					rdonlyCombinedResult.Fields = r.Fields
 				}
-				rdonlyCombinedResult.Rows = append(rdonlyCombinedResult.Rows, r.Rows...)
+				if len(rdonlyCombinedResult.Rows) <= maxComparedRows {
+					rdonlyCombinedResult.Rows = append(rdonlyCombinedResult.Rows, r.Rows...)
+				}
 				return nil
 			},
 		)
+
+		if len(rdonlyCombinedResult.Rows) > maxComparedRows {
+			rdonlyCombinedResult.Rows = masterCombinedResult.Rows[:maxComparedRows]
+		}
 
 		// Restore orig target string
 		session.TargetString = origTarget
