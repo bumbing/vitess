@@ -64,6 +64,9 @@ import (
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
+
+	// init plugin state change
+	_ "vitess.io/vitess/go/vt/vttablet"
 )
 
 const (
