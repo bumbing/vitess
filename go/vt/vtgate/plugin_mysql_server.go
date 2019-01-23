@@ -412,6 +412,7 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 
 	if diffErr != nil {
 		mismatchReason = diffErr.Error()
+		log.Warningf("Dark read mismatch. Query: %v. Reason: %v", query, mismatchReason)
 	}
 
 	happyResult := &sqltypes.Result{
