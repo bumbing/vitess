@@ -46,7 +46,7 @@ func TestVtworkerServer(t *testing.T) {
 
 	// Create a gRPC server and listen on the port.
 	server := grpc.NewServer()
-	vtworkerservicepb.RegisterVtworkerServer(server, grpcvtworkerserver.NewVtworkerServer(wi, ""))
+	vtworkerservicepb.RegisterVtworkerServer(server, grpcvtworkerserver.NewVtworkerServer(wi, "", nil))
 	go server.Serve(listener)
 
 	// Create a VtworkerClient gRPC client to talk to the vtworker.
@@ -76,7 +76,7 @@ func TestVtworkerServerAuth(t *testing.T) {
 	opts = append(opts, grpc.UnaryInterceptor(servenv.FakeAuthUnaryInterceptor))
 	server := grpc.NewServer(opts...)
 
-	vtworkerservicepb.RegisterVtworkerServer(server, grpcvtworkerserver.NewVtworkerServer(wi, ""))
+	vtworkerservicepb.RegisterVtworkerServer(server, grpcvtworkerserver.NewVtworkerServer(wi, "", nil))
 	go server.Serve(listener)
 
 	authJSON := `{

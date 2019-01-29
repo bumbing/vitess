@@ -78,7 +78,7 @@ func executeTemplate(w http.ResponseWriter, t *template.Template, data interface
 }
 
 // InitInteractiveMode installs webserver handlers for each known command.
-func (wi *Instance) InitInteractiveMode(username string) {
+func (wi *Instance) InitInteractiveMode(username string, groups []string) {
 	indexTemplate := mustParseTemplate("index", indexHTML)
 	subIndexTemplate := mustParseTemplate("subIndex", subIndexHTML)
 
@@ -133,7 +133,7 @@ func (wi *Instance) InitInteractiveMode(username string) {
 				if username != "" {
 					ctx = callerid.NewContext(ctx,
 						callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
-						callerid.NewImmediateCallerID(username))
+						callerid.NewImmediateCallerIDWithGroups(username, groups))
 				}
 
 				if _, err := wi.setAndStartWorker(ctx, wrk, wi.wr); err != nil {

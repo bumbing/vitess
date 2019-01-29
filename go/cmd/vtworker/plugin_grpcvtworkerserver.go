@@ -24,7 +24,7 @@ import (
 func init() {
 	servenv.OnRun(func() {
 		if servenv.GRPCCheckServiceMap("vtworker") {
-			grpcvtworkerserver.StartServer(servenv.GRPCServer, wi, *username)
+			grpcvtworkerserver.StartServer(servenv.GRPCServer, wi, *username, groups)
 		}
 	})
 }

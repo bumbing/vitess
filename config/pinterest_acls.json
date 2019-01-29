@@ -3,8 +3,8 @@
     {
       "name": "all_tables",
       "table_names_or_prefixes": ["%"],
-      "readers": ["reader"],
-      "writers": ["writer"],
+      "readers": ["reader", "writer", "admin"],
+      "writers": ["writer", "admin"],
       "admins": ["admin"]
     }
   ]

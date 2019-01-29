@@ -40,11 +40,12 @@ import (
 type VtworkerServer struct {
 	wi       *worker.Instance
 	username string
+	groups   []string
 }
 
 // NewVtworkerServer returns a new VtworkerServer for the given vtworker instance.
-func NewVtworkerServer(wi *worker.Instance, username string) *VtworkerServer {
-	return &VtworkerServer{wi, username}
+func NewVtworkerServer(wi *worker.Instance, username string, groups []string) *VtworkerServer {
+	return &VtworkerServer{wi, username, groups}
 }
 
 // ExecuteVtworkerCommand is part of the vtworkerdatapb.VtworkerServer interface
@@ -78,7 +79,7 @@ func (s *VtworkerServer) ExecuteVtworkerCommand(args *vtworkerdatapb.ExecuteVtwo
 	if s.username != "" {
 		ctx = callerid.NewContext(ctx,
 			callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
-			callerid.NewImmediateCallerID(s.username))
+			callerid.NewImmediateCallerIDWithGroups(s.username, s.groups))
 	}
 
 	// Run the command as long as the RPC Context is valid.
@@ -91,6 +92,6 @@ func (s *VtworkerServer) ExecuteVtworkerCommand(args *vtworkerdatapb.ExecuteVtwo
 }
 
 // StartServer registers the VtworkerServer for RPCs
-func StartServer(s *grpc.Server, wi *worker.Instance, username string) {
-	vtworkerservicepb.RegisterVtworkerServer(s, NewVtworkerServer(wi, username))
+func StartServer(s *grpc.Server, wi *worker.Instance, username string, groups []string) {
+	vtworkerservicepb.RegisterVtworkerServer(s, NewVtworkerServer(wi, username, groups))
 }

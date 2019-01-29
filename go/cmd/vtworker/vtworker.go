@@ -31,6 +31,7 @@ import (
 
 	"golang.org/x/net/context"
 	"vitess.io/vitess/go/exit"
+	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
@@ -43,9 +44,12 @@ var (
 	cell                   = flag.String("cell", "", "cell to pick servers from")
 	commandDisplayInterval = flag.Duration("command_display_interval", time.Second, "Interval between each status update when vtworker is executing a single command from the command line")
 	username               = flag.String("username", "", "If set, value is set as immediate caller id in the request and used by vttablet for TableACL check")
+	groups                 flagutil.StringListValue
 )
 
 func init() {
+	flag.Var(&groups, "groups", "Comma-separated list of groups to set for -username")
+
 	servenv.RegisterDefaultFlags()
 
 	logger := logutil.NewConsoleLogger()
@@ -86,7 +90,7 @@ func main() {
 
 	if len(args) == 0 {
 		// In interactive mode, initialize the web UI to choose a command.
-		wi.InitInteractiveMode(*username)
+		wi.InitInteractiveMode(*username, groups)
 	} else {
 		// In single command mode, just run it.
 		ctx := context.Background()
@@ -94,7 +98,7 @@ func main() {
 		if *username != "" {
 			ctx = callerid.NewContext(ctx,
 				callerid.NewEffectiveCallerID("vtworker", "" /* component */, "" /* subComponent */),
-				callerid.NewImmediateCallerID(*username))
+				callerid.NewImmediateCallerIDWithGroups(*username, groups))
 		}
 
 		worker, done, err := wi.RunCommand(ctx, args, nil /*custom wrangler*/, true /*runFromCli*/)

@@ -80,7 +80,8 @@ ${VTWORKER_COMMAND} \
   -service_map 'grpc-vtworker' \
   -security_policy role_whitelist \
   -whitelisted_roles monitoring,debugging \
-  -username longqueryrw \
+  -username vtworker \
+  -groups reader,writer,admin \
   -alsologtostderr \
   -use_v3_resharding_mode \
   ${EXTRA_ARGS} \

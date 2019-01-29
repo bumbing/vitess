@@ -40,6 +40,11 @@ func NewImmediateCallerID(username string) *querypb.VTGateCallerID {
 	return &querypb.VTGateCallerID{Username: username}
 }
 
+// NewImmediateCallerIDWithGroups creates a querypb.VTGateCallerID initialized with username and groups
+func NewImmediateCallerIDWithGroups(username string, groups []string) *querypb.VTGateCallerID {
+	return &querypb.VTGateCallerID{Username: username, Groups: groups}
+}
+
 // GetUsername returns the immediate caller of VTGate
 func GetUsername(im *querypb.VTGateCallerID) string {
 	if im == nil {
