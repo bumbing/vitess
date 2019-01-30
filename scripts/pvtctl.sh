@@ -19,8 +19,9 @@ ZK_ROOT=$(cat /var/config/config.services.vitess_environments_config | jq -r ".$
 
 shift
 
-set -ex
+set -e
 
 # TODO(dweitzman): Ideally we'd point at vtctld here, but we don't have fixed hostnames for vtctld at this time.
 
 /vt/bin/vtctl -topo_implementation zk2 -topo_global_server_address $ZK_SERVERS -topo_global_root $ZK_ROOT "$@"
+
