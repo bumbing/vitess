@@ -1,0 +1,569 @@
+  select
+	"db_ad_group_specs.id with db_ad_groups.spec_id" as tables,
+	db_ad_group_specs.id as left_id,
+    db_ad_groups.id as right_id,
+    db_ad_group_specs.g_advertiser_id as left_advertiser,
+    db_ad_groups.g_advertiser_id as right_advertiser
+  from
+    db_ad_group_specs
+  inner join
+    db_ad_groups
+  on
+    db_ad_group_specs.id = db_ad_groups.spec_id
+  where
+	db_ad_group_specs.g_advertiser_id != db_ad_groups.g_advertiser_id
+union
+  select
+	"db_ad_groups.id with db_ad_group_specs.ad_group_id" as tables,
+	db_ad_groups.id as left_id,
+    db_ad_group_specs.id as right_id,
+    db_ad_groups.g_advertiser_id as left_advertiser,
+    db_ad_group_specs.g_advertiser_id as right_advertiser
+  from
+    db_ad_groups
+  inner join
+    db_ad_group_specs
+  on
+    db_ad_groups.id = db_ad_group_specs.ad_group_id
+  where
+	db_ad_groups.g_advertiser_id != db_ad_group_specs.g_advertiser_id
+union
+  select
+	"db_ad_groups.id with db_pin_promotions.ad_group_id" as tables,
+	db_ad_groups.id as left_id,
+    db_pin_promotions.id as right_id,
+    db_ad_groups.g_advertiser_id as left_advertiser,
+    db_pin_promotions.g_advertiser_id as right_advertiser
+  from
+    db_ad_groups
+  inner join
+    db_pin_promotions
+  on
+    db_ad_groups.id = db_pin_promotions.ad_group_id
+  where
+	db_ad_groups.g_advertiser_id != db_pin_promotions.g_advertiser_id
+union
+  select
+	"db_ad_groups.id with db_pin_promotions_history.ad_group_id" as tables,
+	db_ad_groups.id as left_id,
+    db_pin_promotions_history.id as right_id,
+    db_ad_groups.g_advertiser_id as left_advertiser,
+    db_pin_promotions_history.g_advertiser_id as right_advertiser
+  from
+    db_ad_groups
+  inner join
+    db_pin_promotions_history
+  on
+    db_ad_groups.id = db_pin_promotions_history.ad_group_id
+  where
+	db_ad_groups.g_advertiser_id != db_pin_promotions_history.g_advertiser_id
+union
+  select
+	"db_ad_groups.id with db_product_groups.ad_group_id" as tables,
+	db_ad_groups.id as left_id,
+    db_product_groups.id as right_id,
+    db_ad_groups.g_advertiser_id as left_advertiser,
+    db_product_groups.g_advertiser_id as right_advertiser
+  from
+    db_ad_groups
+  inner join
+    db_product_groups
+  on
+    db_ad_groups.id = db_product_groups.ad_group_id
+  where
+	db_ad_groups.g_advertiser_id != db_product_groups.g_advertiser_id
+union
+  select
+	"db_ad_groups.id with db_promoted_catalog_product_groups.ad_group_id" as tables,
+	db_ad_groups.id as left_id,
+    db_promoted_catalog_product_groups.id as right_id,
+    db_ad_groups.g_advertiser_id as left_advertiser,
+    db_promoted_catalog_product_groups.g_advertiser_id as right_advertiser
+  from
+    db_ad_groups
+  inner join
+    db_promoted_catalog_product_groups
+  on
+    db_ad_groups.id = db_promoted_catalog_product_groups.ad_group_id
+  where
+	db_ad_groups.g_advertiser_id != db_promoted_catalog_product_groups.g_advertiser_id
+union
+  select
+	"db_ad_groups.id with db_promoted_catalog_product_groups_history.ad_group_id" as tables,
+	db_ad_groups.id as left_id,
+    db_promoted_catalog_product_groups_history.id as right_id,
+    db_ad_groups.g_advertiser_id as left_advertiser,
+    db_promoted_catalog_product_groups_history.g_advertiser_id as right_advertiser
+  from
+    db_ad_groups
+  inner join
+    db_promoted_catalog_product_groups_history
+  on
+    db_ad_groups.id = db_promoted_catalog_product_groups_history.ad_group_id
+  where
+	db_ad_groups.g_advertiser_id != db_promoted_catalog_product_groups_history.g_advertiser_id
+union
+  select
+	"db_billing_profiles.id with db_advertisers.billing_profile_id" as tables,
+	db_billing_profiles.id as left_id,
+    db_advertisers.id as right_id,
+    db_billing_profiles.g_advertiser_id as left_advertiser,
+    db_advertisers.gid as right_advertiser
+  from
+    db_billing_profiles
+  inner join
+    db_advertisers
+  on
+    db_billing_profiles.id = db_advertisers.billing_profile_id
+  where
+	db_billing_profiles.g_advertiser_id != db_advertisers.gid
+union
+  select
+	"db_billing_profiles.id with db_bills.billing_profile_id" as tables,
+	db_billing_profiles.id as left_id,
+    db_bills.id as right_id,
+    db_billing_profiles.g_advertiser_id as left_advertiser,
+    db_bills.g_advertiser_id as right_advertiser
+  from
+    db_billing_profiles
+  inner join
+    db_bills
+  on
+    db_billing_profiles.id = db_bills.billing_profile_id
+  where
+	db_billing_profiles.g_advertiser_id != db_bills.g_advertiser_id
+union
+  select
+	"db_billing_profiles.id with db_order_lines.billing_profile_id" as tables,
+	db_billing_profiles.id as left_id,
+    db_order_lines.id as right_id,
+    db_billing_profiles.g_advertiser_id as left_advertiser,
+    db_order_lines.g_advertiser_id as right_advertiser
+  from
+    db_billing_profiles
+  inner join
+    db_order_lines
+  on
+    db_billing_profiles.id = db_order_lines.billing_profile_id
+  where
+	db_billing_profiles.g_advertiser_id != db_order_lines.g_advertiser_id
+union
+  select
+	"db_bills.id with db_bill_details.bill_id" as tables,
+	db_bills.id as left_id,
+    db_bill_details.id as right_id,
+    db_bills.g_advertiser_id as left_advertiser,
+    db_bill_details.g_advertiser_id as right_advertiser
+  from
+    db_bills
+  inner join
+    db_bill_details
+  on
+    db_bills.id = db_bill_details.bill_id
+  where
+	db_bills.g_advertiser_id != db_bill_details.g_advertiser_id
+union
+  select
+	"db_bills.id with db_billing_actions.bill_id" as tables,
+	db_bills.id as left_id,
+    db_billing_actions.id as right_id,
+    db_bills.g_advertiser_id as left_advertiser,
+    db_billing_actions.g_advertiser_id as right_advertiser
+  from
+    db_bills
+  inner join
+    db_billing_actions
+  on
+    db_bills.id = db_billing_actions.bill_id
+  where
+	db_bills.g_advertiser_id != db_billing_actions.g_advertiser_id
+union
+  select
+	"db_business_profiles.id with db_advertisers.business_profile_id" as tables,
+	db_business_profiles.id as left_id,
+    db_advertisers.id as right_id,
+    db_business_profiles.g_advertiser_id as left_advertiser,
+    db_advertisers.gid as right_advertiser
+  from
+    db_business_profiles
+  inner join
+    db_advertisers
+  on
+    db_business_profiles.id = db_advertisers.business_profile_id
+  where
+	db_business_profiles.g_advertiser_id != db_advertisers.gid
+union
+  select
+	"db_business_profiles.id with db_bills.business_profile_id" as tables,
+	db_business_profiles.id as left_id,
+    db_bills.id as right_id,
+    db_business_profiles.g_advertiser_id as left_advertiser,
+    db_bills.g_advertiser_id as right_advertiser
+  from
+    db_business_profiles
+  inner join
+    db_bills
+  on
+    db_business_profiles.id = db_bills.business_profile_id
+  where
+	db_business_profiles.g_advertiser_id != db_bills.g_advertiser_id
+union
+  select
+	"db_campaign_specs.id with db_campaigns.campaign_spec_id" as tables,
+	db_campaign_specs.id as left_id,
+    db_campaigns.id as right_id,
+    db_campaign_specs.g_advertiser_id as left_advertiser,
+    db_campaigns.g_advertiser_id as right_advertiser
+  from
+    db_campaign_specs
+  inner join
+    db_campaigns
+  on
+    db_campaign_specs.id = db_campaigns.campaign_spec_id
+  where
+	db_campaign_specs.g_advertiser_id != db_campaigns.g_advertiser_id
+union
+  select
+	"db_campaign_specs.id with db_pin_promotion_specs.campaign_spec_id" as tables,
+	db_campaign_specs.id as left_id,
+    db_pin_promotion_specs.id as right_id,
+    db_campaign_specs.g_advertiser_id as left_advertiser,
+    db_pin_promotion_specs.g_advertiser_id as right_advertiser
+  from
+    db_campaign_specs
+  inner join
+    db_pin_promotion_specs
+  on
+    db_campaign_specs.id = db_pin_promotion_specs.campaign_spec_id
+  where
+	db_campaign_specs.g_advertiser_id != db_pin_promotion_specs.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_ad_groups.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_ad_groups.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_ad_groups.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_ad_groups
+  on
+    db_campaigns.id = db_ad_groups.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_ad_groups.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_bill_details.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_bill_details.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_bill_details.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_bill_details
+  on
+    db_campaigns.id = db_bill_details.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_bill_details.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_campaign_specs.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_campaign_specs.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_campaign_specs.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_campaign_specs
+  on
+    db_campaigns.id = db_campaign_specs.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_campaign_specs.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_pin_promotions.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_pin_promotions.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_pin_promotions.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_pin_promotions
+  on
+    db_campaigns.id = db_pin_promotions.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_pin_promotions.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_pin_promotions_history.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_pin_promotions_history.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_pin_promotions_history.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_pin_promotions_history
+  on
+    db_campaigns.id = db_pin_promotions_history.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_pin_promotions_history.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_promoted_catalog_product_groups.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_promoted_catalog_product_groups.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_promoted_catalog_product_groups.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_promoted_catalog_product_groups
+  on
+    db_campaigns.id = db_promoted_catalog_product_groups.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_promoted_catalog_product_groups.g_advertiser_id
+union
+  select
+	"db_campaigns.id with db_promoted_catalog_product_groups_history.campaign_id" as tables,
+	db_campaigns.id as left_id,
+    db_promoted_catalog_product_groups_history.id as right_id,
+    db_campaigns.g_advertiser_id as left_advertiser,
+    db_promoted_catalog_product_groups_history.g_advertiser_id as right_advertiser
+  from
+    db_campaigns
+  inner join
+    db_promoted_catalog_product_groups_history
+  on
+    db_campaigns.id = db_promoted_catalog_product_groups_history.campaign_id
+  where
+	db_campaigns.g_advertiser_id != db_promoted_catalog_product_groups_history.g_advertiser_id
+union
+  select
+	"db_order_line_specs.id with db_order_lines.spec_id" as tables,
+	db_order_line_specs.id as left_id,
+    db_order_lines.id as right_id,
+    db_order_line_specs.g_advertiser_id as left_advertiser,
+    db_order_lines.g_advertiser_id as right_advertiser
+  from
+    db_order_line_specs
+  inner join
+    db_order_lines
+  on
+    db_order_line_specs.id = db_order_lines.spec_id
+  where
+	db_order_line_specs.g_advertiser_id != db_order_lines.g_advertiser_id
+union
+  select
+	"db_order_lines.id with db_campaign_specs.order_line_id" as tables,
+	db_order_lines.id as left_id,
+    db_campaign_specs.id as right_id,
+    db_order_lines.g_advertiser_id as left_advertiser,
+    db_campaign_specs.g_advertiser_id as right_advertiser
+  from
+    db_order_lines
+  inner join
+    db_campaign_specs
+  on
+    db_order_lines.id = db_campaign_specs.order_line_id
+  where
+	db_order_lines.g_advertiser_id != db_campaign_specs.g_advertiser_id
+union
+  select
+	"db_order_lines.id with db_order_line_specs.order_line_id" as tables,
+	db_order_lines.id as left_id,
+    db_order_line_specs.id as right_id,
+    db_order_lines.g_advertiser_id as left_advertiser,
+    db_order_line_specs.g_advertiser_id as right_advertiser
+  from
+    db_order_lines
+  inner join
+    db_order_line_specs
+  on
+    db_order_lines.id = db_order_line_specs.order_line_id
+  where
+	db_order_lines.g_advertiser_id != db_order_line_specs.g_advertiser_id
+union
+  select
+	"db_pin_promotion_specs.id with db_pin_promotions.spec_id" as tables,
+	db_pin_promotion_specs.id as left_id,
+    db_pin_promotions.id as right_id,
+    db_pin_promotion_specs.g_advertiser_id as left_advertiser,
+    db_pin_promotions.g_advertiser_id as right_advertiser
+  from
+    db_pin_promotion_specs
+  inner join
+    db_pin_promotions
+  on
+    db_pin_promotion_specs.id = db_pin_promotions.spec_id
+  where
+	db_pin_promotion_specs.g_advertiser_id != db_pin_promotions.g_advertiser_id
+union
+  select
+	"db_pin_promotions.id with db_carousel_slot_promotions.pin_promotion_id" as tables,
+	db_pin_promotions.id as left_id,
+    db_carousel_slot_promotions.id as right_id,
+    db_pin_promotions.g_advertiser_id as left_advertiser,
+    db_carousel_slot_promotions.g_advertiser_id as right_advertiser
+  from
+    db_pin_promotions
+  inner join
+    db_carousel_slot_promotions
+  on
+    db_pin_promotions.id = db_carousel_slot_promotions.pin_promotion_id
+  where
+	db_pin_promotions.g_advertiser_id != db_carousel_slot_promotions.g_advertiser_id
+union
+  select
+	"db_pin_promotions.id with db_pin_promotion_specs.pin_promotion_id" as tables,
+	db_pin_promotions.id as left_id,
+    db_pin_promotion_specs.id as right_id,
+    db_pin_promotions.g_advertiser_id as left_advertiser,
+    db_pin_promotion_specs.g_advertiser_id as right_advertiser
+  from
+    db_pin_promotions
+  inner join
+    db_pin_promotion_specs
+  on
+    db_pin_promotions.id = db_pin_promotion_specs.pin_promotion_id
+  where
+	db_pin_promotions.g_advertiser_id != db_pin_promotion_specs.g_advertiser_id
+union
+  select
+	"db_pin_promotions.id with db_pin_promotions_history.pin_promotion_id" as tables,
+	db_pin_promotions.id as left_id,
+    db_pin_promotions_history.id as right_id,
+    db_pin_promotions.g_advertiser_id as left_advertiser,
+    db_pin_promotions_history.g_advertiser_id as right_advertiser
+  from
+    db_pin_promotions
+  inner join
+    db_pin_promotions_history
+  on
+    db_pin_promotions.id = db_pin_promotions_history.pin_promotion_id
+  where
+	db_pin_promotions.g_advertiser_id != db_pin_promotions_history.g_advertiser_id
+union
+  select
+	"db_pinner_list_specs.id with db_pinner_lists.spec_id" as tables,
+	db_pinner_list_specs.id as left_id,
+    db_pinner_lists.id as right_id,
+    db_pinner_list_specs.g_advertiser_id as left_advertiser,
+    db_pinner_lists.g_advertiser_id as right_advertiser
+  from
+    db_pinner_list_specs
+  inner join
+    db_pinner_lists
+  on
+    db_pinner_list_specs.id = db_pinner_lists.spec_id
+  where
+	db_pinner_list_specs.g_advertiser_id != db_pinner_lists.g_advertiser_id
+union
+  select
+	"db_pinner_lists.id with db_pinner_list_specs.pinner_list_id" as tables,
+	db_pinner_lists.id as left_id,
+    db_pinner_list_specs.id as right_id,
+    db_pinner_lists.g_advertiser_id as left_advertiser,
+    db_pinner_list_specs.g_advertiser_id as right_advertiser
+  from
+    db_pinner_lists
+  inner join
+    db_pinner_list_specs
+  on
+    db_pinner_lists.id = db_pinner_list_specs.pinner_list_id
+  where
+	db_pinner_lists.g_advertiser_id != db_pinner_list_specs.g_advertiser_id
+union
+  select
+	"db_product_group_specs.id with db_product_groups.spec_id" as tables,
+	db_product_group_specs.id as left_id,
+    db_product_groups.id as right_id,
+    db_product_group_specs.g_advertiser_id as left_advertiser,
+    db_product_groups.g_advertiser_id as right_advertiser
+  from
+    db_product_group_specs
+  inner join
+    db_product_groups
+  on
+    db_product_group_specs.id = db_product_groups.spec_id
+  where
+	db_product_group_specs.g_advertiser_id != db_product_groups.g_advertiser_id
+union
+  select
+	"db_product_groups.id with db_product_group_specs.product_group_id" as tables,
+	db_product_groups.id as left_id,
+    db_product_group_specs.id as right_id,
+    db_product_groups.g_advertiser_id as left_advertiser,
+    db_product_group_specs.g_advertiser_id as right_advertiser
+  from
+    db_product_groups
+  inner join
+    db_product_group_specs
+  on
+    db_product_groups.id = db_product_group_specs.product_group_id
+  where
+	db_product_groups.g_advertiser_id != db_product_group_specs.g_advertiser_id
+union
+  select
+	"db_promoted_catalog_product_groups.id with db_promoted_catalog_product_groups_history.promoted_catalog_product_group_id" as tables,
+	db_promoted_catalog_product_groups.id as left_id,
+    db_promoted_catalog_product_groups_history.id as right_id,
+    db_promoted_catalog_product_groups.g_advertiser_id as left_advertiser,
+    db_promoted_catalog_product_groups_history.g_advertiser_id as right_advertiser
+  from
+    db_promoted_catalog_product_groups
+  inner join
+    db_promoted_catalog_product_groups_history
+  on
+    db_promoted_catalog_product_groups.id = db_promoted_catalog_product_groups_history.promoted_catalog_product_group_id
+  where
+	db_promoted_catalog_product_groups.g_advertiser_id != db_promoted_catalog_product_groups_history.g_advertiser_id
+union
+  select
+	"db_targeting_attributes.id with db_targeting_attribute_history.targeting_attribute_id" as tables,
+	db_targeting_attributes.id as left_id,
+    db_targeting_attribute_history.id as right_id,
+    db_targeting_attributes.g_advertiser_id as left_advertiser,
+    db_targeting_attribute_history.g_advertiser_id as right_advertiser
+  from
+    db_targeting_attributes
+  inner join
+    db_targeting_attribute_history
+  on
+    db_targeting_attributes.id = db_targeting_attribute_history.targeting_attribute_id
+  where
+	db_targeting_attributes.g_advertiser_id != db_targeting_attribute_history.g_advertiser_id
+union
+  select
+	"db_targeting_specs.id with db_ad_group_specs.targeting_spec_id" as tables,
+	db_targeting_specs.id as left_id,
+    db_ad_group_specs.id as right_id,
+    db_targeting_specs.g_advertiser_id as left_advertiser,
+    db_ad_group_specs.g_advertiser_id as right_advertiser
+  from
+    db_targeting_specs
+  inner join
+    db_ad_group_specs
+  on
+    db_targeting_specs.id = db_ad_group_specs.targeting_spec_id
+  where
+	db_targeting_specs.g_advertiser_id != db_ad_group_specs.g_advertiser_id
+union
+  select
+	"db_targeting_specs.id with db_pin_promotion_specs.targeting_spec_id" as tables,
+	db_targeting_specs.id as left_id,
+    db_pin_promotion_specs.id as right_id,
+    db_targeting_specs.g_advertiser_id as left_advertiser,
+    db_pin_promotion_specs.g_advertiser_id as right_advertiser
+  from
+    db_targeting_specs
+  inner join
+    db_pin_promotion_specs
+  on
+    db_targeting_specs.id = db_pin_promotion_specs.targeting_spec_id
+  where
+	db_targeting_specs.g_advertiser_id != db_pin_promotion_specs.g_advertiser_id;

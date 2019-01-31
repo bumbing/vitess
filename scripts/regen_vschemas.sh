@@ -34,3 +34,5 @@ go run vitess.io/vitess/go/cmd/pinschema create-vschema $INCLUDE_COLS_ARGS $VIND
 go run vitess.io/vitess/go/cmd/pinschema create-vschema $INCLUDE_COLS_ARGS $GENERAL_DDLS > $OUTPUT_DIR/patiogeneral.json
 go run vitess.io/vitess/go/cmd/pinschema create-seq $PATIO_DDLS > $OUTPUT_DIR/create_seq.sql
 go run vitess.io/vitess/go/cmd/pinschema remove-autoinc $PATIO_DDLS > $OUTPUT_DIR/remove_autoinc.sql
+go run vitess.io/vitess/go/cmd/pinschema check-sharding-integrity -query-table-prefix pii_db_raw_ -ignore targeting_attribute_history,pin_promotion_specs_labels_xref,carousel_slot_promotions,promoted_catalog_product_groups,promoted_catalog_product_groups_history,pinner_lists $PATIO_DDLS > $OUTPUT_DIR/sharding_integrity_hive.sql
+go run vitess.io/vitess/go/cmd/pinschema check-sharding-integrity -table-result-limit 50 $PATIO_DDLS > $OUTPUT_DIR/sharding_integrity_mysql.sql

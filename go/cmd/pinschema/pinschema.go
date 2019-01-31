@@ -25,9 +25,13 @@ var (
 	createSecondaryVindexes     = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
 	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
 	includeCols                 = flag.Bool("include-cols", false, "Whether to include a column list for each table")
+	queryTablePrefix            = flag.String("query-table-prefix", "", "A prefix to add to tables for generated queries. Used to support hive with the sharding integrity check")
+	tableResultLimit            = flag.Int("table-result-limit", 0, "max results to show per table when with sharding integrity check. 0 for unlimited")
+	summarize                   = flag.Bool("summarize", false, "whether to summarize results")
 	colsAuthoritative           = flag.Bool("cols-authoritative", false, "Whether to mark the column list as authoriative")
 	defaultScatterCacheCapacity = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
 	tableScatterCacheCapacity   flagutil.StringMapValue
+	ignoredTables               flagutil.StringListValue
 )
 
 type pinschemaConfig struct {
@@ -38,6 +42,9 @@ type pinschemaConfig struct {
 	tableScatterCacheCapacity   map[string]uint64
 	includeCols                 bool
 	colsAuthoritative           bool
+	queryTablePrefix            string
+	tableResultLimit            int
+	summarize                   bool
 }
 
 var commands = make(map[string]func([]*sqlparser.DDL, pinschemaConfig) (string, error))
@@ -46,6 +53,10 @@ func init() {
 	flag.Var(&tableScatterCacheCapacity,
 		"table-scatter-cache-capacity",
 		"comma separated list of table:capacity pairs to override the default capacity")
+
+	flag.Var(&ignoredTables,
+		"ignore",
+		"comma separated list of tables to ignore")
 
 	logger := logutil.NewConsoleLogger()
 	flag.CommandLine.SetOutput(logutil.NewLoggerWriter(logger))
@@ -119,15 +130,22 @@ func parseAndRun(command string, args []string) error {
 		colsAuthoritative:           *colsAuthoritative,
 		defaultScatterCacheCapacity: *defaultScatterCacheCapacity,
 		tableScatterCacheCapacity:   tableCacheCapacityOverrides,
+		queryTablePrefix:            *queryTablePrefix,
+		tableResultLimit:            *tableResultLimit,
+		summarize:                   *summarize,
 	}
 
 	var ddls []*sqlparser.DDL
 	for _, fname := range args {
-		ddl, err := readAndParseSchema(fname)
+		fileDdls, err := readAndParseSchema(fname)
 		if err != nil {
 			return err
 		}
-		ddls = append(ddls, ddl...)
+		for _, ddl := range fileDdls {
+			if !shouldIgnoreTable(ddl, ignoredTables) {
+				ddls = append(ddls, ddl)
+			}
+		}
 	}
 
 	commandImpl, ok := commands[command]
@@ -144,6 +162,19 @@ func parseAndRun(command string, args []string) error {
 	fmt.Printf("%s", output)
 
 	return nil
+}
+
+func shouldIgnoreTable(table *sqlparser.DDL, ignoredTables []string) bool {
+	tableName := strings.ToLower(table.Table.Name.String())
+	if strings.HasPrefix(tableName, "dark_write") || strings.HasPrefix(tableName, "_") {
+		return true
+	}
+	for _, ignoredTable := range ignoredTables {
+		if tableName == ignoredTable {
+			return true
+		}
+	}
+	return false
 }
 
 // singularize removes the "s" from a table name.

@@ -3,16 +3,112 @@
     "accepted_tos": {
 
     },
+    "ad_group_specs": {
+
+    },
     "ad_groups": {
 
     },
     "advertisers": {
 
     },
+    "app_event_tracking_configs": {
+
+    },
+    "bill_details": {
+
+    },
+    "billing_actions": {
+
+    },
+    "billing_contacts": {
+
+    },
+    "billing_profiles": {
+
+    },
+    "bills": {
+
+    },
+    "bulk_v2_jobs": {
+
+    },
+    "business_profiles": {
+
+    },
+    "campaign_specs": {
+
+    },
     "campaigns": {
 
     },
+    "carousel_slot_promotions": {
+
+    },
+    "conversion_tags": {
+
+    },
+    "goals": {
+
+    },
+    "notifications": {
+
+    },
+    "order_line_specs": {
+
+    },
+    "order_lines": {
+
+    },
+    "pin_promotion_labels": {
+
+    },
+    "pin_promotion_specs": {
+
+    },
+    "pin_promotions": {
+
+    },
+    "pin_promotions_history": {
+
+    },
+    "pinner_list_specs": {
+
+    },
+    "pinner_lists": {
+
+    },
+    "product_group_specs": {
+
+    },
+    "product_groups": {
+
+    },
+    "promoted_catalog_product_groups": {
+
+    },
+    "promoted_catalog_product_groups_history": {
+
+    },
+    "rule_subscriptions": {
+
+    },
     "targeting_attribute_counts_by_advertiser": {
+
+    },
+    "targeting_attribute_counts_by_parent": {
+
+    },
+    "targeting_attribute_history": {
+
+    },
+    "targeting_attributes": {
+
+    },
+    "targeting_specs": {
+
+    },
+    "user_preferences": {
 
     }
   }

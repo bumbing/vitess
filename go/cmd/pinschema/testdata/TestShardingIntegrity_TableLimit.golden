@@ -1,0 +1,607 @@
+  (select
+	"ad_group_specs.id with ad_groups.spec_id" as tables,
+	ad_group_specs.id as left_id,
+    ad_groups.id as right_id,
+    ad_group_specs.g_advertiser_id as left_advertiser,
+    ad_groups.g_advertiser_id as right_advertiser
+  from
+    ad_group_specs
+  inner join
+    ad_groups
+  on
+    ad_group_specs.id = ad_groups.spec_id
+  where
+	ad_group_specs.g_advertiser_id != ad_groups.g_advertiser_id
+  limit 20)
+union
+  (select
+	"ad_groups.id with ad_group_specs.ad_group_id" as tables,
+	ad_groups.id as left_id,
+    ad_group_specs.id as right_id,
+    ad_groups.g_advertiser_id as left_advertiser,
+    ad_group_specs.g_advertiser_id as right_advertiser
+  from
+    ad_groups
+  inner join
+    ad_group_specs
+  on
+    ad_groups.id = ad_group_specs.ad_group_id
+  where
+	ad_groups.g_advertiser_id != ad_group_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"ad_groups.id with pin_promotions.ad_group_id" as tables,
+	ad_groups.id as left_id,
+    pin_promotions.id as right_id,
+    ad_groups.g_advertiser_id as left_advertiser,
+    pin_promotions.g_advertiser_id as right_advertiser
+  from
+    ad_groups
+  inner join
+    pin_promotions
+  on
+    ad_groups.id = pin_promotions.ad_group_id
+  where
+	ad_groups.g_advertiser_id != pin_promotions.g_advertiser_id
+  limit 20)
+union
+  (select
+	"ad_groups.id with pin_promotions_history.ad_group_id" as tables,
+	ad_groups.id as left_id,
+    pin_promotions_history.id as right_id,
+    ad_groups.g_advertiser_id as left_advertiser,
+    pin_promotions_history.g_advertiser_id as right_advertiser
+  from
+    ad_groups
+  inner join
+    pin_promotions_history
+  on
+    ad_groups.id = pin_promotions_history.ad_group_id
+  where
+	ad_groups.g_advertiser_id != pin_promotions_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"ad_groups.id with product_groups.ad_group_id" as tables,
+	ad_groups.id as left_id,
+    product_groups.id as right_id,
+    ad_groups.g_advertiser_id as left_advertiser,
+    product_groups.g_advertiser_id as right_advertiser
+  from
+    ad_groups
+  inner join
+    product_groups
+  on
+    ad_groups.id = product_groups.ad_group_id
+  where
+	ad_groups.g_advertiser_id != product_groups.g_advertiser_id
+  limit 20)
+union
+  (select
+	"ad_groups.id with promoted_catalog_product_groups.ad_group_id" as tables,
+	ad_groups.id as left_id,
+    promoted_catalog_product_groups.id as right_id,
+    ad_groups.g_advertiser_id as left_advertiser,
+    promoted_catalog_product_groups.g_advertiser_id as right_advertiser
+  from
+    ad_groups
+  inner join
+    promoted_catalog_product_groups
+  on
+    ad_groups.id = promoted_catalog_product_groups.ad_group_id
+  where
+	ad_groups.g_advertiser_id != promoted_catalog_product_groups.g_advertiser_id
+  limit 20)
+union
+  (select
+	"ad_groups.id with promoted_catalog_product_groups_history.ad_group_id" as tables,
+	ad_groups.id as left_id,
+    promoted_catalog_product_groups_history.id as right_id,
+    ad_groups.g_advertiser_id as left_advertiser,
+    promoted_catalog_product_groups_history.g_advertiser_id as right_advertiser
+  from
+    ad_groups
+  inner join
+    promoted_catalog_product_groups_history
+  on
+    ad_groups.id = promoted_catalog_product_groups_history.ad_group_id
+  where
+	ad_groups.g_advertiser_id != promoted_catalog_product_groups_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"billing_profiles.id with advertisers.billing_profile_id" as tables,
+	billing_profiles.id as left_id,
+    advertisers.id as right_id,
+    billing_profiles.g_advertiser_id as left_advertiser,
+    advertisers.gid as right_advertiser
+  from
+    billing_profiles
+  inner join
+    advertisers
+  on
+    billing_profiles.id = advertisers.billing_profile_id
+  where
+	billing_profiles.g_advertiser_id != advertisers.gid
+  limit 20)
+union
+  (select
+	"billing_profiles.id with bills.billing_profile_id" as tables,
+	billing_profiles.id as left_id,
+    bills.id as right_id,
+    billing_profiles.g_advertiser_id as left_advertiser,
+    bills.g_advertiser_id as right_advertiser
+  from
+    billing_profiles
+  inner join
+    bills
+  on
+    billing_profiles.id = bills.billing_profile_id
+  where
+	billing_profiles.g_advertiser_id != bills.g_advertiser_id
+  limit 20)
+union
+  (select
+	"billing_profiles.id with order_lines.billing_profile_id" as tables,
+	billing_profiles.id as left_id,
+    order_lines.id as right_id,
+    billing_profiles.g_advertiser_id as left_advertiser,
+    order_lines.g_advertiser_id as right_advertiser
+  from
+    billing_profiles
+  inner join
+    order_lines
+  on
+    billing_profiles.id = order_lines.billing_profile_id
+  where
+	billing_profiles.g_advertiser_id != order_lines.g_advertiser_id
+  limit 20)
+union
+  (select
+	"bills.id with bill_details.bill_id" as tables,
+	bills.id as left_id,
+    bill_details.id as right_id,
+    bills.g_advertiser_id as left_advertiser,
+    bill_details.g_advertiser_id as right_advertiser
+  from
+    bills
+  inner join
+    bill_details
+  on
+    bills.id = bill_details.bill_id
+  where
+	bills.g_advertiser_id != bill_details.g_advertiser_id
+  limit 20)
+union
+  (select
+	"bills.id with billing_actions.bill_id" as tables,
+	bills.id as left_id,
+    billing_actions.id as right_id,
+    bills.g_advertiser_id as left_advertiser,
+    billing_actions.g_advertiser_id as right_advertiser
+  from
+    bills
+  inner join
+    billing_actions
+  on
+    bills.id = billing_actions.bill_id
+  where
+	bills.g_advertiser_id != billing_actions.g_advertiser_id
+  limit 20)
+union
+  (select
+	"business_profiles.id with advertisers.business_profile_id" as tables,
+	business_profiles.id as left_id,
+    advertisers.id as right_id,
+    business_profiles.g_advertiser_id as left_advertiser,
+    advertisers.gid as right_advertiser
+  from
+    business_profiles
+  inner join
+    advertisers
+  on
+    business_profiles.id = advertisers.business_profile_id
+  where
+	business_profiles.g_advertiser_id != advertisers.gid
+  limit 20)
+union
+  (select
+	"business_profiles.id with bills.business_profile_id" as tables,
+	business_profiles.id as left_id,
+    bills.id as right_id,
+    business_profiles.g_advertiser_id as left_advertiser,
+    bills.g_advertiser_id as right_advertiser
+  from
+    business_profiles
+  inner join
+    bills
+  on
+    business_profiles.id = bills.business_profile_id
+  where
+	business_profiles.g_advertiser_id != bills.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaign_specs.id with campaigns.campaign_spec_id" as tables,
+	campaign_specs.id as left_id,
+    campaigns.id as right_id,
+    campaign_specs.g_advertiser_id as left_advertiser,
+    campaigns.g_advertiser_id as right_advertiser
+  from
+    campaign_specs
+  inner join
+    campaigns
+  on
+    campaign_specs.id = campaigns.campaign_spec_id
+  where
+	campaign_specs.g_advertiser_id != campaigns.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaign_specs.id with pin_promotion_specs.campaign_spec_id" as tables,
+	campaign_specs.id as left_id,
+    pin_promotion_specs.id as right_id,
+    campaign_specs.g_advertiser_id as left_advertiser,
+    pin_promotion_specs.g_advertiser_id as right_advertiser
+  from
+    campaign_specs
+  inner join
+    pin_promotion_specs
+  on
+    campaign_specs.id = pin_promotion_specs.campaign_spec_id
+  where
+	campaign_specs.g_advertiser_id != pin_promotion_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with ad_groups.campaign_id" as tables,
+	campaigns.id as left_id,
+    ad_groups.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    ad_groups.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    ad_groups
+  on
+    campaigns.id = ad_groups.campaign_id
+  where
+	campaigns.g_advertiser_id != ad_groups.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with bill_details.campaign_id" as tables,
+	campaigns.id as left_id,
+    bill_details.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    bill_details.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    bill_details
+  on
+    campaigns.id = bill_details.campaign_id
+  where
+	campaigns.g_advertiser_id != bill_details.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with campaign_specs.campaign_id" as tables,
+	campaigns.id as left_id,
+    campaign_specs.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    campaign_specs.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    campaign_specs
+  on
+    campaigns.id = campaign_specs.campaign_id
+  where
+	campaigns.g_advertiser_id != campaign_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with pin_promotions.campaign_id" as tables,
+	campaigns.id as left_id,
+    pin_promotions.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    pin_promotions.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    pin_promotions
+  on
+    campaigns.id = pin_promotions.campaign_id
+  where
+	campaigns.g_advertiser_id != pin_promotions.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with pin_promotions_history.campaign_id" as tables,
+	campaigns.id as left_id,
+    pin_promotions_history.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    pin_promotions_history.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    pin_promotions_history
+  on
+    campaigns.id = pin_promotions_history.campaign_id
+  where
+	campaigns.g_advertiser_id != pin_promotions_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with promoted_catalog_product_groups.campaign_id" as tables,
+	campaigns.id as left_id,
+    promoted_catalog_product_groups.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    promoted_catalog_product_groups.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    promoted_catalog_product_groups
+  on
+    campaigns.id = promoted_catalog_product_groups.campaign_id
+  where
+	campaigns.g_advertiser_id != promoted_catalog_product_groups.g_advertiser_id
+  limit 20)
+union
+  (select
+	"campaigns.id with promoted_catalog_product_groups_history.campaign_id" as tables,
+	campaigns.id as left_id,
+    promoted_catalog_product_groups_history.id as right_id,
+    campaigns.g_advertiser_id as left_advertiser,
+    promoted_catalog_product_groups_history.g_advertiser_id as right_advertiser
+  from
+    campaigns
+  inner join
+    promoted_catalog_product_groups_history
+  on
+    campaigns.id = promoted_catalog_product_groups_history.campaign_id
+  where
+	campaigns.g_advertiser_id != promoted_catalog_product_groups_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"order_line_specs.id with order_lines.spec_id" as tables,
+	order_line_specs.id as left_id,
+    order_lines.id as right_id,
+    order_line_specs.g_advertiser_id as left_advertiser,
+    order_lines.g_advertiser_id as right_advertiser
+  from
+    order_line_specs
+  inner join
+    order_lines
+  on
+    order_line_specs.id = order_lines.spec_id
+  where
+	order_line_specs.g_advertiser_id != order_lines.g_advertiser_id
+  limit 20)
+union
+  (select
+	"order_lines.id with campaign_specs.order_line_id" as tables,
+	order_lines.id as left_id,
+    campaign_specs.id as right_id,
+    order_lines.g_advertiser_id as left_advertiser,
+    campaign_specs.g_advertiser_id as right_advertiser
+  from
+    order_lines
+  inner join
+    campaign_specs
+  on
+    order_lines.id = campaign_specs.order_line_id
+  where
+	order_lines.g_advertiser_id != campaign_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"order_lines.id with order_line_specs.order_line_id" as tables,
+	order_lines.id as left_id,
+    order_line_specs.id as right_id,
+    order_lines.g_advertiser_id as left_advertiser,
+    order_line_specs.g_advertiser_id as right_advertiser
+  from
+    order_lines
+  inner join
+    order_line_specs
+  on
+    order_lines.id = order_line_specs.order_line_id
+  where
+	order_lines.g_advertiser_id != order_line_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"pin_promotion_specs.id with pin_promotions.spec_id" as tables,
+	pin_promotion_specs.id as left_id,
+    pin_promotions.id as right_id,
+    pin_promotion_specs.g_advertiser_id as left_advertiser,
+    pin_promotions.g_advertiser_id as right_advertiser
+  from
+    pin_promotion_specs
+  inner join
+    pin_promotions
+  on
+    pin_promotion_specs.id = pin_promotions.spec_id
+  where
+	pin_promotion_specs.g_advertiser_id != pin_promotions.g_advertiser_id
+  limit 20)
+union
+  (select
+	"pin_promotions.id with carousel_slot_promotions.pin_promotion_id" as tables,
+	pin_promotions.id as left_id,
+    carousel_slot_promotions.id as right_id,
+    pin_promotions.g_advertiser_id as left_advertiser,
+    carousel_slot_promotions.g_advertiser_id as right_advertiser
+  from
+    pin_promotions
+  inner join
+    carousel_slot_promotions
+  on
+    pin_promotions.id = carousel_slot_promotions.pin_promotion_id
+  where
+	pin_promotions.g_advertiser_id != carousel_slot_promotions.g_advertiser_id
+  limit 20)
+union
+  (select
+	"pin_promotions.id with pin_promotion_specs.pin_promotion_id" as tables,
+	pin_promotions.id as left_id,
+    pin_promotion_specs.id as right_id,
+    pin_promotions.g_advertiser_id as left_advertiser,
+    pin_promotion_specs.g_advertiser_id as right_advertiser
+  from
+    pin_promotions
+  inner join
+    pin_promotion_specs
+  on
+    pin_promotions.id = pin_promotion_specs.pin_promotion_id
+  where
+	pin_promotions.g_advertiser_id != pin_promotion_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"pin_promotions.id with pin_promotions_history.pin_promotion_id" as tables,
+	pin_promotions.id as left_id,
+    pin_promotions_history.id as right_id,
+    pin_promotions.g_advertiser_id as left_advertiser,
+    pin_promotions_history.g_advertiser_id as right_advertiser
+  from
+    pin_promotions
+  inner join
+    pin_promotions_history
+  on
+    pin_promotions.id = pin_promotions_history.pin_promotion_id
+  where
+	pin_promotions.g_advertiser_id != pin_promotions_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"pinner_list_specs.id with pinner_lists.spec_id" as tables,
+	pinner_list_specs.id as left_id,
+    pinner_lists.id as right_id,
+    pinner_list_specs.g_advertiser_id as left_advertiser,
+    pinner_lists.g_advertiser_id as right_advertiser
+  from
+    pinner_list_specs
+  inner join
+    pinner_lists
+  on
+    pinner_list_specs.id = pinner_lists.spec_id
+  where
+	pinner_list_specs.g_advertiser_id != pinner_lists.g_advertiser_id
+  limit 20)
+union
+  (select
+	"pinner_lists.id with pinner_list_specs.pinner_list_id" as tables,
+	pinner_lists.id as left_id,
+    pinner_list_specs.id as right_id,
+    pinner_lists.g_advertiser_id as left_advertiser,
+    pinner_list_specs.g_advertiser_id as right_advertiser
+  from
+    pinner_lists
+  inner join
+    pinner_list_specs
+  on
+    pinner_lists.id = pinner_list_specs.pinner_list_id
+  where
+	pinner_lists.g_advertiser_id != pinner_list_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"product_group_specs.id with product_groups.spec_id" as tables,
+	product_group_specs.id as left_id,
+    product_groups.id as right_id,
+    product_group_specs.g_advertiser_id as left_advertiser,
+    product_groups.g_advertiser_id as right_advertiser
+  from
+    product_group_specs
+  inner join
+    product_groups
+  on
+    product_group_specs.id = product_groups.spec_id
+  where
+	product_group_specs.g_advertiser_id != product_groups.g_advertiser_id
+  limit 20)
+union
+  (select
+	"product_groups.id with product_group_specs.product_group_id" as tables,
+	product_groups.id as left_id,
+    product_group_specs.id as right_id,
+    product_groups.g_advertiser_id as left_advertiser,
+    product_group_specs.g_advertiser_id as right_advertiser
+  from
+    product_groups
+  inner join
+    product_group_specs
+  on
+    product_groups.id = product_group_specs.product_group_id
+  where
+	product_groups.g_advertiser_id != product_group_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"promoted_catalog_product_groups.id with promoted_catalog_product_groups_history.promoted_catalog_product_group_id" as tables,
+	promoted_catalog_product_groups.id as left_id,
+    promoted_catalog_product_groups_history.id as right_id,
+    promoted_catalog_product_groups.g_advertiser_id as left_advertiser,
+    promoted_catalog_product_groups_history.g_advertiser_id as right_advertiser
+  from
+    promoted_catalog_product_groups
+  inner join
+    promoted_catalog_product_groups_history
+  on
+    promoted_catalog_product_groups.id = promoted_catalog_product_groups_history.promoted_catalog_product_group_id
+  where
+	promoted_catalog_product_groups.g_advertiser_id != promoted_catalog_product_groups_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"targeting_attributes.id with targeting_attribute_history.targeting_attribute_id" as tables,
+	targeting_attributes.id as left_id,
+    targeting_attribute_history.id as right_id,
+    targeting_attributes.g_advertiser_id as left_advertiser,
+    targeting_attribute_history.g_advertiser_id as right_advertiser
+  from
+    targeting_attributes
+  inner join
+    targeting_attribute_history
+  on
+    targeting_attributes.id = targeting_attribute_history.targeting_attribute_id
+  where
+	targeting_attributes.g_advertiser_id != targeting_attribute_history.g_advertiser_id
+  limit 20)
+union
+  (select
+	"targeting_specs.id with ad_group_specs.targeting_spec_id" as tables,
+	targeting_specs.id as left_id,
+    ad_group_specs.id as right_id,
+    targeting_specs.g_advertiser_id as left_advertiser,
+    ad_group_specs.g_advertiser_id as right_advertiser
+  from
+    targeting_specs
+  inner join
+    ad_group_specs
+  on
+    targeting_specs.id = ad_group_specs.targeting_spec_id
+  where
+	targeting_specs.g_advertiser_id != ad_group_specs.g_advertiser_id
+  limit 20)
+union
+  (select
+	"targeting_specs.id with pin_promotion_specs.targeting_spec_id" as tables,
+	targeting_specs.id as left_id,
+    pin_promotion_specs.id as right_id,
+    targeting_specs.g_advertiser_id as left_advertiser,
+    pin_promotion_specs.g_advertiser_id as right_advertiser
+  from
+    targeting_specs
+  inner join
+    pin_promotion_specs
+  on
+    targeting_specs.id = pin_promotion_specs.targeting_spec_id
+  where
+	targeting_specs.g_advertiser_id != pin_promotion_specs.g_advertiser_id
+  limit 20);

@@ -6,6 +6,12 @@
         "sequence": "accepted_tos_seq"
       }
     },
+    "ad_group_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "ad_group_specs_seq"
+      }
+    },
     "ad_groups": {
       "autoIncrement": {
         "column": "id",
@@ -18,14 +24,197 @@
         "sequence": "advertisers_seq"
       }
     },
+    "app_event_tracking_configs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "app_event_tracking_configs_seq"
+      }
+    },
+    "bill_details": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "bill_details_seq"
+      }
+    },
+    "billing_actions": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "billing_actions_seq"
+      }
+    },
+    "billing_contacts": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "billing_contacts_seq"
+      }
+    },
+    "billing_profiles": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "billing_profiles_seq"
+      }
+    },
+    "bills": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "bills_seq"
+      }
+    },
+    "bulk_v2_jobs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "bulk_v2_jobs_seq"
+      }
+    },
+    "business_profiles": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "business_profiles_seq"
+      }
+    },
+    "campaign_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "campaign_specs_seq"
+      }
+    },
     "campaigns": {
       "autoIncrement": {
         "column": "id",
         "sequence": "campaigns_seq"
       }
     },
+    "carousel_slot_promotions": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "carousel_slot_promotions_seq"
+      }
+    },
+    "conversion_tags": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "conversion_tags_seq"
+      }
+    },
+    "goals": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "goals_seq"
+      }
+    },
+    "notifications": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "notifications_seq"
+      }
+    },
+    "order_line_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "order_line_specs_seq"
+      }
+    },
+    "order_lines": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "order_lines_seq"
+      }
+    },
+    "pin_promotion_labels": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "pin_promotion_labels_seq"
+      }
+    },
+    "pin_promotion_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "pin_promotion_specs_seq"
+      }
+    },
+    "pin_promotions": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "pin_promotions_seq"
+      }
+    },
+    "pin_promotions_history": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "pin_promotions_history_seq"
+      }
+    },
+    "pinner_list_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "pinner_list_specs_seq"
+      }
+    },
+    "pinner_lists": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "pinner_lists_seq"
+      }
+    },
+    "product_group_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "product_group_specs_seq"
+      }
+    },
+    "product_groups": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "product_groups_seq"
+      }
+    },
+    "promoted_catalog_product_groups": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "promoted_catalog_product_groups_seq"
+      }
+    },
+    "promoted_catalog_product_groups_history": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "promoted_catalog_product_groups_history_seq"
+      }
+    },
+    "rule_subscriptions": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "rule_subscriptions_seq"
+      }
+    },
     "targeting_attribute_counts_by_advertiser": {
 
+    },
+    "targeting_attribute_counts_by_parent": {
+
+    },
+    "targeting_attribute_history": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "targeting_attribute_history_seq"
+      }
+    },
+    "targeting_attributes": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "targeting_attributes_seq"
+      }
+    },
+    "targeting_specs": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "targeting_specs_seq"
+      }
+    },
+    "user_preferences": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "user_preferences_seq"
+      }
     }
   }
 }

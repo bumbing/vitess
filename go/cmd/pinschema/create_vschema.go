@@ -91,7 +91,7 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 				tbl.Columns = append(tbl.Columns, colSpec)
 			}
 
-			vindexName := vb.getVindexName(colName, tableName)
+			vindexName := getVindexName(colName, tableName)
 
 			// For the advertisers table we use "id" as the primary vindex and we have no
 			// secondary vindex on "gid" because it's initially null.
@@ -161,13 +161,15 @@ func tableNameToColName(tableName string) string {
 	return singularize(tableName) + "_id"
 }
 
-func (vb *vschemaBuilder) getVindexName(colName, tableName string) string {
+func getVindexName(colName, tableName string) string {
 	if colName == "advertiser_gid" {
 		return "g_advertiser_id"
 	} else if colName == "id" {
 		return tableNameToColName(tableName)
 	} else if colName == "gid" {
 		return "g_" + tableNameToColName(tableName)
+	} else if colName == "spec_id" {
+		return singularize(tableName) + "_spec_id"
 	}
 
 	return colName
