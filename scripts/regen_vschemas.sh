@@ -30,7 +30,7 @@ VINDEX_ARGS="-create-primary-vindexes \
 PATIO_SEQUENCE_ARGS="-create-sequences"
 
 mkdir -p $OUTPUT_DIR
-go run vitess.io/vitess/go/cmd/pinschema $INCLUDE_COLS_ARGS $VINDEX_ARGS $PATIO_SEQUENCE_ARGS $PATIO_DDLS > $OUTPUT_DIR/patio.json
-go run vitess.io/vitess/go/cmd/pinschema $INCLUDE_COLS_ARGS $GENERAL_DDLS > $OUTPUT_DIR/patiogeneral.json
-go run vitess.io/vitess/go/cmd/pinschema -output-ddl create-seq $PATIO_DDLS > $OUTPUT_DIR/create_seq.sql
-go run vitess.io/vitess/go/cmd/pinschema -output-ddl remove-autoinc $PATIO_DDLS > $OUTPUT_DIR/remove_autoinc.sql
+go run vitess.io/vitess/go/cmd/pinschema create-vschema $INCLUDE_COLS_ARGS $VINDEX_ARGS $PATIO_SEQUENCE_ARGS $PATIO_DDLS > $OUTPUT_DIR/patio.json
+go run vitess.io/vitess/go/cmd/pinschema create-vschema $INCLUDE_COLS_ARGS $GENERAL_DDLS > $OUTPUT_DIR/patiogeneral.json
+go run vitess.io/vitess/go/cmd/pinschema create-seq $PATIO_DDLS > $OUTPUT_DIR/create_seq.sql
+go run vitess.io/vitess/go/cmd/pinschema remove-autoinc $PATIO_DDLS > $OUTPUT_DIR/remove_autoinc.sql
