@@ -1,0 +1,31 @@
+{
+  "tables": {
+    "accepted_tos": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "accepted_tos_seq"
+      }
+    },
+    "ad_groups": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "ad_groups_seq"
+      }
+    },
+    "advertisers": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "advertisers_seq"
+      }
+    },
+    "campaigns": {
+      "autoIncrement": {
+        "column": "id",
+        "sequence": "campaigns_seq"
+      }
+    },
+    "targeting_attribute_counts_by_advertiser": {
+
+    }
+  }
+}

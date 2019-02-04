@@ -1,0 +1,204 @@
+{
+  "tables": {
+    "accepted_tos": {
+      "columns": [
+        {
+          "name": "advertiser_id"
+        },
+        {
+          "name": "g_advertiser_id"
+        },
+        {
+          "name": "tos_id"
+        },
+        {
+          "name": "accept_date"
+        },
+        {
+          "name": "properties"
+        },
+        {
+          "name": "id"
+        }
+      ],
+      "columnListAuthoritative": true
+    },
+    "ad_groups": {
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "gid"
+        },
+        {
+          "name": "active"
+        },
+        {
+          "name": "creation_date"
+        },
+        {
+          "name": "spec_id"
+        },
+        {
+          "name": "campaign_id"
+        },
+        {
+          "name": "properties"
+        },
+        {
+          "name": "updated_time"
+        },
+        {
+          "name": "g_campaign_id"
+        },
+        {
+          "name": "g_spec_id"
+        },
+        {
+          "name": "advertiser_id"
+        },
+        {
+          "name": "g_advertiser_id"
+        }
+      ],
+      "columnListAuthoritative": true
+    },
+    "advertisers": {
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "active"
+        },
+        {
+          "name": "creation_date"
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "owner_user_id"
+        },
+        {
+          "name": "billing_type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "billing_token",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "billing_profile_id"
+        },
+        {
+          "name": "billing_threshold"
+        },
+        {
+          "name": "test_account"
+        },
+        {
+          "name": "gid"
+        },
+        {
+          "name": "is_spam"
+        },
+        {
+          "name": "properties"
+        },
+        {
+          "name": "deleted"
+        },
+        {
+          "name": "country"
+        },
+        {
+          "name": "currency"
+        },
+        {
+          "name": "business_profile_id"
+        },
+        {
+          "name": "updated_time"
+        },
+        {
+          "name": "g_billing_profile_id"
+        },
+        {
+          "name": "g_business_profile_id"
+        },
+        {
+          "name": "daily_spend_cap"
+        }
+      ],
+      "columnListAuthoritative": true
+    },
+    "campaigns": {
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "active"
+        },
+        {
+          "name": "creation_date"
+        },
+        {
+          "name": "campaign_spec_id"
+        },
+        {
+          "name": "advertiser_id"
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "unique_line_count_id"
+        },
+        {
+          "name": "action_type"
+        },
+        {
+          "name": "gid"
+        },
+        {
+          "name": "g_campaign_spec_id"
+        },
+        {
+          "name": "g_advertiser_id"
+        },
+        {
+          "name": "properties"
+        },
+        {
+          "name": "creative_type"
+        },
+        {
+          "name": "objective_type"
+        },
+        {
+          "name": "updated_time"
+        }
+      ],
+      "columnListAuthoritative": true
+    },
+    "targeting_attribute_counts_by_advertiser": {
+      "columns": [
+        {
+          "name": "advertiser_gid"
+        },
+        {
+          "name": "active_keywords_count"
+        },
+        {
+          "name": "advertiser_id"
+        }
+      ],
+      "columnListAuthoritative": true
+    }
+  }
+}

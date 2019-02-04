@@ -1,0 +1,19 @@
+{
+  "tables": {
+    "accepted_tos": {
+
+    },
+    "ad_groups": {
+
+    },
+    "advertisers": {
+
+    },
+    "campaigns": {
+
+    },
+    "targeting_attribute_counts_by_advertiser": {
+
+    }
+  }
+}

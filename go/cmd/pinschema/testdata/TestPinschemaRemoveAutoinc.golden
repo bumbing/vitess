@@ -1,0 +1,4 @@
+alter table advertisers modify id bigint(20) not null;
+alter table accepted_tos modify id bigint(20) not null;
+alter table campaigns modify id bigint(20) not null;
+alter table ad_groups modify id bigint(20) not null;

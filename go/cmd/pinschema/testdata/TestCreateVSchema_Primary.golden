@@ -1,0 +1,96 @@
+{
+  "sharded": true,
+  "vindexes": {
+    "advertiser_id": {
+      "type": "hash_offset",
+      "params": {
+        "offset": "549755813888"
+      }
+    },
+    "dark_write_advertiser_id": {
+      "type": "hash_offset",
+      "params": {
+        "offset": "549755813888"
+      }
+    },
+    "g_advertiser_id": {
+      "type": "hash"
+    }
+  },
+  "tables": {
+    "accepted_tos": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "ad_groups": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "advertisers": {
+      "columnVindexes": [
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "campaigns": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "targeting_attribute_counts_by_advertiser": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "advertiser_gid"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    }
+  }
+}

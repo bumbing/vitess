@@ -1,0 +1,147 @@
+{
+  "sharded": true,
+  "vindexes": {
+    "accepted_tos_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "accepted_tos",
+        "to": "g_advertiser_id"
+      }
+    },
+    "ad_group_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "ad_groups",
+        "to": "g_advertiser_id"
+      }
+    },
+    "advertiser_id": {
+      "type": "hash_offset",
+      "params": {
+        "offset": "549755813888"
+      }
+    },
+    "campaign_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "20000",
+        "from": "id",
+        "table": "campaigns",
+        "to": "g_advertiser_id"
+      }
+    },
+    "dark_write_advertiser_id": {
+      "type": "hash_offset",
+      "params": {
+        "offset": "549755813888"
+      }
+    },
+    "g_advertiser_id": {
+      "type": "hash"
+    }
+  },
+  "tables": {
+    "accepted_tos": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "accepted_tos_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "ad_groups": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        }
+      ]
+    },
+    "advertisers": {
+      "columnVindexes": [
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "campaigns": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "targeting_attribute_counts_by_advertiser": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "advertiser_gid"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    }
+  }
+}
