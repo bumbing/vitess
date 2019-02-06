@@ -78,7 +78,7 @@ fi
 if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "dev" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -group_tls_regexes writer:.*(pepsi|patio|cola|devapp|devads|mysql-open-access-bastion).*"
+    -group_tls_regexes writer:.*(pepsi|patio|cola|dev-|mysql-open-access-bastion).*"
 fi
 
 if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "prod" ]]; then
