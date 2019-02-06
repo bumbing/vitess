@@ -75,10 +75,16 @@ if [[ ! -z "${TELETRAAN_ALLOWED_TABLET_TYPES}" ]]; then
     -allowed_tablet_types ${TELETRAAN_ALLOWED_TABLET_TYPES}"
 fi
 
-if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "true" ]]; then
+if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "dev" ]]; then
   EXTRA_ARGS=" \
     ${EXTRA_ARGS} \
-    -group_tls_regexes 'writer:^(m10n-(pepsi|patio|croncola)(-long-jobs)?-(prod|cron|canary|staging)-.*'"
+    -group_tls_regexes writer:.*(pepsi|patio|cola|devapp|devads|mysql-open-access-bastion).*"
+fi
+
+if [[ "${TELETRAAN_ENFORCE_TLS_HOST}" == "prod" ]]; then
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -group_tls_regexes writer:^(m10n-(pepsi|patio|croncola)(-long-jobs)?-(prod|cron|canary|staging)-.*)|cloudeng-mysql-open-access-bastion-prod-.*"
 fi
 
 if [[ "${TELETRAAN_DISABLE_TLS}" == "true" ]]; then
