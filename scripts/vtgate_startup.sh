@@ -125,7 +125,7 @@ ${VTGATE_COMMAND} \
   -mysql_server_socket_path /tmp/mysql.sock \
   -mysql_auth_server_impl knox \
   -knox_supported_roles "${SUPPORTED_KNOX_ROLES}" \
-  -knox_role_mapping scriptro:reader,longqueryro:reader,pepsirw:reader:writer:admin,scriptrw:reader:writer:admin,pepsilong:reader:writer:admin,longqueryrw:reader:writer:admin \
+  -knox_role_mapping scriptro:reader,longqueryro:reader,pepsirw:reader:writer:admin,devpepsirw:reader:writer:admin,scriptrw:reader:writer:admin,pepsilong:reader:writer:admin,devpepsilong:reader:writer:admin,longqueryrw:reader:writer:admin \
   -grpc_keepalive_time 30s \
   -cell test \
   -cells_to_watch test \
@@ -136,7 +136,7 @@ ${VTGATE_COMMAND} \
   -allow_select_unauthoritative_col \
   -alsologtostderr \
   -mysql_server_query_timeout 2h \
-  -mysql_user_query_timeouts scriptro:10s,scriptrw:10s,pepsirw:10s \
+  -mysql_user_query_timeouts scriptro:10s,scriptrw:10s,pepsirw:10s,devpepsirw:10s \
   -mysql_server_ssl_cert /var/lib/normandie/fuse/cert/generic \
   -mysql_server_ssl_key /var/lib/normandie/fuse/key/generic \
   -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic \
