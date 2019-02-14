@@ -35,7 +35,8 @@ union
   on
     {{.Left.Table}}.{{.Left.Column}} = {{.Right.Table}}.{{.Right.Column}}
   where
-	{{.Left.Table}}.{{.Left.Advertiser}} != {{.Right.Table}}.{{.Right.Advertiser}}{{if $tableLimit}}
+	{{.Left.Table}}.{{.Left.Advertiser}} != {{.Right.Table}}.{{.Right.Advertiser}}{{if .ExtraWhere}}
+	{{.ExtraWhere}}{{end}}{{if $tableLimit}}
   limit {{$tableLimit}}){{end}}{{end}}{{if .JoinLimit}})
 limit {{.JoinLimit}}{{end}};`
 
@@ -54,8 +55,9 @@ func checkShardingIntegrity(ddls []*sqlparser.DDL, config pinschemaConfig) (stri
 	}
 
 	type Join struct {
-		Left  QualifiedCol
-		Right QualifiedCol
+		Left       QualifiedCol
+		Right      QualifiedCol
+		ExtraWhere string
 	}
 
 	var b bytes.Buffer
@@ -118,7 +120,23 @@ func checkShardingIntegrity(ddls []*sqlparser.DDL, config pinschemaConfig) (stri
 
 		rootCol := cols[0]
 		for _, childCol := range cols[1:] {
-			joins = append(joins, Join{rootCol, childCol})
+			extraWhere := ""
+			if rootCol.Table == "campaigns" && childCol.Table == "bill_details" {
+				// NOTE(dweitzman): There are some old bill details in an impossible state from what looks like
+				// entities being transfered from to "archived" advertisers to their non-archived new accounts.
+				// We are currently allowing bill_details to link to campaigns from a different advertiser in this case.
+				// The joins themselves will stop working as resharding separates theses entities into different shards.
+				// These bills are relatively old. If these two advertisers reach out directly at some point in the future
+				// about an issue loading bill receipts in ads manager we can try to help them make sense of the
+				// data or hack ads maanger to lookup campaigns in a separate query instead of joining them to bill details.
+
+				// 549756295881 == CUPSHE (archived)
+				// 549756295882 == Sammydress (archived)
+				// 549755848277 == CUPSHE
+				// 549755917224 == Sammydress
+				extraWhere = "AND !(campaigns.g_advertiser_id in (549756295881, 549756295882) and bill_details.g_advertiser_id in (549755848277, 549755917224))"
+			}
+			joins = append(joins, Join{rootCol, childCol, extraWhere})
 		}
 	}
 

@@ -148,6 +148,11 @@ func parseAndRun(command string, args []string) error {
 		}
 	}
 
+	// Sort by table name.
+	sort.Slice(ddls, func(i int, j int) bool {
+		return ddls[i].Table.Name.String() < ddls[j].Table.Name.String()
+	})
+
 	commandImpl, ok := commands[command]
 	if !ok {
 		return fmt.Errorf("Unrecognized command: %v. %v", command, getUsageMsg())
