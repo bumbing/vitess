@@ -43,6 +43,7 @@ import (
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/sync2"
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
@@ -80,6 +81,10 @@ func RegisterScatterCacheStats(getVSchema func() *VSchema) {
 		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.keyspaceIDCache.Capacity() }))
 	_ = stats.NewCountersFuncWithMultiLabels("ScatterCacheEvictions", "scatter cache evictions", []string{"Vindex"},
 		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.keyspaceIDCache.Evictions() }))
+	_ = stats.NewCountersFuncWithMultiLabels("ScatterCacheHits", "scatter cache hits", []string{"Vindex"},
+		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.cacheHits.Get() }))
+	_ = stats.NewCountersFuncWithMultiLabels("ScatterCacheMisses", "scatter cache missses", []string{"Vindex"},
+		collectStats(func(scatterCache *ScatterCache) int64 { return scatterCache.cacheMisses.Get() }))
 }
 
 func init() {
@@ -95,6 +100,8 @@ type ScatterCache struct {
 	toCol           string
 	table           string
 	keyspaceIDCache *scatterLRUCache
+	cacheHits       sync2.AtomicInt64
+	cacheMisses     sync2.AtomicInt64
 }
 
 // scatterLRU is a thread-safe object for remembering the keyspace ID of recently-searched
@@ -221,8 +228,11 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 
 		cachedKeyspaceID, ok := sc.keyspaceIDCache.Get(id.ToString())
 		if ok {
+			sc.cacheHits.Add(1)
 			out = append(out, key.DestinationKeyspaceID(cachedKeyspaceID.(scatterKeyspaceID)))
 			continue
+		} else {
+			sc.cacheMisses.Add(1)
 		}
 
 		bindVars := map[string]*querypb.BindVariable{
