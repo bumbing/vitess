@@ -18,16 +18,14 @@ package mysql
 
 import (
 	tls "crypto/tls"
-	"flag"
 	"fmt"
 	"io"
 	"net"
-	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	"vitess.io/vitess/go/flagutil"
+	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/netutil"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
@@ -68,13 +66,7 @@ var (
 		}
 		return connCount.Get() - totalUsers
 	})
-
-	groupTLSRegexesFlag flagutil.StringMapValue
 )
-
-func init() {
-	flag.Var(&groupTLSRegexesFlag, "group_tls_regexes", "user1:regex1,group2:regex2 requires user1 or users in group2 to have a TLS common name matching the regex")
-}
 
 // A Handler is an interface used by Listener to send queries.
 // The implementation of this interface may store data in the ClientData
@@ -135,10 +127,6 @@ type Listener struct {
 	// TLSConfig is the server TLS config. If set, we will advertise
 	// that we support SSL. The value is *tls.Config
 	TLSConfig atomic.Value
-
-	// Pinterest-specific: regexes that much match the some TLS common name
-	// if the authenticated user has a group listed in this map.
-	groupTLSRegexes map[string]*regexp.Regexp
 
 	// AllowClearTextWithoutTLS needs to be set for the
 	// mysql_clear_password authentication method to be accepted
@@ -219,11 +207,6 @@ func NewListenerWithConfig(cfg ListenerConfig) (*Listener, error) {
 		l = listener
 	}
 
-	compiledRegexes := map[string]*regexp.Regexp{}
-	for role, uncompiledRegex := range groupTLSRegexesFlag {
-		compiledRegexes[role] = regexp.MustCompile(uncompiledRegex)
-	}
-
 	return &Listener{
 		authServer:         cfg.AuthServer,
 		handler:            cfg.Handler,
@@ -233,7 +216,6 @@ func NewListenerWithConfig(cfg ListenerConfig) (*Listener, error) {
 		connReadTimeout:    cfg.ConnReadTimeout,
 		connWriteTimeout:   cfg.ConnWriteTimeout,
 		connReadBufferSize: cfg.ConnReadBufferSize,
-		groupTLSRegexes:    compiledRegexes,
 	}, nil
 }
 
@@ -434,7 +416,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		c.UserData = userData
 	}
 
-	err = c.checkUserAllowed(l.groupTLSRegexes)
+	err = c.checkUserAllowed()
 	if err != nil {
 		log.Errorf("User forbidden from %s: %v", c, err)
 		c.writeErrorPacketFromError(err)
@@ -472,53 +454,15 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 
 // checkUserAllowed is a Pinterest-specific check that can make sure roles with write access are on
 // a TLS connection from a whitelisted source machine.
-func (c *Conn) checkUserAllowed(rules map[string]*regexp.Regexp) error {
+func (c *Conn) checkUserAllowed() error {
 	callerid := c.UserData.Get()
-
-	// Collect a list of regexes that need to match the certificate CNs
-	groupsToVerify := make(map[string]*regexp.Regexp)
-
-	for _, role := range callerid.Groups {
-		regex, ok := rules[role]
-		if ok {
-			groupsToVerify[role] = regex
-		}
-	}
-
-	if len(groupsToVerify) == 0 {
-		return nil
-	}
-
-	// Writers need to have a valid TLS certificate
 	tlsConn, ok := c.conn.(*tls.Conn)
-	if !ok {
-		return fmt.Errorf("checkUserAllowed: %v requires a TLS connection", callerid)
+	var tlsState *tls.ConnectionState
+	if ok {
+		stateCopy := tlsConn.ConnectionState()
+		tlsState = &stateCopy
 	}
-
-	// Collect the CN values from the certificates.
-	commonNames := []string{}
-	peerCerts := tlsConn.ConnectionState().PeerCertificates
-	if peerCerts != nil {
-		for _, c := range peerCerts {
-			commonName := c.Subject.CommonName
-			commonNames = append(commonNames, commonName)
-		}
-	}
-
-	// Make sure each regex matches at least one commonName
-OUTER:
-	for _, regex := range groupsToVerify {
-		for _, commonName := range commonNames {
-			matches := regex.MatchString(commonName)
-			if matches {
-				continue OUTER
-			}
-		}
-		return fmt.Errorf("checkUserAllowed: %v requires a TLS CN matching %v but only found %#v", callerid, regex, commonNames)
-	}
-
-	// All regexes matched some commonName
-	return nil
+	return knox.VerifyTLS(callerid, tlsState)
 }
 
 // Close stops the listener, which prevents accept of any new connections. Existing connections won't be closed.

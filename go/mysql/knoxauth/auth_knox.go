@@ -4,58 +4,28 @@ package knoxauth
 
 import (
 	"bytes"
-	"flag"
 	"net"
-	"strings"
 
-	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/mysql"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
-var (
-	knoxRoleMapping flagutil.StringMapValue
-)
-
-func init() {
-	flag.Var(&knoxRoleMapping, "knox_role_mapping", "comma separated list of role1:group1:group2:...,role2:group1:... mappings from knox to table acl roles")
-}
-
 // Init registers a knox-based authenticator for vtgate.
 func Init() {
 	knoxClient := knox.CreateFromFlags()
-	parsedKnoxRoleMapping := make(map[string][]string)
-	for knoxRole, unparsedTableACLGroups := range knoxRoleMapping {
-		groups := strings.Split(unparsedTableACLGroups, ":")
-		// Make sure the group includes the role name itself, if it wasn't explicitly provided on the command line.
-		shouldAddKnoxRole := true
-		for _, group := range groups {
-			if group == knoxRole {
-				shouldAddKnoxRole = false
-			}
-		}
-		if shouldAddKnoxRole {
-			groups = append(groups, knoxRole)
-		}
-		parsedKnoxRoleMapping[knoxRole] = groups
-	}
-	mysql.RegisterAuthServerImpl("knox", newAuthServerKnox(knoxClient, parsedKnoxRoleMapping))
+	mysql.RegisterAuthServerImpl("knox", newAuthServerKnox(knoxClient))
 }
 
 // authServerKnox can authenticate against credentials from knox.
 type authServerKnox struct {
-	knoxClient  knox.Client
-	roleMapping map[string][]string
+	knoxClient knox.Client
 }
 
 // newAuthServerKnox returns a new authServerKnox that authenticates with the provided
 // username -> knox.Client pairs.
-func newAuthServerKnox(knoxClient knox.Client, roleMapping map[string][]string) *authServerKnox {
-	return &authServerKnox{
-		knoxClient:  knoxClient,
-		roleMapping: roleMapping,
-	}
+func newAuthServerKnox(knoxClient knox.Client) *authServerKnox {
+	return &authServerKnox{knoxClient: knoxClient}
 }
 
 // AuthMethod is part of the AuthServer interface.
@@ -78,7 +48,8 @@ func (a *authServerKnox) ValidateHash(salt []byte, user string, authResponse []b
 
 	computedAuthResponse := mysql.ScramblePassword(salt, []byte(password))
 	if bytes.Compare(authResponse, computedAuthResponse) == 0 {
-		return &knoxUserData{user: user, groups: a.roleMapping[role]}, nil
+		groups := a.knoxClient.GetGroupsByRole(role)
+		return &knoxUserData{user: user, groups: groups}, nil
 	}
 
 	// None of the active credentials matched.

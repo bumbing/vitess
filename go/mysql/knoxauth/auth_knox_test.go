@@ -14,6 +14,7 @@ var (
 )
 
 type fakeKnoxClient struct {
+	roleMapping map[string][]string
 }
 
 func (fkc *fakeKnoxClient) GetActivePassword(user string) (role string, password string, err error) {
@@ -24,14 +25,17 @@ func (fkc *fakeKnoxClient) GetPrimaryCredentials(role string) (username string, 
 	return "knoxUserName", "knoxActivePassword", nil
 }
 
-func TestPopulateCallerID(t *testing.T) {
-	fakeKnoxClient := &fakeKnoxClient{}
+func (fkc *fakeKnoxClient) GetGroupsByRole(role string) []string {
+	result, _ := fkc.roleMapping[role]
+	return result
+}
 
-	roleMapping := map[string][]string{
-		"knoxUserRole": {"group1", "group2"},
+func TestPopulateCallerID(t *testing.T) {
+	fakeKnoxClient := &fakeKnoxClient{
+		roleMapping: map[string][]string{"knoxUserRole": {"group1", "group2"}},
 	}
 
-	auth := newAuthServerKnox(fakeKnoxClient, roleMapping)
+	auth := newAuthServerKnox(fakeKnoxClient)
 	salt := []byte{}
 	addr := net.IPAddr{}
 	authResponse := mysql.ScramblePassword(salt, []byte("knoxActivePassword"))
@@ -53,13 +57,11 @@ func TestPopulateCallerID(t *testing.T) {
 }
 
 func TestBadUser(t *testing.T) {
-	fakeKnoxClient := &fakeKnoxClient{}
-
-	roleMapping := map[string][]string{
-		"knoxUserRole": {"group1", "group2"},
+	fakeKnoxClient := &fakeKnoxClient{
+		roleMapping: map[string][]string{"knoxUserRole": {"group1", "group2"}},
 	}
 
-	auth := newAuthServerKnox(fakeKnoxClient, roleMapping)
+	auth := newAuthServerKnox(fakeKnoxClient)
 	salt := []byte{}
 	addr := net.IPAddr{}
 	authResponse := mysql.ScramblePassword(salt, []byte("wrongPassword"))
@@ -77,13 +79,11 @@ func TestBadUser(t *testing.T) {
 }
 
 func TestBadPassword(t *testing.T) {
-	fakeKnoxClient := &fakeKnoxClient{}
-
-	roleMapping := map[string][]string{
-		"knoxUserRole": {"group1", "group2"},
+	fakeKnoxClient := &fakeKnoxClient{
+		roleMapping: map[string][]string{"knoxUserRole": {"group1", "group2"}},
 	}
 
-	auth := newAuthServerKnox(fakeKnoxClient, roleMapping)
+	auth := newAuthServerKnox(fakeKnoxClient)
 	salt := []byte{}
 	addr := net.IPAddr{}
 	authResponse := mysql.ScramblePassword(salt, []byte("wrongPassword"))

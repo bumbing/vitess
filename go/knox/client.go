@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"regexp"
+	"strings"
+	"sync"
 
 	"github.com/pinterest/knox"
 	"vitess.io/vitess/go/flagutil"
@@ -18,12 +20,19 @@ var (
 	knoxSupportedRoles flagutil.StringListValue
 	knoxRe             = regexp.MustCompile(`^([^@|]+)@([^@|]*)\|([^@|]*)$`)
 	errParsingCreds    = fmt.Errorf("failed to parse knox creds. Should match %v", knoxRe)
+	knoxRoleMapping    flagutil.StringMapValue
 )
+
+func init() {
+	flag.Var(&knoxSupportedRoles, "knox_supported_roles", "comma separated list of roles to support for knox authentication")
+	flag.Var(&knoxRoleMapping, "knox_role_mapping", "comma separated list of role1:group1:group2:...,role2:group1:... mappings from knox to table acl roles")
+}
 
 // Client provides access to username/role/password data from knox.
 type Client interface {
 	GetActivePassword(user string) (role string, password string, err error)
 	GetPrimaryCredentials(role string) (username string, password string, err error)
+	GetGroupsByRole(role string) []string
 }
 
 // clientImpl fetches passwords for a pre-determined set of users from knox.
@@ -31,17 +40,47 @@ type clientImpl struct {
 	clientsByRole map[string]knox.Client
 }
 
-// CreateFromFlags creates Client for the set of users configured with -knox_supported_usernames.
-func CreateFromFlags() Client {
+var (
+	once                  sync.Once
+	knoxClient            Client
+	parsedKnoxRoleMapping map[string][]string
+)
+
+func initWithFlags() {
 	clientsByRole := make(map[string]knox.Client)
 	for _, username := range knoxSupportedRoles {
 		knoxKey := fmt.Sprintf("mysql:rbac:%s:credentials", username)
 		clientsByRole[username] = requireFileClient(knoxKey)
 	}
 
-	return &clientImpl{
+	knoxClient = &clientImpl{
 		clientsByRole: clientsByRole,
 	}
+
+	parsedKnoxRoleMapping = make(map[string][]string)
+	for knoxRole, unparsedTableACLGroups := range knoxRoleMapping {
+		groups := strings.Split(unparsedTableACLGroups, ":")
+		// Make sure the group includes the role name itself, if it wasn't explicitly provided on the command line.
+		shouldAddKnoxRole := true
+		for _, group := range groups {
+			if group == knoxRole {
+				shouldAddKnoxRole = false
+			}
+		}
+		if shouldAddKnoxRole {
+			groups = append(groups, knoxRole)
+		}
+		parsedKnoxRoleMapping[knoxRole] = groups
+	}
+
+	initTLS()
+}
+
+// CreateFromFlags creates Client for the set of users configured with -knox_supported_usernames.
+func CreateFromFlags() Client {
+	once.Do(initWithFlags)
+
+	return knoxClient
 }
 
 // GetActivePassword the role and active password for the given user.
@@ -81,6 +120,11 @@ func (c *clientImpl) GetPrimaryCredentials(role string) (username string, passwo
 	return user, pass, err
 }
 
+func (c *clientImpl) GetGroupsByRole(role string) []string {
+	result, _ := parsedKnoxRoleMapping[role]
+	return result
+}
+
 // Knox mashes usernames and credentials in a non-standard format (sadness) so we need custom code
 // to parse it.
 //
@@ -105,8 +149,4 @@ func requireFileClient(keyID string) knox.Client {
 		log.Fatalf("Error making knox client for key %v: %v", keyID, err)
 	}
 	return c
-}
-
-func init() {
-	flag.Var(&knoxSupportedRoles, "knox_supported_roles", "comma separated list of roles to support for knox authentication")
 }
