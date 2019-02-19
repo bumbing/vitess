@@ -2,6 +2,7 @@ package vindexes
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -15,7 +16,6 @@ import (
 
 type scatterVcursor struct {
 	mustFail    bool
-	numRows     int
 	result      *sqltypes.Result
 	queries     []*querypb.BoundQuery
 	autocommits int
@@ -41,19 +41,10 @@ func (svc *scatterVcursor) execute(method string, query string, bindvars map[str
 	}
 	switch {
 	case strings.HasPrefix(query, "select"):
-		if svc.result != nil {
-			return svc.result, nil
+		if svc.result == nil {
+			return nil, fmt.Errorf("Internal test error: no fake result set for scatterVcursor")
 		}
-		result := &sqltypes.Result{
-			Fields:       sqltypes.MakeTestFields("col", "int32"),
-			RowsAffected: uint64(svc.numRows),
-		}
-		for i := 0; i < svc.numRows; i++ {
-			result.Rows = append(result.Rows, []sqltypes.Value{
-				sqltypes.NewInt64(int64(i + 1)),
-			})
-		}
-		return result, nil
+		return svc.result, nil
 	case strings.HasPrefix(query, "insert"):
 		return &sqltypes.Result{InsertID: 1}, nil
 	case strings.HasPrefix(query, "delete"):
@@ -116,7 +107,22 @@ func TestScatterCacheString(t *testing.T) {
 
 func TestScatterCacheMap(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
-	svc := &scatterVcursor{numRows: 1}
+	svc := &scatterVcursor{}
+
+	svc.result = &sqltypes.Result{
+		Fields:       sqltypes.MakeTestFields("fromCol|toCol", "int32|int32"),
+		RowsAffected: 0,
+		Rows: [][]sqltypes.Value{
+			{
+				sqltypes.NewInt64(int64(1)),
+				sqltypes.NewInt64(int64(1)),
+			},
+			{
+				sqltypes.NewInt64(int64(2)),
+				sqltypes.NewInt64(int64(1)),
+			},
+		},
+	}
 
 	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
 	if err != nil {
@@ -131,14 +137,21 @@ func TestScatterCacheMap(t *testing.T) {
 	}
 
 	wantqueries := []*querypb.BoundQuery{{
-		Sql: "select /*vt+ FORCE_SCATTER=1 */ toc from t where fromc = :fromc",
+		Sql: "select /*vt+ FORCE_SCATTER=1 */ fromc, toc from t where fromc in ::fromc",
 		BindVariables: map[string]*querypb.BindVariable{
-			"fromc": sqltypes.Int64BindVariable(1),
-		},
-	}, {
-		Sql: "select /*vt+ FORCE_SCATTER=1 */ toc from t where fromc = :fromc",
-		BindVariables: map[string]*querypb.BindVariable{
-			"fromc": sqltypes.Int64BindVariable(2),
+			"fromc": {
+				Type: querypb.Type_TUPLE,
+				Values: []*querypb.Value{
+					{
+						Type:  sqltypes.Int64,
+						Value: []byte("1"),
+					},
+					{
+						Type:  sqltypes.Int64,
+						Value: []byte("2"),
+					},
+				},
+			},
 		},
 	}}
 	if !reflect.DeepEqual(svc.queries, wantqueries) {
@@ -147,7 +160,6 @@ func TestScatterCacheMap(t *testing.T) {
 
 	// Result should be cached
 
-	svc.numRows = 0
 	got, err = scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
 	if err != nil {
 		t.Error(err)
@@ -171,7 +183,7 @@ func TestScatterCacheMap(t *testing.T) {
 
 func TestScatterCacheMapNoCapacity(t *testing.T) {
 	scatterCache := createScatterCache(t, "0")
-	svc := &scatterVcursor{numRows: 1}
+	svc := &scatterVcursor{}
 
 	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
 	if err != nil {
@@ -192,7 +204,7 @@ func TestScatterCacheMapNoCapacity(t *testing.T) {
 
 func TestScatterCacheMapNullId(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
-	svc := &scatterVcursor{numRows: 1}
+	svc := &scatterVcursor{}
 
 	// Should not be used. Also should not exist in the cache, but putting it there
 	// is a way to test if the cache is accessed.
@@ -216,7 +228,7 @@ func TestScatterCacheMapNullId(t *testing.T) {
 
 func TestScatterCacheMapQueryFail(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000")
-	svc := &scatterVcursor{numRows: 1}
+	svc := &scatterVcursor{}
 
 	// Test query fail.
 	svc.mustFail = true
@@ -230,10 +242,25 @@ func TestScatterCacheMapQueryFail(t *testing.T) {
 
 func TestScatterCacheMapTooManyResults(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000")
-	svc := &scatterVcursor{numRows: 2}
+	svc := &scatterVcursor{}
+
+	svc.result = &sqltypes.Result{
+		Fields:       sqltypes.MakeTestFields("fromCol|toCol", "int32|int32"),
+		RowsAffected: 0,
+		Rows: [][]sqltypes.Value{
+			{
+				sqltypes.NewInt64(int64(1)),
+				sqltypes.NewInt64(int64(1)),
+			},
+			{
+				sqltypes.NewInt64(int64(1)),
+				sqltypes.NewInt64(int64(2)),
+			},
+		},
+	}
 
 	_, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1)})
-	wantErr := "ScatterCache.Map: unexpected multiple results from vindex t, key INT64(1)"
+	wantErr := "ScatterCache.Map: unexpected multiple results from vindex t, key 1"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("scatterCache(query fail) err: %v, want %s", err, wantErr)
 	}
@@ -242,7 +269,13 @@ func TestScatterCacheMapTooManyResults(t *testing.T) {
 
 func TestScatterCacheMapNoResults(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
-	svc := &scatterVcursor{numRows: 0}
+	svc := &scatterVcursor{}
+
+	svc.result = &sqltypes.Result{
+		Fields:       sqltypes.MakeTestFields("fromCol|toCol", "int32|int32"),
+		RowsAffected: 0,
+		Rows:         [][]sqltypes.Value{},
+	}
 
 	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
 	if err != nil {
@@ -261,14 +294,21 @@ func TestScatterCacheMapNoResults(t *testing.T) {
 	}
 
 	wantqueries := []*querypb.BoundQuery{{
-		Sql: "select /*vt+ FORCE_SCATTER=1 */ toc from t where fromc = :fromc",
+		Sql: "select /*vt+ FORCE_SCATTER=1 */ fromc, toc from t where fromc in ::fromc",
 		BindVariables: map[string]*querypb.BindVariable{
-			"fromc": sqltypes.Int64BindVariable(1),
-		},
-	}, {
-		Sql: "select /*vt+ FORCE_SCATTER=1 */ toc from t where fromc = :fromc",
-		BindVariables: map[string]*querypb.BindVariable{
-			"fromc": sqltypes.Int64BindVariable(2),
+			"fromc": {
+				Type: querypb.Type_TUPLE,
+				Values: []*querypb.Value{
+					{
+						Type:  sqltypes.Int64,
+						Value: []byte("1"),
+					},
+					{
+						Type:  sqltypes.Int64,
+						Value: []byte("2"),
+					},
+				},
+			},
 		},
 	}}
 	if !reflect.DeepEqual(svc.queries, wantqueries) {
@@ -276,7 +316,21 @@ func TestScatterCacheMapNoResults(t *testing.T) {
 	}
 
 	// Results should not be cached
-	svc.numRows = 1
+	svc.result = &sqltypes.Result{
+		Fields:       sqltypes.MakeTestFields("fromCol|toCol", "int32|int32"),
+		RowsAffected: 0,
+		Rows: [][]sqltypes.Value{
+			{
+				sqltypes.NewInt64(int64(1)),
+				sqltypes.NewInt64(int64(1)),
+			},
+			{
+				sqltypes.NewInt64(int64(2)),
+				sqltypes.NewInt64(int64(1)),
+			},
+		},
+	}
+
 	got, err = scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
 	if err != nil {
 		t.Error(err)
@@ -293,7 +347,7 @@ func TestScatterCacheMapNoResults(t *testing.T) {
 
 func TestScatterCacheCreate(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
-	svc := &scatterVcursor{numRows: 0}
+	svc := &scatterVcursor{}
 
 	err := scatterCache.Create(
 		svc,

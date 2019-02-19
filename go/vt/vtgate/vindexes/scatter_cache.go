@@ -36,6 +36,7 @@ package vindexes
 //   }
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -195,6 +196,82 @@ func (sc *ScatterCache) CanVerifyNull() bool {
 	return true
 }
 
+func (sc *ScatterCache) scatterLookupIds(vcursor VCursor, foundIds map[string]scatterKeyspaceID, missingIds []interface{}) error {
+	// Query for the associated primary keys. The FORCE_SCATTER is necessary to avoid
+	// infinitely back into this same scatter_cache vindex and hitting a stack overflow panic.
+	sel := fmt.Sprintf(
+		"select /*vt+ FORCE_SCATTER=1 */ %s, %s from %s where %s in ::%s",
+		sc.fromCol, sc.toCol, sc.table, sc.fromCol, sc.fromCol)
+
+	missingIdsBV, err := sqltypes.BuildBindVariable(missingIds)
+	if err != nil {
+		return err
+	}
+
+	bindVars := map[string]*querypb.BindVariable{
+		sc.fromCol: missingIdsBV,
+	}
+	queryResult, err := vcursor.Execute("VindexScatterCacheLookup", sel, bindVars, false /* isDML */)
+	if err != nil {
+		return fmt.Errorf("ScatterCache.Map: %v", err)
+	}
+
+	// The simple thing would be to use the query results to prime the cache and
+	// then read from cache, but just in case the capacity is super small or something
+	// insane is happening with fast cache evictions we'll also read the results into
+	// a temporary map to use for serving this request.
+
+	for _, row := range queryResult.Rows {
+		if len(row) != 2 {
+			return fmt.Errorf("ScatterCache.Map: Internal error. Expected %v columns. Got %v", 2, len(row))
+		}
+
+		fromColKey := row[0].ToString()
+		toColValue, err := sqltypes.ToUint64(row[1])
+		if err != nil {
+			return err
+		}
+
+		destinationKeyspace := scatterKeyspaceID(vhash(toColValue))
+
+		// Sanity check: if there's an existing value in the foundIds, it must have
+		// the same destination keyspace ID. If not, the mapping from column values
+		// to keyspace IDs is not globally unique and we have a big problem.
+		prevKeyspaceID, ok := foundIds[fromColKey]
+		if ok && bytes.Compare(prevKeyspaceID, destinationKeyspace) != 0 {
+			return fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %v, key %v", sc.table, fromColKey)
+		}
+
+		// Add to the cache and to the map for this query.
+		foundIds[fromColKey] = destinationKeyspace
+		sc.keyspaceIDCache.Set(fromColKey, destinationKeyspace)
+	}
+	return nil
+}
+
+func (sc *ScatterCache) findUncachedIds(ids []sqltypes.Value) (foundIds map[string]scatterKeyspaceID, missingIds []interface{}) {
+	foundIds = make(map[string]scatterKeyspaceID)
+	missingIds = make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		if id.IsNull() {
+			// null lookup values are nevered mapped to a keyspace ID and never cached.
+			continue
+		}
+
+		cacheKey := id.ToString()
+		cachedKeyspaceID, ok := sc.keyspaceIDCache.Get(cacheKey)
+		if ok {
+			sc.cacheHits.Add(1)
+			foundIds[cacheKey] = cachedKeyspaceID.(scatterKeyspaceID)
+			continue
+		}
+
+		sc.cacheMisses.Add(1)
+		missingIds = append(missingIds, id)
+	}
+	return
+}
+
 // Map can map ids to key.Destination objects.
 func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
 	if sc.keyspaceIDCache.Capacity() == 0 {
@@ -206,60 +283,21 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 		return out, nil
 	}
 
-	// TODO: Run a single big "select toCol, fromCol where fromCol in (... all ids ...)" query instead
-	// of many small individual queries. It'll be a little more complicated to put the results back into
-	// a slice at the end, but the reduced mysql queries and network round-trips will be worth it.
-
-	// Query for the associated primary keys. The FORCE_SCATTER is necessary to avoid
-	// infinitely back into this same scatter_cache vindex and hitting a stack overflow panic.
-	sel := fmt.Sprintf(
-		"select /*vt+ FORCE_SCATTER=1 */ %s from %s where %s = :%s",
-		sc.toCol, sc.table, sc.fromCol, sc.fromCol)
+	foundIds, missingIds := sc.findUncachedIds(ids)
+	if len(missingIds) > 0 {
+		err := sc.scatterLookupIds(vcursor, foundIds, missingIds)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	out := make([]key.Destination, 0, len(ids))
 	for _, id := range ids {
-		if id.IsNull() {
-			// If this were called with null, it should return destination none.
-			// Valid scatter_cache IDs shouldn't be null since they should be
-			// globally unique.
-			out = append(out, key.DestinationNone{})
-			continue
-		}
-
-		cachedKeyspaceID, ok := sc.keyspaceIDCache.Get(id.ToString())
+		cachedKeyspaceID, ok := foundIds[id.ToString()]
 		if ok {
-			sc.cacheHits.Add(1)
-			out = append(out, key.DestinationKeyspaceID(cachedKeyspaceID.(scatterKeyspaceID)))
-			continue
+			out = append(out, key.DestinationKeyspaceID(cachedKeyspaceID))
 		} else {
-			sc.cacheMisses.Add(1)
-		}
-
-		bindVars := map[string]*querypb.BindVariable{
-			sc.fromCol: sqltypes.ValueBindVariable(id),
-		}
-		result, err := vcursor.Execute("VindexScatterCacheLookup", sel, bindVars, false /* isDML */)
-		if err != nil {
-			return nil, fmt.Errorf("ScatterCache.Map: %v", err)
-		}
-		switch len(result.Rows) {
-		case 0:
-			// It's important not to cache NULL values. If you look up a campaign_id that doesn't exist
-			// yet, it could come into existence momentarily.
-			// The bad news is that invalid secondary IDs will always result in an expensive scatter query. The
-			// vast majority of requests should have valid IDs, though, so we expect the common, non-erroneous
-			// case to have better performance.
 			out = append(out, key.DestinationNone{})
-		case 1:
-			unhashedVal, err := sqltypes.ToUint64(result.Rows[0][0])
-			if err != nil {
-				return nil, err
-			}
-			destinationKeyspace := vhash(unhashedVal)
-			sc.keyspaceIDCache.Set(id.ToString(), scatterKeyspaceID(destinationKeyspace))
-			out = append(out, key.DestinationKeyspaceID(destinationKeyspace))
-		default:
-			return nil, fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %v, key %v", sc.table, id)
 		}
 	}
 
