@@ -35,7 +35,7 @@ for keyspace in $($VTCTL_CMD GetKeyspaces); do
   if $VTCTL_CMD ValidatePermissionsKeyspace $keyspace; then
       OUTCOME=success
   fi
-  echo "put vitess.validate_permissions $(date +%s) 1 outcome=$_OUTCOME keyspace=$keyspace" | $REPORT_CMD
+  echo "put vitess.validate_permissions $(date +%s) 1 outcome=$OUTCOME keyspace=$keyspace" | $REPORT_CMD
 
   # Validate that all tablets are running the same vttablet version.
   # Technically we already have stats on which tablet versions are running,
