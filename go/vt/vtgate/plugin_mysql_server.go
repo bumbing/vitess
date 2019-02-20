@@ -287,6 +287,11 @@ func (vh *vtgateHandler) maybeExecuteDarkRead(ctx context.Context, session *vtga
 			return nil, nil
 		}
 
+		if strings.Contains(query, "/*vt+ FORCE_SCATTER=1 */") {
+			// Make sure that scatter_cache queries are never interpretted as a dark read.
+			return nil, nil
+		}
+
 		result, err := vh.executeDarkRead(ctx, session, query, make(map[string]*querypb.BindVariable))
 		if err == nil {
 			return result, nil
