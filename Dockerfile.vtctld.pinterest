@@ -1,9 +1,8 @@
 ARG BASE_IMAGE=vitess/base:latest
 FROM $BASE_IMAGE AS build
 
-FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu14.04:latest
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python-pip && rm -rf /var/lib/apt/lists/*
-RUN pip install --upgrade -i https://pypi.pinadmin.com/custom/ vitess_utils
+FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/python2.7.11:latest
+RUN pip install future kazoo kazoo_utils pinstatsd psutil vitess_utils
 
 COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
 COPY --from=build /vt/src/vitess.io/vitess/config /vt/config

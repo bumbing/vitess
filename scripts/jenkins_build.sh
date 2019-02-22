@@ -23,6 +23,7 @@ export SKIP_BUILD=false
 set +e
 aws ecr create-repository --repository-name vitess --region us-east-1
 aws ecr create-repository --repository-name vitess/base --region us-east-1
+aws ecr create-repository --repository-name vitess/vtctld --region us-east-1
 set -e
 
 export TARBALL_FN_GZ=vitess-${GIT_COMMIT:0:7}.tar.gz
