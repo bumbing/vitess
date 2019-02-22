@@ -35,6 +35,9 @@ then
 
   # Run unit tests and build a pinterest-specific image
   docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess:$GIT_COMMIT .
+
+  # Build vtctld specific image
+  docker build --no-cache -f Dockerfile.vtctld.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess/vtctld:$GIT_COMMIT .
 fi
 
 # Unit tests pass, making the build artifact succeeded. Let's push the base and vtgate images out!
@@ -42,6 +45,7 @@ if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
 then
   docker push $REGISTRY/vitess/base:$GIT_COMMIT
   docker push $REGISTRY/vitess:$GIT_COMMIT
+  docker push $REGISTRY/vitess/vtctld:$GIT_COMMIT
 fi
 
 if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]

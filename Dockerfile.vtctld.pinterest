@@ -1,11 +1,12 @@
 ARG BASE_IMAGE=vitess/base:latest
 FROM $BASE_IMAGE AS build
 
-# Run unit tests
-RUN make unit_test
-
 FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu14.04:latest
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python-pip && rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade -i https://pypi.pinadmin.com/custom/ vitess_utils
+
 COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
 COPY --from=build /vt/src/vitess.io/vitess/config /vt/config
+COPY --from=build /vt/src/vitess.io/vitess/web /vt/web
 COPY --from=build /vt/src/vitess.io/vitess/hooks /vt/vthook
 COPY --from=build /vt/bin/vt* /vt/bin/mysql* /vt/bin/pinschema /vt/bin/zk /vt/bin/zkc* /vt/bin/query_analyzer /vt/bin/topo2topo /vt/bin/
