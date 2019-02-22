@@ -14,5 +14,5 @@ TODAY=$(date "+%Y-%m-%d")
 rm -f /vt/logs/sync-$YESTERDAY-*.log
 for TABLET in $MASTERS; do
     # do a state sync between vitess topology and configv3 meta
-    python -m vitess_utils.vitess -a vttabletstatechange --host $TABLET >> /vt/logs/"sync-$TODAY-$TABLET.log"
+    python -m vitess_utils.vitess -a vttabletstatechange --vtctld localhost:15991 --host $TABLET 2>&1 >> /vt/logs/"sync-$TODAY-$TABLET.log"
 done
