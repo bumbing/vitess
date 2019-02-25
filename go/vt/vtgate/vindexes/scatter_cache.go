@@ -40,6 +40,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
@@ -53,6 +54,11 @@ import (
 var (
 	_ Vindex = (*ScatterCache)(nil)
 	_ Lookup = (*ScatterCache)(nil)
+
+	scatterCacheTimings = stats.NewMultiTimings(
+		"VindexTimings",
+		"Vindex timings",
+		[]string{"Name", "Operation"})
 )
 
 // RegisterScatterCacheStats arranges for scatter cache stats to be available given a way to fetch the
@@ -274,6 +280,9 @@ func (sc *ScatterCache) findUncachedIds(ids []sqltypes.Value) (foundIds map[stri
 
 // Map can map ids to key.Destination objects.
 func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
+	statsKey := []string{sc.name, "map"}
+	defer scatterCacheTimings.Record(statsKey, time.Now())
+
 	if sc.keyspaceIDCache.Capacity() == 0 {
 		// Degenerate case: just force a scatter
 		out := make([]key.Destination, 0, len(ids))
