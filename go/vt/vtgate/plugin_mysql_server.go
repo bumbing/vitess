@@ -34,6 +34,7 @@ import (
 	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/callinfo"
 	"vitess.io/vitess/go/vt/log"
@@ -73,6 +74,11 @@ var (
 
 	pinterestDarkReadGate            = flag.Bool("pinterest_dark_read_gate", false, "True if this gate is intended for dark reads")
 	pinterestDarkReadMaxComparedRows = flag.Int("pinterest_dark_read_max_compared_rows", 200000, "Max number of rows to compare in a dark read")
+
+	darkReadTimings = stats.NewMultiTimings(
+		"DarkReadTimings",
+		"Dark read timings",
+		[]string{"Operation", "Type"})
 )
 
 // vtgateHandler implements the Listener interface.
@@ -346,6 +352,8 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 		rdonlyCombinedResult = &sqltypes.Result{}
 
 		session.TargetString = "patio:0@master"
+		statsKey := []string{"StreamExecute", "light"}
+		startTime := time.Now()
 		masterErr = vh.vtg.StreamExecute(ctx,
 			session,
 			query,
@@ -360,6 +368,7 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 				return nil
 			},
 		)
+		darkReadTimings.Record(statsKey, startTime)
 
 		if len(masterCombinedResult.Rows) > maxComparedRows {
 			masterCombinedResult.Rows = masterCombinedResult.Rows[:maxComparedRows]
@@ -367,6 +376,8 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 
 		// Then run on rdonly
 		session.TargetString = origTarget + "@rdonly"
+		statsKey = []string{"StreamExecute", "dark"}
+		startTime = time.Now()
 		rdonlyErr = vh.vtg.StreamExecute(ctx,
 			session,
 			query,
@@ -381,6 +392,7 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 				return nil
 			},
 		)
+		darkReadTimings.Record(statsKey, startTime)
 
 		if len(rdonlyCombinedResult.Rows) > maxComparedRows {
 			rdonlyCombinedResult.Rows = masterCombinedResult.Rows[:maxComparedRows]
@@ -393,19 +405,25 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 
 		// First run on master
 		session.TargetString = "patio:0@master"
+		statsKey := []string{"Execute", "light"}
+		startTime := time.Now()
 		_, masterCombinedResult, masterErr = vh.vtg.Execute(ctx,
 			session,
 			query,
 			make(map[string]*querypb.BindVariable),
 		)
+		darkReadTimings.Record(statsKey, startTime)
 
 		// Then run on rdonly
 		session.TargetString = origTarget + "@rdonly"
+		statsKey = []string{"Execute", "dark"}
+		startTime = time.Now()
 		_, rdonlyCombinedResult, rdonlyErr = vh.vtg.Execute(ctx,
 			session,
 			query,
 			make(map[string]*querypb.BindVariable),
 		)
+		darkReadTimings.Record(statsKey, startTime)
 
 		// Restore orig target string
 		session.TargetString = origTarget
