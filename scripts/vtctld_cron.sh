@@ -3,11 +3,17 @@
 
 set -e
 
+echo Logging to /var/log/vtctld/validate_cron.log
+exec > /var/log/vtctld/validate_cron.log
+exec 2>&1
+
+set -x
+
 VTCTL_CMD="/vt/bin/vtctlclient -server localhost:15991 -action_timeout 10s"
 
 # opentsdb listens on port 18126 at Pinterest.
 # It has an HTTP API, but we can also just sent it "put" commands.
-REPORT_CMD="nc localhost 18126"
+REPORT_CMD="nc -w 5 localhost 18126"
 
 # Uncomment when testing to avoid sending real stats:
 # REPORT_CMD="cat"
