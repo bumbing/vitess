@@ -32,6 +32,7 @@ var (
 	defaultScatterCacheCapacity = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
 	tableScatterCacheCapacity   flagutil.StringMapValue
 	ignoredTables               flagutil.StringListValue
+	sequenceTables              flagutil.StringListValue
 )
 
 type pinschemaConfig struct {
@@ -45,6 +46,7 @@ type pinschemaConfig struct {
 	queryTablePrefix            string
 	tableResultLimit            int
 	summarize                   bool
+	sequenceTableWhitelist      []string
 }
 
 var commands = make(map[string]func([]*sqlparser.DDL, pinschemaConfig) (string, error))
@@ -57,6 +59,10 @@ func init() {
 	flag.Var(&ignoredTables,
 		"ignore",
 		"comma separated list of tables to ignore")
+
+	flag.Var(&sequenceTables,
+		"seq-table-whitelist",
+		"comma separated whitelist of tables that should use sequences, for incrementally rolling out sequences to a keyspace table by table")
 
 	logger := logutil.NewConsoleLogger()
 	flag.CommandLine.SetOutput(logutil.NewLoggerWriter(logger))
@@ -133,6 +139,7 @@ func parseAndRun(command string, args []string) error {
 		queryTablePrefix:            *queryTablePrefix,
 		tableResultLimit:            *tableResultLimit,
 		summarize:                   *summarize,
+		sequenceTableWhitelist:      sequenceTables,
 	}
 
 	var ddls []*sqlparser.DDL
@@ -180,16 +187,6 @@ func shouldIgnoreTable(table *sqlparser.DDL, ignoredTables []string) bool {
 		}
 	}
 	return false
-}
-
-// singularize removes the "s" from a table name.
-//
-// Example: advertisers -> advertiser
-func singularize(tableName string) string {
-	if strings.HasSuffix(tableName, "s") && tableName != "accepted_tos" {
-		return tableName[0 : len(tableName)-1]
-	}
-	return tableName
 }
 
 // parseSchema pulls out the CREATE TABLE ddls from a series of SQL statements.

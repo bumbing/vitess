@@ -133,7 +133,7 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 			// A column named "id" which has a primary key will be assigned a sequence.
 			// Previously we checked for bool(col.Type.Autoincrement) but that will
 			// break once sequences launch and auto-increment is removed.
-			if vb.config.createSeq && colShouldBeSequence(col, tableCreate) {
+			if vb.config.createSeq && colShouldBeSequence(vb.config, col, tableCreate) {
 				tbl.AutoIncrement = &vschemapb.AutoIncrement{
 					Column:   colName,
 					Sequence: tableName + "_seq",

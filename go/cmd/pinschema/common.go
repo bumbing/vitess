@@ -6,11 +6,33 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-func colShouldBeSequence(col *sqlparser.ColumnDefinition, tableCreate *sqlparser.DDL) bool {
+// singularize removes the "s" from a table name.
+//
+// Example: advertisers -> advertiser
+func singularize(tableName string) string {
+	if strings.HasSuffix(tableName, "s") && tableName != "accepted_tos" {
+		return tableName[0 : len(tableName)-1]
+	}
+	return tableName
+}
+
+func colShouldBeSequence(config pinschemaConfig, col *sqlparser.ColumnDefinition, tableCreate *sqlparser.DDL) bool {
 	tableName := tableCreate.Table.Name.String()
 
 	if strings.HasPrefix(tableName, "_drop_") || strings.HasPrefix(tableName, "dark_write") {
 		return false
+	}
+
+	if len(config.sequenceTableWhitelist) > 0 {
+		for _, tblName := range config.sequenceTableWhitelist {
+			if strings.ToLower(tableName) == strings.ToLower(tblName) {
+				goto WHITELISTED_TABLE
+			}
+		}
+
+		return false
+
+	WHITELISTED_TABLE:
 	}
 
 	colName := col.Name.String()

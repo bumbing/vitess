@@ -24,7 +24,7 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL, config pinschemaConfig) (string, e
 
 		hasAutoincrement := false
 		for _, col := range tableCreate.TableSpec.Columns {
-			if colShouldBeSequence(col, tableCreate) {
+			if colShouldBeSequence(config, col, tableCreate) {
 				hasAutoincrement = true
 				break
 			}

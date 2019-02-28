@@ -23,6 +23,12 @@ func TestCreateVSchema(t *testing.T) {
 				createSeq: true,
 			},
 		},
+		{"SeqsWhitelist",
+			pinschemaConfig{
+				createSeq:              true,
+				sequenceTableWhitelist: []string{"campaigns", "accepted_tos"},
+			},
+		},
 		{"Primary",
 			pinschemaConfig{
 				createPrimary: true,
