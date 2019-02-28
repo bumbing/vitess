@@ -11,14 +11,21 @@ fi
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # Proxy through vtctld from a mac
+    # Use a different local port number for each host type to make sure
+    # we don't get confused an send a command intented to latest when
+    # the proxy is pointing to prod.
     if [[ "$ENV_NAME" == "prod" ]]; then
         HOST_TYPE="vtctld-prod"
+        TUNNEL_PORT=16127
     elif [[ "$ENV_NAME" == "shadow" ]]; then
         HOST_TYPE="vtctld-shadow"
+        TUNNEL_PORT=16128
     elif [[ "$ENV_NAME" == "latest" ]]; then
         HOST_TYPE="vtctld-latest"
+        TUNNEL_PORT=16129
     elif [[ "$ENV_NAME" == "test" ]]; then
         HOST_TYPE="vtctld-test"
+        TUNNEL_PORT=16130
     else
         echo "Looks like an invalid env name for a mac. Valid names tend to look like prod, latest, test, etc."
         echo "Usage: pvtcl.sh [vitess env] [args to vtctl...]"
@@ -31,27 +38,13 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         exit 1
     fi
     
-    # NOTE(dweitzman): The use of "sleep" here is an awkward short-term hack until we have a better
-    # alternative. ssh port tunneling is used here because we don't have x509 certs we can use
-    # to securely authenticate pinployees so that we could open up the vtctld grpc port at
-    # the network level. One option would be to open up the grpc port only to vitess admins
-    # on prod machines and maybe more widely on dev machines.
-    #
-    # The complication with ssh port forwarding in a bash script is forwarding a port temporarily
-    # and then killing ssh. If we start a job in the background, there's some complexity in tracking
-    # the job's pid and trying to make sure it gets killed when the bash script exits. Using
-    # "sleep 5" here ensures that the port forwarding will stop after 5 seconds, which is reliable
-    # but has two disadvantages:
-    # - Since we're using a fixed port ID, you can't run pvtctl.sh commands from your laptop in
-    #   too quickly. You need to wait 5 seconds after one command starts before starting another.
-    # - Long-running vtctl commands could get canceled after 5 seconds. This could be risky for
-    #   something like migrating served types.
-    #
-    # Another alternative would be to "ssh <host> docker exec vtctld ...", but I can't figure out
-    # how to make that work so that command line arguments don't get messed up in transit.
-    # If you want to try to fix it, make sure that you can run this command:
-    # $ pvtctl.sh latest VReplicationExec tablet-1234 "select * from _vt.vreplication"
-    ssh -f -o ExitOnForwardFailure=yes -L 16127:localhost:15991 "$HOST_NAME" sleep 5
+    # Start an ssh tunnel specific to this host, or reuse one that already exists.
+    # Each host type users a separate local port to make sure there's no risk of
+    # getting confused about which type of vtctl you're sending commands to.
+    if ! ssh -q -O check -S ~/.ssh/controlmaster-pvtctl-"$HOST_NAME" "$HOST_NAME" > /dev/null 2>&1; then
+       ssh -q -M -L $TUNNEL_PORT:localhost:15991 -f -o ExitOnForwardFailure=yes -S ~/.ssh/controlmaster-pvtctl-"$HOST_NAME" "$HOST_NAME" sleep 120 > /dev/null 2>&1
+    fi
+
     # NOTE(dweitzman): This "go run" command will only work if your GOPATH
     # is all set up or alternative if you create a go.mod file using
     # ~/code/dw/scripts/vt_fix_gomod.sh
@@ -61,7 +54,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     #
     # We could actually even use an off-the-shelf vtctlclient here if upstream
     # (open source) vitess published a homebrew package.
-    go run ./go/cmd/vtctlclient -server localhost:16127 "$@"
+    go run ./go/cmd/vtctlclient -server localhost:$TUNNEL_PORT "$@"
+    # Close the port forwarding.
+    ssh -q -O exit -S ~/.ssh/controlmaster-pvtctl-"$HOST_NAME" "$HOST_NAME"
     exit
 fi
 
