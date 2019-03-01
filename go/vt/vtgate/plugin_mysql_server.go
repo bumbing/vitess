@@ -74,6 +74,7 @@ var (
 
 	pinterestDarkReadGate            = flag.Bool("pinterest_dark_read_gate", false, "True if this gate is intended for dark reads")
 	pinterestDarkReadMaxComparedRows = flag.Int("pinterest_dark_read_max_compared_rows", 200000, "Max number of rows to compare in a dark read")
+	pinterestDarkReadLightTarget     = flag.String("pinterest_dark_read_light_target", "patio:0@master", "Target string for dark read light target")
 
 	darkReadTimings = stats.NewMultiTimings(
 		"DarkReadTimings",
@@ -351,7 +352,7 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 		masterCombinedResult = &sqltypes.Result{}
 		rdonlyCombinedResult = &sqltypes.Result{}
 
-		session.TargetString = "patio:0@master"
+		session.TargetString = *pinterestDarkReadLightTarget
 		statsKey := []string{"StreamExecute", "light"}
 		startTime := time.Now()
 		masterErr = vh.vtg.StreamExecute(ctx,
@@ -404,7 +405,7 @@ func (vh *vtgateHandler) executeDarkRead(ctx context.Context, session *vtgatepb.
 		// OLTP non-streaming mode
 
 		// First run on master
-		session.TargetString = "patio:0@master"
+		session.TargetString = *pinterestDarkReadLightTarget
 		statsKey := []string{"Execute", "light"}
 		startTime := time.Now()
 		_, masterCombinedResult, masterErr = vh.vtg.Execute(ctx,

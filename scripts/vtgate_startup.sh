@@ -106,6 +106,12 @@ if [[ ! -z "${TELETRAAN_DARK_MAX_ROWS}" ]]; then
     -pinterest_dark_read_max_compared_rows ${TELETRAAN_DARK_MAX_ROWS} "
 fi
 
+if [[ ! -z "${TELETRAAN_DARK_LIGHT_TARGET}" ]]; then 
+  EXTRA_ARGS=" \
+    ${EXTRA_ARGS} \
+    -pinterest_dark_read_light_target ${TELETRAAN_DARK_LIGHT_TARGET} "
+fi
+
 SUPPORTED_KNOX_ROLES="scriptro,longqueryro,scriptrw,longqueryrw"
 if [[ ! -z "${TELETRAAN_ADDITIONAL_KNOX_ROLES}" ]]; then
   SUPPORTED_KNOX_ROLES="${SUPPORTED_KNOX_ROLES},${TELETRAAN_ADDITIONAL_KNOX_ROLES}"
