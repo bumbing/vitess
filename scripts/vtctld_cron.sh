@@ -1,13 +1,17 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
 # This script runs periodically on the vtctld instance to do sanity checks
 # that involve calling vtctl commands.
-
-set -e
 
 echo Logging to /var/log/vtctld/validate_cron.log
 exec > /var/log/vtctld/validate_cron.log
 exec 2>&1
 
-set -x
+set -xtrace
 
 VTCTL_CMD="/vt/bin/vtctlclient -server localhost:15991 -action_timeout 10s"
 

@@ -1,5 +1,8 @@
-#!/bin/bash
-set -eo pipefail
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
 
 # find all masters from all keyspaces
 # sample from: hzhou@vtctld-latest-0a03599a:~$ sudo docker exec -ti vtctld /vt/bin/vtctlclient -server localhost:15991 ListAllTablets | grep master

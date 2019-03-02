@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
 
 # Pass -d as the first argument to add flags for docker (mostly related to log location)
 #
@@ -15,7 +19,7 @@ then
    VTWORKER_COMMAND="go run vitess.io/vitess/go/cmd/vtworker "
 fi
 
-while getopts ":det" opt; do
+while getopts ":dt" opt; do
   case $opt in
     d)
       DOCKER=true

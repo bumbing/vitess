@@ -1,3 +1,9 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
 # TODO(dweitzman): Move this to the vitess-utils repo
 # Long term, we'll want to integrate this into the schema change process such that we create vindexes
 # prior to the db cols and update the authoritative column list in vschema after updating the db.
@@ -12,8 +18,6 @@
 # Then to apply the changes you could use commands like these:
 # $ vtctl <env-specific args> ApplyVSchema -vschema_file patio.json patio
 # $ vtctl <env-specific args> ApplyVSchema -vschema_file patiogeneral.json patiogeneral
-
-set -ex
 
 # PATIO_DDLS=~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio.sql
 # GENERAL_DDLS=~/code/optimus/pepsi/server/src/test/resources/patio_db_dump/patio_general.sql

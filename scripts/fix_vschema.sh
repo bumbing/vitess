@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
 
 # If for whatever reason ads-latest has bad vschemas,
 # this script attempts to forcefully clean it up by
@@ -6,8 +10,6 @@
 # vschemas in latest. The sequence tables need to be
 # created in prod patio, though, or else they'll disappear
 # from ads-latest at night during the dump from prod.
-
-set -e
 
 PATIO_ARGS=""
 PATIOGENERAL_ARGS=""

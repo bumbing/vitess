@@ -1,5 +1,8 @@
-#!/bin/bash
-set -eu
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
 
 ENV_NAME="$1"
 shift

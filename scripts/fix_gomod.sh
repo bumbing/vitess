@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
 
 # The upgrade of cloud.google.com/go is to avoid an incompatibility with the version of gax-go
 # that "go mod init" picks.

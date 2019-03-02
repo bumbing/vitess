@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -x
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
 
 export VT_ARTIFACTS=${VT_ARTIFACTS:-'vitess,vtgate,vtworker,vtctld'}
 export BUILD_DIR=$WORKSPACE/BUILD_DIR
