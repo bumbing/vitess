@@ -44,11 +44,26 @@ echo Operating on environment $VTENV. For ads-latest, run "$0" latest
 PVCTL_CMD="/vt/scripts/pvtctl.sh"
 PINSCHEMA_CMD="/vt/bin/pinschema"
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  echo "In darwin/laptop mode. You'll need:
-    go >=1.11
-    ~/code/vitess/go.mod created by vt_fix_gomod.sh"
-  PVCTL_CMD="./scripts/pvtctl.sh"
-  PINSCHEMA_CMD="go run ./go/cmd/pinschema"
+  if command -v pinschema && command -v pvtctl.sh; then
+    # This person probably installed https://phabricator.pinadmin.com/diffusion/BREW/
+    PVCTL_CMD="pvtctl.sh"
+    PINSCHEMA_CMD="pinschema"
+  else
+    # This person probably did not install vitess from homebrew. Make a best effort attempt
+    # to compile on demand
+    echo "In darwin/laptop mode without vitess binaries in \$PATH
+
+    Consider installing them with:
+      \$ brew tap pinterest/brewpub ssh://git@phabricator.pinadmin.com/diffusion/BREW/brewpub.git
+      \$ brew tap-pin pinterest/brewpub
+      \$ brew install vitess
+
+     For now we're trying to compile on-demand. You'll need:
+      go >=1.11
+      ~/code/vitess/go.mod created by vt_fix_gomod.sh"
+    PVCTL_CMD="./scripts/pvtctl.sh"
+    PINSCHEMA_CMD="go run ./go/cmd/pinschema"
+  fi
 fi
 
 echo Validating consistent shard schemas...
