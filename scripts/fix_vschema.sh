@@ -80,12 +80,10 @@ PATIO_SCHEMA_FILE=$(mktemp -t patio-schema.sql.XXXX)
 PATIO_SCHEMA_CONTENT=$($PVCTL_CMD "$VTENV" GetSchema "$PATIO_MASTER" | jq -r '.table_definitions[].schema + ";"')
 echo "$PATIO_SCHEMA_CONTENT" > "$PATIO_SCHEMA_FILE"
 
-if $UPDATE_GENERAL; then
-  if [[ "${ADD_SEQS:-false}" == "true" ]]; then
-      echo Making sure sequence tables exist in patiogeneral...
-      CREATE_SQL=$($PINSCHEMA_CMD create-seq "$PATIO_SCHEMA_FILE")
-      $PVCTL_CMD "$VTENV" ApplySchema -sql="$CREATE_SQL" patiogeneral
-  fi
+if [[ "${ADD_SEQS:-false}" == "true" ]]; then
+    echo Making sure sequence tables exist in patiogeneral...
+    CREATE_SQL=$($PINSCHEMA_CMD create-seq "$PATIO_SCHEMA_FILE")
+    $PVCTL_CMD "$VTENV" ApplySchema -sql="$CREATE_SQL" patiogeneral
 fi
 
 if $UPDATE_GENERAL; then
@@ -98,7 +96,7 @@ if $UPDATE_GENERAL; then
   PATIOGENERAL_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIOGENERAL_ARGS[@]}" "$PATIOGENERAL_SCHEMA_FILE")
   PATIOGENERAL_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patiogeneral)
 
-  DIFF=$(diff -u <(echo "$PATIOGENERAL_VSCHEMA_OLD") <(echo "$PATIOGENERAL_VSCHEMA") || true)
+  DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIOGENERAL_VSCHEMA_OLD") <(echo "$PATIOGENERAL_VSCHEMA") || test "$?" -eq 1)
   if [ "$DIFF" ]; then
     echo "$DIFF"
 
@@ -122,7 +120,7 @@ fi
 echo Diffing patio vschema...
 PATIO_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIO_ARGS[@]}" "$PATIO_SCHEMA_FILE")
 PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
-DIFF=$(diff -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || true)
+DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || test "$?" -eq 1)
 if [ "$DIFF" ]; then
   echo "$DIFF"
 
