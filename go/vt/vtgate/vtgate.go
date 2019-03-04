@@ -350,7 +350,20 @@ func (vtg *VTGate) StreamExecute(ctx context.Context, session *vtgatepb.Session,
 	// TODO: This could be simplified to have a StreamExecute that takes
 	// a destTarget without explicit destination.
 	switch dest.(type) {
-	case key.DestinationShard:
+	// Pinterest-specific hack to collect log stats and support
+	// keyspace IDs from stream execute targets.
+	// See https://github.com/vitessio/vitess/issues/4651
+	case key.DestinationShard, key.DestinationKeyspaceID:
+		logStats := NewLogStats(ctx, "StreamExecute", sql, bindVariables)
+		logStats.StmtType = sqlparser.StmtType(sqlparser.Preview(sql))
+		logStats.Target = &querypb.Target{
+			Keyspace: destKeyspace,
+			// Use Sprintf in case dest is nil.
+			Shard:      fmt.Sprintf("%s", dest),
+			TabletType: destTabletType,
+		}
+		defer logStats.Send()
+		execStart := time.Now()
 		err = vtg.resolver.StreamExecute(
 			ctx,
 			sql,
@@ -363,6 +376,8 @@ func (vtg *VTGate) StreamExecute(ctx context.Context, session *vtgatepb.Session,
 				vtg.rowsReturned.Add(statsKey, int64(len(reply.Rows)))
 				return callback(reply)
 			})
+		logStats.Error = err
+		logStats.ExecuteTime = time.Since(execStart)
 	default:
 		err = vtg.executor.StreamExecute(
 			ctx,
