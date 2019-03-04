@@ -28,7 +28,6 @@ import (
 	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/vt/key"
 	"vitess.io/vitess/go/vt/srvtopo"
-	"vitess.io/vitess/go/vt/topo/topoproto"
 	"vitess.io/vitess/go/vt/vterrors"
 	"vitess.io/vitess/go/vt/vtgate/vindexes"
 
@@ -167,10 +166,6 @@ var routeName = map[RouteOpcode]string{
 
 var (
 	partialSuccessScatterQueries = stats.NewCounter("PartialSuccessScatterQueries", "Count of partially successful scatter queries")
-	routeExecTimings             = stats.NewMultiTimings(
-		"RouteExecutionTimings",
-		"Route Execution timings",
-		[]string{"Keyspace", "TabletType", "Stage", "Plan"})
 )
 
 // MarshalJSON serializes the RouteOpcode as a JSON string.
@@ -206,7 +201,6 @@ func (route *Route) execute(vcursor VCursor, bindVars map[string]*querypb.BindVa
 	var rss []*srvtopo.ResolvedShard
 	var bvs []map[string]*querypb.BindVariable
 	var err error
-	var execStart = time.Now()
 	switch route.Opcode {
 	case SelectUnsharded, SelectScatter:
 		rss, bvs, err = route.paramsAllShards(vcursor, bindVars)
@@ -232,10 +226,6 @@ func (route *Route) execute(vcursor VCursor, bindVars map[string]*querypb.BindVa
 
 	queries := getQueries(route.Query, bvs)
 	result, errs := vcursor.ExecuteMultiShard(rss, queries, false /* isDML */, false /* autocommit */)
-
-	routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "multishard", route.RouteType()}, execStart)
-	execStart = time.Now()
-	defer routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "sort", route.RouteType()}, execStart)
 
 	if errs != nil {
 		if route.ScatterErrorsAsWarnings {
@@ -363,7 +353,6 @@ func (route *Route) paramsSelectIn(vcursor VCursor, bindVars map[string]*querypb
 }
 
 func (route *Route) resolveShards(vcursor VCursor, vindexKeys []sqltypes.Value) ([]*srvtopo.ResolvedShard, [][]*querypb.Value, error) {
-	resolveStart := time.Now()
 	// Convert vindexKeys to []*querypb.Value
 	ids := make([]*querypb.Value, len(vindexKeys))
 	for i, vik := range vindexKeys {
@@ -372,25 +361,12 @@ func (route *Route) resolveShards(vcursor VCursor, vindexKeys []sqltypes.Value) 
 
 	// Map using the Vindex
 	destinations, err := route.Vindex.Map(vcursor, vindexKeys)
-	routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "map_" + route.Vindex.String(), route.RouteType()}, resolveStart)
-	resolveStart = time.Now()
-	defer routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "resolveshards_" + route.Vindex.String(), route.RouteType()}, resolveStart)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// And use the Resolver to map to ResolvedShards.
 	return vcursor.ResolveDestinations(route.Keyspace.Name, ids, destinations)
-}
-
-func (route *Route) getTabletType(vcursor VCursor) string {
-	tabletTypeLString := "unknown"
-	if v := vcursor.Context().Value("tabletType"); v != nil {
-		if tabletType, ok := v.(topodatapb.TabletType); ok {
-			tabletTypeLString = topoproto.TabletTypeLString(tabletType)
-		}
-	}
-	return tabletTypeLString
 }
 
 func (route *Route) sort(in *sqltypes.Result) (*sqltypes.Result, error) {

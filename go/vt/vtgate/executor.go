@@ -60,10 +60,6 @@ var (
 
 	queriesProcessed = stats.NewCountersWithSingleLabel("QueriesProcessed", "Queries processed at vtgate by plan type", "Plan")
 	queriesRouted    = stats.NewCountersWithSingleLabel("QueriesRouted", "Queries routed from vtgate to vttablet by plan type", "Plan")
-	queryExecTimings = stats.NewMultiTimings(
-		"QueryExecutionTimings",
-		"Queries Execution timings",
-		[]string{"Keyspace", "TabletType", "Stage", "Plan"})
 )
 
 func init() {
@@ -242,7 +238,6 @@ func (e *Executor) execute(ctx context.Context, safeSession *SafeSession, sql st
 }
 
 func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql string, bindVars map[string]*querypb.BindVariable, destKeyspace string, destTabletType topodatapb.TabletType, dest key.Destination, logStats *LogStats) (*sqltypes.Result, error) {
-
 	if dest != nil {
 		// V1 mode or V3 mode with a forced shard or range target
 		// TODO(sougou): change this flow to go through V3 functions
@@ -286,7 +281,7 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 
 	// V3 mode.
 	query, comments := sqlparser.SplitMarginComments(sql)
-	vcursor := newVCursorImpl(context.WithValue(ctx, "tabletType", destTabletType), safeSession, destKeyspace, destTabletType, comments, e, logStats)
+	vcursor := newVCursorImpl(ctx, safeSession, destKeyspace, destTabletType, comments, e, logStats)
 	plan, err := e.getPlan(
 		vcursor,
 		query,
@@ -297,18 +292,17 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 	)
 	execStart := time.Now()
 	logStats.PlanTime = execStart.Sub(logStats.StartTime)
+
 	if err != nil {
 		logStats.Error = err
 		return nil, err
 	}
-	queryExecTimings.Add([]string{destKeyspace, topoproto.TabletTypeLString(destTabletType), "plan", plan.Instructions.RouteType()}, logStats.PlanTime)
 
 	qr, err := plan.Instructions.Execute(vcursor, bindVars, true)
 
 	logStats.ExecuteTime = time.Since(execStart)
 	queriesProcessed.Add(plan.Instructions.RouteType(), 1)
 	queriesRouted.Add(plan.Instructions.RouteType(), int64(logStats.ShardQueries))
-	queryExecTimings.Add([]string{destKeyspace, topoproto.TabletTypeLString(destTabletType), "exec", plan.Instructions.RouteType()}, logStats.ExecuteTime)
 
 	var errCount uint64
 	if err != nil {
