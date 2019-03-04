@@ -232,9 +232,10 @@ func (route *Route) execute(vcursor VCursor, bindVars map[string]*querypb.BindVa
 
 	queries := getQueries(route.Query, bvs)
 	result, errs := vcursor.ExecuteMultiShard(rss, queries, false /* isDML */, false /* autocommit */)
-	routeExecTimings.Record([]string{route.Keyspace.Name, topoproto.TabletTypeLString(route.TargetTabletType), "multishard", route.RouteType()}, execStart)
+
+	routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "multishard", route.RouteType()}, execStart)
 	execStart = time.Now()
-	defer routeExecTimings.Record([]string{route.Keyspace.Name, topoproto.TabletTypeLString(route.TargetTabletType), "sort", route.RouteType()}, execStart)
+	defer routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "sort", route.RouteType()}, execStart)
 
 	if errs != nil {
 		if route.ScatterErrorsAsWarnings {
@@ -371,15 +372,25 @@ func (route *Route) resolveShards(vcursor VCursor, vindexKeys []sqltypes.Value) 
 
 	// Map using the Vindex
 	destinations, err := route.Vindex.Map(vcursor, vindexKeys)
-	routeExecTimings.Record([]string{route.Keyspace.Name, topoproto.TabletTypeLString(route.TargetTabletType), "map_" + route.Vindex.String(), route.RouteType()}, resolveStart)
+	routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "map_" + route.Vindex.String(), route.RouteType()}, resolveStart)
 	resolveStart = time.Now()
-	defer routeExecTimings.Record([]string{route.Keyspace.Name, topoproto.TabletTypeLString(route.TargetTabletType), "resolveshards_" + route.Vindex.String(), route.RouteType()}, resolveStart)
+	defer routeExecTimings.Record([]string{route.Keyspace.Name, route.getTabletType(vcursor), "resolveshards_" + route.Vindex.String(), route.RouteType()}, resolveStart)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// And use the Resolver to map to ResolvedShards.
 	return vcursor.ResolveDestinations(route.Keyspace.Name, ids, destinations)
+}
+
+func (route *Route) getTabletType(vcursor VCursor) string {
+	tabletTypeLString := "unknown"
+	if v := vcursor.Context().Value("tabletType"); v != nil {
+		if tabletType, ok := v.(topodatapb.TabletType); ok {
+			tabletTypeLString = topoproto.TabletTypeLString(tabletType)
+		}
+	}
+	return tabletTypeLString
 }
 
 func (route *Route) sort(in *sqltypes.Result) (*sqltypes.Result, error) {
