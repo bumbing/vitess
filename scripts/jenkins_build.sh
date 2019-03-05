@@ -66,5 +66,5 @@ TYPE=pinterest-builds/vitess
 BRANCH=${GIT_BRANCH#origin/}
 TARGET_DIR=vitess
 BUILD_URL=$BUILD_URL
-COMMIT_DATE=$(($(git show -s --format=%ct ${COMMIT}) * 1000))
+COMMIT_DATE=$(($(git show -s --format=%ct ${GIT_COMMIT}) * 1000))
 EOF
