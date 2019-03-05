@@ -11,7 +11,7 @@ echo Logging to /var/log/vtctld/validate_cron.log
 exec > /var/log/vtctld/validate_cron.log
 exec 2>&1
 
-set -xtrace
+set -o xtrace
 
 VTCTL_CMD="/vt/bin/vtctlclient -server localhost:15991 -action_timeout 10s"
 
