@@ -25,7 +25,7 @@ elif [[ "$VTENV" == "shadow" ]]; then
   PATIO_ARGS=(-include-cols -cols-authoritative
               -create-primary-vindexes -create-secondary-vindexes
               -default-scatter-cache-capacity 100000
-              -table-scatter-cache-capacity campaigns:200000,pin_promotions:0,product_groups:1000000
+              -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
              )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
   UPDATE_GENERAL=false
@@ -39,7 +39,7 @@ else
   exit 1
 fi
 
-echo Operating on environment $VTENV. For ads-latest, run "$0" latest
+echo Operating on environment "$VTENV". For ads-latest, run "$0" latest
 
 PVCTL_CMD="/vt/scripts/pvtctl.sh"
 PINSCHEMA_CMD="/vt/bin/pinschema"
@@ -67,36 +67,36 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 echo Validating consistent shard schemas...
-$PVCTL_CMD $VTENV ValidateSchemaKeyspace patio
+$PVCTL_CMD "$VTENV" ValidateSchemaKeyspace patio
 
 echo Finding tablets to pull schemas from...
-PATIO_MASTER=$($PVCTL_CMD $VTENV ListAllTablets | grep " patio 0 " | grep " master " | cut -d' ' -f 1)
+PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patio 0 " | grep " master " | cut -d' ' -f 1)
 if $UPDATE_GENERAL; then
-  PATIOGENERAL_MASTER=$($PVCTL_CMD $VTENV ListAllTablets | grep " patiogeneral 0 " | grep " master " | cut -d' ' -f 1)
+  PATIOGENERAL_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patiogeneral 0 " | grep " master " | cut -d' ' -f 1)
 fi
 
 echo Saving current patio schema...
 PATIO_SCHEMA_FILE=$(mktemp -t patio-schema.sql.XXXX)
-PATIO_SCHEMA_CONTENT=$($PVCTL_CMD $VTENV GetSchema "$PATIO_MASTER" | jq -r '.table_definitions[].schema + ";"')
+PATIO_SCHEMA_CONTENT=$($PVCTL_CMD "$VTENV" GetSchema "$PATIO_MASTER" | jq -r '.table_definitions[].schema + ";"')
 echo "$PATIO_SCHEMA_CONTENT" > "$PATIO_SCHEMA_FILE"
 
 if $UPDATE_GENERAL; then
-  if [[ "$ADD_SEQS" == "true" ]]; then
+  if [[ "${ADD_SEQS:-false}" == "true" ]]; then
       echo Making sure sequence tables exist in patiogeneral...
       CREATE_SQL=$($PINSCHEMA_CMD create-seq "$PATIO_SCHEMA_FILE")
-      $PVCTL_CMD $VTENV ApplySchema -sql="$CREATE_SQL" patiogeneral
+      $PVCTL_CMD "$VTENV" ApplySchema -sql="$CREATE_SQL" patiogeneral
   fi
 fi
 
 if $UPDATE_GENERAL; then
   echo Saving current patiogeneral schema...
   PATIOGENERAL_SCHEMA_FILE=$(mktemp -t patiogeneral-schema.sql.XXXX)
-  PATIOGENERAL_SCHEMA_CONTENT=$($PVCTL_CMD $VTENV GetSchema "$PATIOGENERAL_MASTER" | jq -r '.table_definitions[].schema + ";"')
+  PATIOGENERAL_SCHEMA_CONTENT=$($PVCTL_CMD "$VTENV" GetSchema "$PATIOGENERAL_MASTER" | jq -r '.table_definitions[].schema + ";"')
   echo "$PATIOGENERAL_SCHEMA_CONTENT" > "$PATIOGENERAL_SCHEMA_FILE"
 
   echo Diffing patiogeneral vschema...
   PATIOGENERAL_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIOGENERAL_ARGS[@]}" "$PATIOGENERAL_SCHEMA_FILE")
-  PATIOGENERAL_VSCHEMA_OLD=$($PVCTL_CMD $VTENV GetVSchema patiogeneral)
+  PATIOGENERAL_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patiogeneral)
 
   DIFF=$(diff -u <(echo "$PATIOGENERAL_VSCHEMA_OLD") <(echo "$PATIOGENERAL_VSCHEMA") || true)
   if [ "$DIFF" ]; then
@@ -111,7 +111,7 @@ if $UPDATE_GENERAL; then
     done
 
     case "$choice" in
-      y|Y ) $PVCTL_CMD $VTENV ApplyVSchema -vschema="$PATIOGENERAL_VSCHEMA" patiogeneral;;
+      y|Y ) $PVCTL_CMD "$VTENV" ApplyVSchema -vschema="$PATIOGENERAL_VSCHEMA" patiogeneral;;
       * ) echo "Cancelled"; exit 1;;
     esac
   else
@@ -121,7 +121,7 @@ fi
 
 echo Diffing patio vschema...
 PATIO_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIO_ARGS[@]}" "$PATIO_SCHEMA_FILE")
-PATIO_VSCHEMA_OLD=$($PVCTL_CMD $VTENV GetVSchema patio)
+PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
 DIFF=$(diff -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || true)
 if [ "$DIFF" ]; then
   echo "$DIFF"
@@ -135,7 +135,7 @@ if [ "$DIFF" ]; then
   done
 
   case "$choice" in
-    y|Y ) $PVCTL_CMD $VTENV ApplyVSchema -vschema="$PATIO_VSCHEMA" patio;;
+    y|Y ) $PVCTL_CMD "$VTENV" ApplyVSchema -vschema="$PATIO_VSCHEMA" patio;;
     * ) echo "Cancelled"; exit 1;;
   esac
 else
