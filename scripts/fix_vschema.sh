@@ -30,9 +30,32 @@ elif [[ "$VTENV" == "shadow" ]]; then
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
   UPDATE_GENERAL=false
 elif [[ "$VTENV" == "prod" ]]; then
-  # TODO(dweitzman): Start rolling out sequences by adding
-  # "-seq-table-whitelist=accepted_tos" to the patio arguments.
-  PATIO_ARGS=(-include-cols)
+  PATIO_ARGS=(
+    -include-cols -create-sequences
+    "-seq-table-whitelist=accepted_tos,notifications,bulk_v2_jobs,rule_subscriptions,goals,billing_contacts,app_event_tracking_configs,carousel_slot_promotions,owner_to_advertiser,user_preferences,promoted_catalog_product_groups_history,bill_details,billing_actions,billing_profiles,bills,business_profiles,conversion_tags"
+
+    # Still TODO for moving to sequences:
+    #
+    # ad_group_specs
+    # ad_groups
+    # advertisers
+    # campaign_specs
+    # campaigns
+    # order_line_specs
+    # order_lines
+    # pin_promotion_labels
+    # pin_promotion_specs
+    # pin_promotions_history
+    # pin_promotions
+    # pinner_list_specs
+    # pinner_lists
+    # product_group_specs
+    # product_groups
+    # promoted_catalog_product_groups
+    # targeting_attribute_history
+    # targeting_attributes
+    # targeting_specs
+  )
   PATIOGENERAL_ARGS=(-include-cols)
 else
   echo "Unsupported env name: $1"
@@ -60,7 +83,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
      For now we're trying to compile on-demand. You'll need:
       go >=1.11
-      ~/code/vitess/go.mod created by vt_fix_gomod.sh"
+      ~/code/vitess/go.mod created by ./scripts/fix_gomod.sh"
     PVCTL_CMD="./scripts/pvtctl.sh"
     PINSCHEMA_CMD="go run ./go/cmd/pinschema"
   fi
