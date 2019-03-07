@@ -233,6 +233,15 @@ func maybeTargetOverrideForQuery(query string) string {
 	if len(submatch) > 1 {
 		return submatch[1]
 	}
+
+	// NOTE(dweitzman): For the moment we also allow the VitessTarget directive in
+	// trailing comments. Pepsi would never send that, but it's useful for debugging
+	// ad-hoc queries with the auditable-mysql-cli, which currently deletes leading
+	// comments.
+	submatch = vitessTargetComment.FindStringSubmatch(marginComments.Trailing)
+	if len(submatch) > 1 {
+		return submatch[1]
+	}
 	return ""
 }
 
@@ -289,7 +298,7 @@ func (vh *vtgateHandler) maybeExecuteDarkRead(ctx context.Context, session *vtga
 		return nil, nil
 	case sqlparser.StmtSelect:
 		_, marginComments := sqlparser.SplitMarginComments(query)
-		if !darkReadCommentRe.MatchString(marginComments.Leading) {
+		if !darkReadCommentRe.MatchString(marginComments.Leading) && !darkReadCommentRe.MatchString(marginComments.Trailing) {
 			// Allow non-dark selects for ad-hoc testing.
 			return nil, nil
 		}
