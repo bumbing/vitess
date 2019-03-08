@@ -278,7 +278,8 @@ func compareDarkResults(masterCombinedResult *sqltypes.Result, masterErr error, 
 		}
 		for colIdx := range masterRow {
 			if masterRow[colIdx].Type() != rdonlyRow[colIdx].Type() || bytes.Compare(masterRow[colIdx].Raw(), rdonlyRow[colIdx].Raw()) != 0 {
-				return fmt.Errorf("found difference at row %v col %v. master %v, rdonly %v", rowIdx, colIdx, masterRow, rdonlyRow)
+				colName := masterCombinedResult.Fields[colIdx].Name
+				return fmt.Errorf("found difference at row %v col %v/%v. master %v, rdonly %v", rowIdx, colIdx, colName, masterRow, rdonlyRow)
 			}
 		}
 	}
