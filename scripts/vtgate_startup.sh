@@ -78,11 +78,9 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
   args+=(
     -group_tls_regexes "writer:.*(pepsi|patio|cola|dev-|mysql-open-access-bastion).*"
   )
-fi
-
-if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
+elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
   args+=(
-    -group_tls_regexes "writer:^(m10n-(pepsi|patio|croncola)(-long-jobs)?-(prod|cron|canary|staging)-.*)|cloudeng-mysql-open-access-bastion-prod-.*"
+    -group_tls_regexes "writer:^(m10n-pepsi-(prod|canary|long-jobs-prod|cron|canary)-.*)|^cloudeng-sox-mysql-open-access-bastion-prod-.*"
   )
 fi
 
