@@ -27,6 +27,14 @@ args=(
   -cells_to_watch "${TELETRAAN_CELL:-test}"
   -tablet_types_to_wait "${TELETRAAN_TABLET_TYPES_TO_WAIT:-MASTER,REPLICA}"
   -gateway_implementation discoverygateway
+  # If at least one rdonly instance has lag <10m and the others do not,
+  # prefer the one with <10m lag. Indexing aims to have data served within
+  # 15m of being written to patio, so we have a more extreme prefernce for
+  # non-lagging rdonly replicas than the discovery gateway default.
+  # The default is to avoid replicas with >2h of lag if at least two other
+  # replicas have less lag.
+  -discovery_high_replication_lag_minimum_serving 10m
+  -min_number_serving_vttablets 1
   -service_map 'grpc-vtgateservice'
   -merge_keyspace_joins_to_single_shard
   -allow_select_unauthoritative_col
