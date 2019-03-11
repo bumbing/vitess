@@ -40,9 +40,10 @@ while getopts ":dt" opt; do
         -pid_file /tmp/vtctld.pid
       );;
     t)
-      # Relax security policy in dev
+      # Relax security policy in dev and allow queries
       args+=(
         "-security_policy="
+        -enable_queries
       );;
     \?)
       break
