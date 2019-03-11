@@ -31,7 +31,10 @@ elif [[ "$VTENV" == "shadow" ]]; then
   UPDATE_GENERAL=false
 elif [[ "$VTENV" == "prod" ]]; then
   PATIO_ARGS=(
-    -include-cols -create-sequences
+    -include-cols -cols-authoritative -create-sequences
+    -create-primary-vindexes -create-secondary-vindexes
+    -default-scatter-cache-capacity 100000
+    -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
   )
   PATIOGENERAL_ARGS=(-include-cols)
 else
@@ -98,7 +101,7 @@ if $UPDATE_GENERAL; then
 
   DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIOGENERAL_VSCHEMA_OLD") <(echo "$PATIOGENERAL_VSCHEMA") || test "$?" -eq 1)
   if [ "$DIFF" ]; then
-    echo "$DIFF"
+    echo "$DIFF" | less
 
     while read -p "Does this change to patiogeneral vschema look right (y/n)? " choice
     do
@@ -122,7 +125,7 @@ PATIO_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIO_ARGS[@]}" "$PATIO_SCHEMA_
 PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
 DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || test "$?" -eq 1)
 if [ "$DIFF" ]; then
-  echo "$DIFF"
+  echo "$DIFF" | less
 
   while read -p "Does this change to patio vschema look right (y/n)? " choice
   do
