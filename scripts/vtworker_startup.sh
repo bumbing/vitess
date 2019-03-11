@@ -18,7 +18,7 @@ args=(
   -grpc_port 15991
   -cell "${TELETRAAN_CELL:-test}"
   -service_map 'grpc-vtworker'
-  -security_policy role_whitelist
+  -security_policy=""
   -whitelisted_roles "monitoring,debugging"
   -username vtworker
   -groups "reader,writer,admin"
@@ -57,11 +57,5 @@ while getopts ":dt" opt; do
   esac
 done
 shift $((OPTIND -1))
-
-if [[ ${LATEST} == true || "${STAGE_NAME:-}" == "shadow" ]]; then
-  args+=(
-    "-security_policy="
-  )
-fi
 
 ${VTWORKER_COMMAND:-/vt/bin/vtworker} "${args[@]}" "$@"
