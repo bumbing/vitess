@@ -1751,6 +1751,15 @@ func TestKeyShardDestQuery(t *testing.T) {
 
 	testQueries(t, "sbc2", sbc2, wantQueries)
 
+	*discourageV2Inserts = true
+	_, err = executorExec(executor, "INSERT INTO sharded_user_msgs(message) VALUE('test')", nil)
+	*discourageV2Inserts = false
+
+	want := "INSERT with a destination shard or keyspace ID is dangerous. Put I_CAN_BE_TRUSTED_TO_TARGET_INSERT_STATEMENTS_TO_SHARDS somewhere in your query to proceed"
+	if err == nil || err.Error() != want {
+		t.Errorf("got: %v, want %s", err, want)
+	}
+
 	sbc1.Queries = nil
 	sbc2.Queries = nil
 	masterSession.TargetString = ""

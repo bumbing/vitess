@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"net/http"
 	"sort"
@@ -60,6 +61,8 @@ var (
 
 	queriesProcessed = stats.NewCountersWithSingleLabel("QueriesProcessed", "Queries processed at vtgate by plan type", "Plan")
 	queriesRouted    = stats.NewCountersWithSingleLabel("QueriesRouted", "Queries routed from vtgate to vttablet by plan type", "Plan")
+
+	discourageV2Inserts = flag.Bool("discourage-v2-inserts", false, "whether to discourage non-v3 inserts")
 )
 
 func init() {
@@ -254,6 +257,21 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 			stmtType := sqlparser.Preview(sql)
 			if stmtType == sqlparser.StmtInsert {
 				return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "range queries not supported for inserts: %s", safeSession.TargetString)
+			}
+		}
+
+		// For patio we discourage people from doing `use patio:-80; insert foo` because you could
+		// potentially insert a row into a shard it doesn't really belong in. It's possible to
+		// bypass the protection by adding a special comment to the query. This is mostly to
+		// avoid mistakes where someone in a read-write mode may have selecting a particular shard
+		// or keyspace ID before trying to do an insert.
+		if *discourageV2Inserts && sqlparser.Preview(sql) == sqlparser.StmtInsert {
+			bypass := "I_CAN_BE_TRUSTED_TO_TARGET_INSERT_STATEMENTS_TO_SHARDS"
+			if !strings.Contains(sql, bypass) {
+				return nil, vterrors.Errorf(
+					vtrpcpb.Code_INVALID_ARGUMENT,
+					"INSERT with a destination shard or keyspace ID is dangerous. Put %v somewhere in your query to proceed",
+					bypass)
 			}
 
 		}
