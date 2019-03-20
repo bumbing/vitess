@@ -17,5 +17,5 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   ./scripts/fix_vschema.sh "$VTENV"
 else
   /vt/scripts/pvtctl.sh "$VTENV" ApplySchema "$@"
-  /vt/scripts/vt_fix_vschema.sh "$VTENV"
+  /vt/scripts/fix_vschema.sh "$VTENV"
 fi
