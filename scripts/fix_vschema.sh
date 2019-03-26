@@ -14,6 +14,7 @@ set -o pipefail
 PATIO_ARGS=""
 PATIOGENERAL_ARGS=""
 UPDATE_GENERAL=true
+SKIP_VALIDATE="${SKIP_VALIDATE:-false}"
 
 VTENV="$1"
 if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
@@ -21,6 +22,10 @@ if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
               -create-primary-vindexes -create-secondary-vindexes
               -default-scatter-cache-capacity 100000)
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
+
+  # TODO(dweitzman): Remove this after turning down the old shard that still has
+  # autoincrement.
+  SKIP_VALIDATE="true"
 elif [[ "$VTENV" == "shadow" ]]; then
   PATIO_ARGS=(-include-cols -cols-authoritative
               -create-primary-vindexes -create-secondary-vindexes
@@ -69,11 +74,13 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   fi
 fi
 
-echo Validating consistent shard schemas...
-$PVCTL_CMD "$VTENV" ValidateSchemaKeyspace patio
+if [[ "$SKIP_VALIDATE" != "true" ]]; then
+  echo Validating consistent shard schemas...
+  $PVCTL_CMD "$VTENV" ValidateSchemaKeyspace patio
+fi
 
 echo Finding tablets to pull schemas from...
-PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patio 0 " | grep " master " | cut -d' ' -f 1)
+PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patio -80 " | grep " master " | cut -d' ' -f 1)
 if $UPDATE_GENERAL; then
   PATIOGENERAL_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patiogeneral 0 " | grep " master " | cut -d' ' -f 1)
 fi
