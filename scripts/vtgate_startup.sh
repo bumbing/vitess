@@ -49,7 +49,6 @@ args=(
   -stats_emit_period 1m
   -stats_backend opentsdb
   "-opentsdb_service=${TELETRAAN_TSDB_SERVICE:-}"
-  "-pinterest_dark_read_gate=${TELETRAAN_DARK_GATE:-false}"
   "-discourage-v2-inserts=${TELETRAAN_DISCOURAGE_V2_INSERTS:-false}"
 )
 
