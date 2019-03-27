@@ -18,7 +18,6 @@ args=(
   -grpc_port 15991
   -mysql_server_port 3306
   -mysql_tcp_version tcp4
-  -mysql_server_socket_path /tmp/mysql.sock
   -mysql_auth_server_impl knox
   -knox_supported_roles "scriptro,longqueryro,scriptrw,longqueryrw${TELETRAAN_ADDITIONAL_KNOX_ROLES:+,}${TELETRAAN_ADDITIONAL_KNOX_ROLES:-}"
   -knox_role_mapping "scriptro:reader,longqueryro:reader,pepsirw:reader:writer:admin,devpepsirw:reader:writer:admin,scriptrw:reader:writer:admin,pepsilong:reader:writer:admin,devpepsilong:reader:writer:admin,longqueryrw:reader:writer:admin"
@@ -36,7 +35,7 @@ args=(
   -discovery_high_replication_lag_minimum_serving 10m
   -min_number_serving_vttablets 1
   -service_map 'grpc-vtgateservice'
-  -merge_keyspace_joins_to_single_shard
+  "-merge_keyspace_joins_to_single_shard=${TELETRAAN_MERGE_JOIN_SHARDS:-true}"
   -allow_select_unauthoritative_col
   -alsologtostderr
   -mysql_server_query_timeout 2h
