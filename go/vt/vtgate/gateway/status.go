@@ -50,6 +50,9 @@ const (
 </style>
 <table>
   <tr>
+    <th colspan="8">Gateway Status <i><a href="/debug/gateway">in JSON</a></i></th>
+  </tr>
+  <tr>
     <th>Keyspace</th>
     <th>Shard</th>
     <th>TabletType</th>
