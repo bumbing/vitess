@@ -180,7 +180,8 @@ func fixZkPath(zkPath string) string {
 }
 
 func isZkFile(path string) bool {
-	return strings.HasPrefix(path, "/zk")
+	// NOTE(dweitzman): At Pinterest our topo path prefix is currently /vitess, not /zk
+	return strings.HasPrefix(path, "/zk") || strings.HasPrefix(path, "/vitess")
 }
 
 func cmdWait(ctx context.Context, subFlags *flag.FlagSet, args []string) error {
