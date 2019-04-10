@@ -75,23 +75,6 @@
   }
 }
 
-
-# -merge_keyspace_joins_to_single_shard works even if the join column has no vindex
-"select cpn.id, ad.id from campaigns cpn join advertisers ad on cpn.fake_col = ad.fake_col"
-{
-  "Original": "select cpn.id, ad.id from campaigns cpn join advertisers ad on cpn.fake_col = ad.fake_col",
-  "Instructions": {
-    "Opcode": "SelectScatter",
-    "Keyspace": {
-      "Name": "user",
-      "Sharded": true
-    },
-    "Query": "select cpn.id, ad.id from campaigns as cpn join advertisers as ad on cpn.fake_col = ad.fake_col",
-    "FieldQuery": "select cpn.id, ad.id from campaigns as cpn join advertisers as ad on cpn.fake_col = ad.fake_col where 1 != 1"
-  }
-}
-
-
 # Insert with value that's in a scatter-cache vindex column
 "insert into campaigns(id, advertiser_id) values(1, 2)"
 {

@@ -46,6 +46,9 @@ var (
 	// https://jira.pinadmin.com/browse/STERLING-3684
 	alwaysMergeKeyspaceRoutes = flag.Bool("merge_keyspace_joins_to_single_shard", false,
 		"whether joins within a keyspace should be executed in a single shard even without a unique vindex on the join column")
+
+	mergeLeftJoinUniqueVindexes = flag.Bool("merge_left_join_unique_vindexes", false,
+		"whether left joins using unique vindexes should merge routes")
 )
 
 // This file has functions to analyze the FROM clause.
@@ -319,7 +322,7 @@ func (pb *primitiveBuilder) mergeRoutes(rpb *primitiveBuilder, ajoin *sqlparser.
 		sel.From = append(sel.From, rhsSel.From...)
 	} else {
 		sel.From = sqlparser.TableExprs{ajoin}
-		if ajoin.Join == sqlparser.LeftJoinStr {
+		if ajoin.Join == sqlparser.LeftJoinStr && !*mergeLeftJoinUniqueVindexes {
 			rpb.st.ClearVindexes()
 		}
 	}

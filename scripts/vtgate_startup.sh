@@ -49,6 +49,7 @@ args=(
   -stats_backend opentsdb
   "-opentsdb_service=${TELETRAAN_TSDB_SERVICE:-}"
   "-discourage-v2-inserts=${TELETRAAN_DISCOURAGE_V2_INSERTS:-false}"
+  "-merge_left_join_unique_vindexes=${TELETRAAN_MERGE_LEFT_JOINS:-false}"
 )
 
 if [ "${VTGATE_COMMAND:-}" = "" ]
