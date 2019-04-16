@@ -35,42 +35,73 @@ fi
 if [ "$SKIP_BUILD" != 'true' ] && [ "$PUSH_IMAGES" != '1' ]
 then
   # Copy the most recent files into the bootstrap image to create a base image
-  docker build --no-cache -f docker/base/Dockerfile.percona --build-arg BASE_IMAGE=$REGISTRY/vitess/bootstrap:percona -t $REGISTRY/vitess/base:$GIT_COMMIT .
+  docker build --no-cache -f docker/base/Dockerfile.percona --build-arg BASE_IMAGE=$REGISTRY/vitess/bootstrap:percona -t $REGISTRY/vitess/base:"$GIT_COMMIT" .
 
   # Run unit tests and build a pinterest-specific image
-  docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess:$GIT_COMMIT .
+  docker build --no-cache -f Dockerfile.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:"$GIT_COMMIT" -t $REGISTRY/vitess:"$GIT_COMMIT" .
 
   # Build vtctld specific image
-  docker build --no-cache -f Dockerfile.vtctld.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:$GIT_COMMIT -t $REGISTRY/vitess/vtctld:$GIT_COMMIT .
+  docker build --no-cache -f Dockerfile.vtctld.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:"$GIT_COMMIT" -t $REGISTRY/vitess/vtctld:"$GIT_COMMIT" .
 fi
 
 # Unit tests pass, making the build artifact succeeded. Let's push the base and vtgate images out!
 if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
 then
-  docker push $REGISTRY/vitess/base:$GIT_COMMIT
-  docker push $REGISTRY/vitess:$GIT_COMMIT
-  docker push $REGISTRY/vitess/vtctld:$GIT_COMMIT
+  docker push $REGISTRY/vitess/base:"$GIT_COMMIT"
+  docker push $REGISTRY/vitess:"$GIT_COMMIT"
+  docker push $REGISTRY/vitess/vtctld:"$GIT_COMMIT"
 fi
 
 if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]
 then
-  docker run -i $REGISTRY/vitess:$GIT_COMMIT /vt/scripts/write_build_artifact_to_stdout.sh > $TARBALL_GZ
+  docker run -i $REGISTRY/vitess:"$GIT_COMMIT" /vt/scripts/write_build_artifact_to_stdout.sh > "$TARBALL_GZ"
 # Package a .deb file where /vt/* has the contents of the build artifact
   DATE=$(date +%Y%m%d.%H%M)
 
-  fpm --verbose \
+  OUTPUT=$(fpm --verbose \
     -s tar \
     -t deb \
     -p "$BUILD_DIR" \
     -n "vitess" \
-    -v $DATE \
-    -a all \
+    -v "$DATE" \
+    -a amd64 \
     --category "Util" \
     --vendor "Pinterest" \
     --deb-no-default-config-files \
     -m "Pinterest Ops" \
     --prefix /vt/ \
-    "$TARBALL_GZ"
+    "$TARBALL_GZ")
+  EXIT="${?}"
 
-  deb-s3 upload --preserve-versions --visibility private --fail-if-exists --bucket pinterest-repo-trusty/apt --arch amd64 --sign BC0BEAD1 --codename trusty $BUILD_DIR/*.deb
+  if [[ "${EXIT}" -ne 0 ]]; then
+    echo -e "ERROR building package\n${OUTPUT}"
+    exit 255
+  fi
+
+  #deb-s3 upload --preserve-versions --visibility private --fail-if-exists --bucket pinterest-repo-trusty/apt --arch amd64 --sign BC0BEAD1 --codename trusty $BUILD_DIR/*.deb
+  #vitess_20190410.1534_all.deb
+  DEB_PATH=$(find "$BUILD_DIR" -name '*.deb' -print -quit)
+
+  if [[ ! -f "$DEB_PATH" ]]; then
+    echo -e "ERROR locating deb file at:${DEB_PATH}"
+    exit 255
+  fi
+
+  cat << EOF > "${WORKSPACE}/vitess.deb.properties"
+ARTIFACT_PATH=${DEB_PATH}
+FROM=JOB
+FROM_PROJECT=${JOB_NAME}
+FROM_BUILD=${BUILD_NUMBER}
+ENABLE_UPLOAD_METADATA=TRUE
+ENABLE_UPLOAD_METADATA_DEB=TRUE
+ARTIFACTORY_SERVER_ENV=prod
+ARTIFACTORY_SERVER_REGION=use1
+ARTIFACTORY_DESTINATION_REPO=ubuntu-deb-apt-prod-local
+TO_REPO=ubuntu-deb-apt-prod-local
+ENABLE_UPLOAD_METADATA_DEB_S3=TRUE
+UPLOAD_METADATA_DEB_DISTROS=trusty,xenial,bionic
+UPLOAD_METADATA_DEB_COMPONENT=main
+UPLOAD_METADATA_DEB_ARCHITECTURE=amd64
+EOF
+
 fi

@@ -5,20 +5,20 @@ set -o nounset
 set -o pipefail
 
 export VT_ARTIFACTS=${VT_ARTIFACTS:-'vitess,vtgate,vtworker,vtctld'}
-export BUILD_DIR=$WORKSPACE/BUILD_DIR
+export BUILD_DIR="${WORKSPACE}"/BUILD_DIR
 
 if [[ -d $BUILD_DIR ]]; then 
-    rm -rf $BUILD_DIR/*
+    rm -rf "${BUILD_DIR:?}"/*
 else
-    mkdir $BUILD_DIR
+    mkdir -p "${BUILD_DIR}"
 fi
 
-source $HOME/.aws/iam_keys
+source "${HOME}"/.aws/iam_keys
 
 # Create a build artifact and docker image based on the //:full_dist bazel target.
-cd $WORKSPACE
+cd "${WORKSPACE}"
 
-export PACKAGE_DEB=$PACKAGE_DEB
+export PACKAGE_DEB=${PACKAGE_DEB:-false}
 export SKIP_BUILD=false
 
 set +e
@@ -40,8 +40,8 @@ export TARBALL_GZ="${BUILD_DIR}/${TARBALL_FN_GZ}"
 export TARBALL_SRC="${WORKSPACE}/teletraan/${ARTIFACT}"
 if [[ -d $TARBALL_SRC ]]; then
     echo "packaging artifact:${ARTIFACT} to:${TARBALL_GZ} using telefig from:${TARBALL_SRC}"
-    tar -czvf $TARBALL_GZ -C $TARBALL_SRC .
-    s3up $TARBALL_GZ pinterest-builds vitess/$TARBALL_FN_GZ
+    tar -czvf "${TARBALL_GZ}" -C "${TARBALL_SRC}" .
+    s3up "${TARBALL_GZ}" pinterest-builds vitess/"${TARBALL_FN_GZ}"
     export BUILT_ARTIFACTS="${BUILT_ARTIFACTS},${ARTIFACT}"
 else
     echo "bypassing artifact:${ARTIFACT} due to missing telefig at:${TARBALL_SRC}"
@@ -52,13 +52,13 @@ if [[ ${#BUILT_ARTIFACTS} -eq 0 ]]; then
     echo "there's no artifact built from: ${VT_ARTIFACTS}, check the telefig structure!"
     exit 1
 else
-    # stipping off head comma
+    # stripping off head comma
     export BUILT_ARTIFACTS="${BUILT_ARTIFACTS:1:${#BUILT_ARTIFACTS}-1}"
     echo "bundle the following artifacts: ${BUILT_ARTIFACTS}"
 fi
 
 # end
-cat << EOF > "$WORKSPACE/builds.property"
+cat << EOF > "${WORKSPACE}/builds.property"
 BUILDS_NAME=${BUILT_ARTIFACTS}
 COMMIT=$GIT_COMMIT
 REPO=VT
@@ -66,5 +66,5 @@ TYPE=pinterest-builds/vitess
 BRANCH=${GIT_BRANCH#origin/}
 TARGET_DIR=vitess
 BUILD_URL=$BUILD_URL
-COMMIT_DATE=$(($(git show -s --format=%ct ${GIT_COMMIT}) * 1000))
+COMMIT_DATE=$(($(git show -s --format=%ct "${GIT_COMMIT}") * 1000))
 EOF
