@@ -44,6 +44,18 @@ func TestCreateVSchema(t *testing.T) {
 				},
 			},
 		},
+		{"LookupVindex",
+			pinschemaConfig{
+				createPrimary:               true,
+				createSecondary:             true,
+				defaultScatterCacheCapacity: 10000,
+				tableScatterCacheCapacity: map[string]uint64{
+					"campaigns": 20000,
+				},
+				lookupVindexWriteOnly: true,
+				createLookupVindexTables: true,
+			},
+		},
 	}
 
 	for _, test := range tests {

@@ -1,0 +1,2118 @@
+{
+  "sharded": true,
+  "vindexes": {
+    "accepted_tos_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "accepted_tos",
+        "to": "g_advertiser_id"
+      }
+    },
+    "accepted_tos_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "accepted_tos_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "accepted_tos"
+    },
+    "ad_group_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "ad_groups",
+        "to": "g_advertiser_id"
+      }
+    },
+    "ad_group_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "ad_group_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "ad_groups"
+    },
+    "ad_group_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "ad_group_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "ad_group_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "ad_group_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "ad_group_specs"
+    },
+    "advertiser_id": {
+      "type": "hash_offset",
+      "params": {
+        "offset": "549755813888"
+      }
+    },
+    "app_event_tracking_config_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "app_event_tracking_configs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "app_event_tracking_config_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "app_event_tracking_config_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "app_event_tracking_configs"
+    },
+    "bill_detail_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "bill_details",
+        "to": "g_advertiser_id"
+      }
+    },
+    "bill_detail_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "bill_detail_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "bill_details"
+    },
+    "bill_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "bills",
+        "to": "g_advertiser_id"
+      }
+    },
+    "bill_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "bill_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "bills"
+    },
+    "billing_action_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "billing_actions",
+        "to": "g_advertiser_id"
+      }
+    },
+    "billing_action_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "billing_action_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "billing_actions"
+    },
+    "billing_contact_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "billing_contacts",
+        "to": "g_advertiser_id"
+      }
+    },
+    "billing_contact_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "billing_contact_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "billing_contacts"
+    },
+    "billing_profile_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "billing_profiles",
+        "to": "g_advertiser_id"
+      }
+    },
+    "billing_profile_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "billing_profile_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "billing_profiles"
+    },
+    "bulk_v2_job_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "bulk_v2_jobs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "bulk_v2_job_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "bulk_v2_job_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "bulk_v2_jobs"
+    },
+    "business_profile_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "business_profiles",
+        "to": "g_advertiser_id"
+      }
+    },
+    "business_profile_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "business_profile_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "business_profiles"
+    },
+    "campaign_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "20000",
+        "from": "id",
+        "table": "campaigns",
+        "to": "g_advertiser_id"
+      }
+    },
+    "campaign_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "campaign_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "campaigns"
+    },
+    "campaign_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "campaign_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "campaign_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "campaign_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "campaign_specs"
+    },
+    "carousel_slot_promotion_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "carousel_slot_promotions",
+        "to": "g_advertiser_id"
+      }
+    },
+    "carousel_slot_promotion_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "carousel_slot_promotion_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "carousel_slot_promotions"
+    },
+    "conversion_tag_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "conversion_tags",
+        "to": "g_advertiser_id"
+      }
+    },
+    "conversion_tag_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "conversion_tag_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "conversion_tags"
+    },
+    "dark_write_advertiser_id": {
+      "type": "hash_offset",
+      "params": {
+        "offset": "549755813888"
+      }
+    },
+    "g_advertiser_id": {
+      "type": "hash"
+    },
+    "goal_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "goals",
+        "to": "g_advertiser_id"
+      }
+    },
+    "goal_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "goal_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "goals"
+    },
+    "notification_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "notifications",
+        "to": "g_advertiser_id"
+      }
+    },
+    "notification_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "notification_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "notifications"
+    },
+    "order_line_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "order_lines",
+        "to": "g_advertiser_id"
+      }
+    },
+    "order_line_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "order_line_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "order_lines"
+    },
+    "order_line_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "order_line_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "order_line_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "order_line_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "order_line_specs"
+    },
+    "pin_promotion_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "pin_promotions",
+        "to": "g_advertiser_id"
+      }
+    },
+    "pin_promotion_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "pin_promotion_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "pin_promotions"
+    },
+    "pin_promotion_label_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "pin_promotion_labels",
+        "to": "g_advertiser_id"
+      }
+    },
+    "pin_promotion_label_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "pin_promotion_label_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "pin_promotion_labels"
+    },
+    "pin_promotion_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "pin_promotion_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "pin_promotion_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "pin_promotion_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "pin_promotion_specs"
+    },
+    "pin_promotions_history_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "pin_promotions_history",
+        "to": "g_advertiser_id"
+      }
+    },
+    "pin_promotions_history_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "pin_promotions_history_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "pin_promotions_history"
+    },
+    "pinner_list_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "pinner_lists",
+        "to": "g_advertiser_id"
+      }
+    },
+    "pinner_list_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "pinner_list_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "pinner_lists"
+    },
+    "pinner_list_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "pinner_list_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "pinner_list_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "pinner_list_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "pinner_list_specs"
+    },
+    "product_group_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "product_groups",
+        "to": "g_advertiser_id"
+      }
+    },
+    "product_group_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "product_group_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "product_groups"
+    },
+    "product_group_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "product_group_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "product_group_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "product_group_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "product_group_specs"
+    },
+    "promoted_catalog_product_group_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "promoted_catalog_product_groups",
+        "to": "g_advertiser_id"
+      }
+    },
+    "promoted_catalog_product_group_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "promoted_catalog_product_group_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "promoted_catalog_product_groups"
+    },
+    "promoted_catalog_product_groups_history_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "promoted_catalog_product_groups_history",
+        "to": "g_advertiser_id"
+      }
+    },
+    "promoted_catalog_product_groups_history_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "promoted_catalog_product_groups_history_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "promoted_catalog_product_groups_history"
+    },
+    "rule_subscription_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "rule_subscriptions",
+        "to": "g_advertiser_id"
+      }
+    },
+    "rule_subscription_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "rule_subscription_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "rule_subscriptions"
+    },
+    "targeting_attribute_history_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "targeting_attribute_history",
+        "to": "g_advertiser_id"
+      }
+    },
+    "targeting_attribute_history_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "targeting_attribute_history_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "targeting_attribute_history"
+    },
+    "targeting_attribute_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "targeting_attributes",
+        "to": "g_advertiser_id"
+      }
+    },
+    "targeting_attribute_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "targeting_attribute_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "targeting_attributes"
+    },
+    "targeting_spec_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "targeting_specs",
+        "to": "g_advertiser_id"
+      }
+    },
+    "targeting_spec_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "targeting_spec_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "targeting_specs"
+    },
+    "user_preference_id": {
+      "type": "scatter_cache",
+      "params": {
+        "capacity": "10000",
+        "from": "id",
+        "table": "user_preferences",
+        "to": "g_advertiser_id"
+      }
+    },
+    "user_preference_id_idx": {
+      "type": "PinLookupHashUnique",
+      "params": {
+        "from": "id",
+        "table": "user_preference_id_idx",
+        "to": "g_advertiser_id",
+        "write_only": "true"
+      },
+      "owner": "user_preferences"
+    }
+  },
+  "tables": {
+    "accepted_tos": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "accepted_tos_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "accepted_tos_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "ad_group_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ad_group_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "targeting_spec_id",
+          "columns": [
+            "targeting_spec_id"
+          ]
+        },
+        {
+          "name": "targeting_spec_id_idx",
+          "columns": [
+            "targeting_spec_id"
+          ]
+        }
+      ]
+    },
+    "ad_groups": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ad_group_spec_id",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "ad_group_spec_id_idx",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        }
+      ]
+    },
+    "advertisers": {
+      "columnVindexes": [
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "billing_profile_id",
+          "columns": [
+            "billing_profile_id"
+          ]
+        },
+        {
+          "name": "billing_profile_id_idx",
+          "columns": [
+            "billing_profile_id"
+          ]
+        },
+        {
+          "name": "business_profile_id",
+          "columns": [
+            "business_profile_id"
+          ]
+        },
+        {
+          "name": "business_profile_id_idx",
+          "columns": [
+            "business_profile_id"
+          ]
+        }
+      ]
+    },
+    "app_event_tracking_configs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "app_event_tracking_config_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "app_event_tracking_config_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "bill_details": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "bill_detail_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bill_detail_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bill_id",
+          "columns": [
+            "bill_id"
+          ]
+        },
+        {
+          "name": "bill_id_idx",
+          "columns": [
+            "bill_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        }
+      ]
+    },
+    "billing_actions": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "bill_id",
+          "columns": [
+            "bill_id"
+          ]
+        },
+        {
+          "name": "bill_id_idx",
+          "columns": [
+            "bill_id"
+          ]
+        },
+        {
+          "name": "billing_action_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "billing_action_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "billing_contacts": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "billing_contact_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "billing_contact_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "billing_profiles": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "billing_profile_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "billing_profile_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "bills": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "bill_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bill_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "billing_profile_id",
+          "columns": [
+            "billing_profile_id"
+          ]
+        },
+        {
+          "name": "billing_profile_id_idx",
+          "columns": [
+            "billing_profile_id"
+          ]
+        },
+        {
+          "name": "business_profile_id",
+          "columns": [
+            "business_profile_id"
+          ]
+        },
+        {
+          "name": "business_profile_id_idx",
+          "columns": [
+            "business_profile_id"
+          ]
+        }
+      ]
+    },
+    "bulk_v2_jobs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "bulk_v2_job_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "bulk_v2_job_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "business_profiles": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "business_profile_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "business_profile_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "campaign_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "campaign_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "order_line_id",
+          "columns": [
+            "order_line_id"
+          ]
+        },
+        {
+          "name": "order_line_id_idx",
+          "columns": [
+            "order_line_id"
+          ]
+        }
+      ]
+    },
+    "campaigns": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "campaign_spec_id",
+          "columns": [
+            "campaign_spec_id"
+          ]
+        },
+        {
+          "name": "campaign_spec_id_idx",
+          "columns": [
+            "campaign_spec_id"
+          ]
+        }
+      ]
+    },
+    "carousel_slot_promotions": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "carousel_slot_promotion_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "carousel_slot_promotion_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id",
+          "columns": [
+            "pin_promotion_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id_idx",
+          "columns": [
+            "pin_promotion_id"
+          ]
+        }
+      ]
+    },
+    "conversion_tags": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "conversion_tag_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "conversion_tag_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "goals": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "goal_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "goal_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "notifications": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "notification_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "notification_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "order_line_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "order_line_id",
+          "columns": [
+            "order_line_id"
+          ]
+        },
+        {
+          "name": "order_line_id_idx",
+          "columns": [
+            "order_line_id"
+          ]
+        },
+        {
+          "name": "order_line_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "order_line_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "order_lines": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "billing_profile_id",
+          "columns": [
+            "billing_profile_id"
+          ]
+        },
+        {
+          "name": "billing_profile_id_idx",
+          "columns": [
+            "billing_profile_id"
+          ]
+        },
+        {
+          "name": "order_line_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "order_line_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "order_line_spec_id",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "order_line_spec_id_idx",
+          "columns": [
+            "spec_id"
+          ]
+        }
+      ]
+    },
+    "pin_promotion_labels": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_label_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pin_promotion_label_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "pin_promotion_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_spec_id",
+          "columns": [
+            "campaign_spec_id"
+          ]
+        },
+        {
+          "name": "campaign_spec_id_idx",
+          "columns": [
+            "campaign_spec_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id",
+          "columns": [
+            "pin_promotion_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id_idx",
+          "columns": [
+            "pin_promotion_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pin_promotion_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "targeting_spec_id",
+          "columns": [
+            "targeting_spec_id"
+          ]
+        },
+        {
+          "name": "targeting_spec_id_idx",
+          "columns": [
+            "targeting_spec_id"
+          ]
+        }
+      ]
+    },
+    "pin_promotions": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pin_promotion_spec_id",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_spec_id_idx",
+          "columns": [
+            "spec_id"
+          ]
+        }
+      ]
+    },
+    "pin_promotions_history": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id",
+          "columns": [
+            "pin_promotion_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_id_idx",
+          "columns": [
+            "pin_promotion_id"
+          ]
+        },
+        {
+          "name": "pin_promotions_history_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pin_promotions_history_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "pinner_list_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "pinner_list_id",
+          "columns": [
+            "pinner_list_id"
+          ]
+        },
+        {
+          "name": "pinner_list_id_idx",
+          "columns": [
+            "pinner_list_id"
+          ]
+        },
+        {
+          "name": "pinner_list_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pinner_list_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "pinner_lists": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "pinner_list_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pinner_list_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pinner_list_spec_id",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "pinner_list_spec_id_idx",
+          "columns": [
+            "spec_id"
+          ]
+        }
+      ]
+    },
+    "product_group_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "product_group_id",
+          "columns": [
+            "product_group_id"
+          ]
+        },
+        {
+          "name": "product_group_id_idx",
+          "columns": [
+            "product_group_id"
+          ]
+        },
+        {
+          "name": "product_group_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "product_group_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "product_groups": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "product_group_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "product_group_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "product_group_spec_id",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "product_group_spec_id_idx",
+          "columns": [
+            "spec_id"
+          ]
+        }
+      ]
+    },
+    "promoted_catalog_product_groups": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "promoted_catalog_product_group_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "promoted_catalog_product_group_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "promoted_catalog_product_groups_history": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "ad_group_id",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "ad_group_id_idx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "campaign_id",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "campaign_id_idx",
+          "columns": [
+            "campaign_id"
+          ]
+        },
+        {
+          "name": "promoted_catalog_product_group_id",
+          "columns": [
+            "promoted_catalog_product_group_id"
+          ]
+        },
+        {
+          "name": "promoted_catalog_product_group_id_idx",
+          "columns": [
+            "promoted_catalog_product_group_id"
+          ]
+        },
+        {
+          "name": "promoted_catalog_product_groups_history_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "promoted_catalog_product_groups_history_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "rule_subscriptions": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "rule_subscription_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "rule_subscription_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "targeting_attribute_counts_by_advertiser": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "advertiser_gid"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "targeting_attribute_counts_by_parent": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        }
+      ]
+    },
+    "targeting_attribute_history": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "targeting_attribute_history_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "targeting_attribute_history_id_idx",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "targeting_attribute_id",
+          "columns": [
+            "targeting_attribute_id"
+          ]
+        },
+        {
+          "name": "targeting_attribute_id_idx",
+          "columns": [
+            "targeting_attribute_id"
+          ]
+        }
+      ]
+    },
+    "targeting_attributes": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "targeting_attribute_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "targeting_attribute_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "targeting_specs": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "targeting_spec_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "targeting_spec_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "user_preferences": {
+      "columnVindexes": [
+        {
+          "name": "g_advertiser_id",
+          "columns": [
+            "g_advertiser_id"
+          ]
+        },
+        {
+          "name": "advertiser_id",
+          "columns": [
+            "advertiser_id"
+          ]
+        },
+        {
+          "name": "user_preference_id",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "user_preference_id_idx",
+          "columns": [
+            "id"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -9,8 +9,6 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-const vindexTableSuffix = "_idx"
-
 func init() {
 	commands["create-lookup-vindex"] = buildVindexDDLs
 }
@@ -43,7 +41,7 @@ func buildVindexDDLs(ddls []*sqlparser.DDL, config pinschemaConfig) (string, err
 		}
 
 		if !tableContainsIdColumn(tableCreate) {
-			log.Warning("Table %s does not contain id column, skip lookup vindex table creation", tableCreate.Table.Name.String())
+			log.Warning("Table %s does not contain id column, skip lookup vindex table creation on: ", tableCreate.Table.Name.String())
 			continue
 		}
 

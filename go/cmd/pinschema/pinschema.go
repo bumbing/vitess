@@ -24,7 +24,7 @@ var (
 	createPrimaryVindexes       = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
 	createSecondaryVindexes     = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
 	createLookupVindexTables    = flag.Bool("create-lookup-vindex-tables", false, "Whether to create vindex tables")
-	lookupVindexWriteOnly       = flag.Bool("lookup-vindex-write-only", false, "Whether vindex tables are in write-only mode")
+	lookupVindexWriteOnly       = flag.Bool("lookup-vindex-write-only", true, "Whether vindex tables are in write-only mode")
 	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
 	includeCols                 = flag.Bool("include-cols", false, "Whether to include a column list for each table")
 	queryTablePrefix            = flag.String("query-table-prefix", "", "A prefix to add to tables for generated queries. Used to support hive with the sharding integrity check")

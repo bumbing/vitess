@@ -5,6 +5,8 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
+const vindexTableSuffix = "_idx"
+
 // singularize removes the "s" from a table name.
 //
 // Example: advertisers -> advertiser

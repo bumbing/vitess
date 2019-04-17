@@ -57,6 +57,59 @@ func newVschemaBuilder(ddls []*sqlparser.DDL, config pinschemaConfig) *vschemaBu
 	}
 }
 
+func isPrimaryVindex(vindexName string, tableName string, colName string) bool {
+	if tableName == "advertisers" {
+		return colName == "id"
+	} else if tableName == "targeting_attribute_counts_by_advertiser" {
+		return colName == "advertiser_gid"
+	} else {
+		// For every other table, "g_advertiser_id" is the primary vindex.
+		return vindexName == "g_advertiser_id"
+	}
+}
+
+func shouldSkipColumn(tableName string, colName string) bool {
+	if tableName == "advertisers" && colName == "gid" {
+		return true
+	}
+
+	return false
+}
+
+func (vb *vschemaBuilder) addColumnVindex(vindexName string, colName string, isPrimaryVindex bool, tblVindexes *[]*vschemapb.ColumnVindex) {
+	// Add the relevant vindex for this column. If it's the primary vindex, it
+	// needs to be added to the beginning of the list.
+	if _, ok := vb.vindexes[vindexName]; ok {
+		tableVindex := &vschemapb.ColumnVindex{
+			Name:    vindexName,
+			Columns: []string{colName},
+		}
+
+		if isPrimaryVindex {
+			*tblVindexes = append([]*vschemapb.ColumnVindex{tableVindex}, *tblVindexes...)
+		} else {
+			*tblVindexes = append(*tblVindexes, tableVindex)
+		}
+	}
+}
+
+func (vb *vschemaBuilder) shouldCreateLookupVindex(tableName string) bool {
+	if !vb.config.createLookupVindexTables {
+		return false
+	}
+
+	// No white listed table meaning all tables are included.
+	if 0 == len(vb.config.lookupVindexWhitelist) {
+		return true
+	}
+	for _, whitelistVindexTable := range vb.config.lookupVindexWhitelist {
+		if whitelistVindexTable == tableName {
+			return true
+		}
+	}
+	return false
+}
+
 func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 	if vb.config.createPrimary {
 		vb.createPrimaryVindexes()
@@ -91,35 +144,18 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 				tbl.Columns = append(tbl.Columns, colSpec)
 			}
 
-			vindexName := getVindexName(colName, tableName)
-
-			// For the advertisers table we use "id" as the primary vindex and we have no
-			// secondary vindex on "gid" because it's initially null.
-			isPrimaryVindex := false
-			if tableName == "advertisers" || tableName == "dark_write_advertisers" {
-				isPrimaryVindex = colName == "id"
-				if colName == "gid" {
-					// Can't set a secondary index on advertisers.gid because it's initially NULL.
-					continue
-				}
-			} else {
-				// For every other table, "g_advertiser_id" is the primary vindex.
-				isPrimaryVindex = vindexName == "g_advertiser_id"
+			if shouldSkipColumn(tableName, colName) {
+				continue
 			}
 
-			// Add the relevant vindex for this column. If it's the primary vindex, it
-			// needs to be added to the beginning of the list.
-			if _, ok := vb.vindexes[vindexName]; ok {
-				tableVindex := &vschemapb.ColumnVindex{
-					Name:    vindexName,
-					Columns: []string{colName},
-				}
+			vindexName := getVindexName(colName, tableName)
+			isPrimaryVindex := isPrimaryVindex(vindexName, tableName, colName)
 
-				if isPrimaryVindex {
-					tblVindexes = append([]*vschemapb.ColumnVindex{tableVindex}, tblVindexes...)
-				} else {
-					tblVindexes = append(tblVindexes, tableVindex)
-				}
+			vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
+
+			if vb.shouldCreateLookupVindex(tableName) {
+				lookupVindexName := vindexName + vindexTableSuffix
+				vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
 			}
 
 			// Sort secondary indexes alphabetically by name to simplify unit testing.
@@ -201,33 +237,59 @@ func (vb *vschemaBuilder) scatterCacheCapacity(tableName string) uint64 {
 	return vb.config.defaultScatterCacheCapacity
 }
 
+func (vb *vschemaBuilder) createScatterCache(tableName string) {
+	foreignKeyColName := tableNameToColName(tableName)
+	if _, ok := vb.vindexes[foreignKeyColName]; ok {
+		return
+	}
+
+	vb.vindexes[foreignKeyColName] = &vschemapb.Vindex{
+		Type: "scatter_cache",
+		Params: map[string]string{
+			"table":    tableName,
+			"capacity": strconv.FormatUint(vb.scatterCacheCapacity(tableName), 10),
+			"from":     "id",
+			"to":       "g_advertiser_id",
+		},
+	}
+}
+
+func (vb *vschemaBuilder) createPinLookupVindex(tableName string) {
+	indexTableName := tableNameToColName(tableName) + vindexTableSuffix
+	vb.vindexes[indexTableName] = &vschemapb.Vindex{
+		Type:  "PinLookupHashUnique",
+		Owner: tableName,
+		Params: map[string]string{
+			"table":      indexTableName,
+			"from":       "id",
+			"to":         "g_advertiser_id",
+			"write_only": strconv.FormatBool(vb.config.lookupVindexWriteOnly),
+		},
+	}
+}
+
+func (vb *vschemaBuilder) hasColumn(tableCreate *sqlparser.DDL, columnName string) bool {
+	for _, col := range tableCreate.TableSpec.Columns {
+		if col.Name.EqualString(columnName) {
+			return true
+		}
+	}
+	return false
+}
+
 func (vb *vschemaBuilder) createSecondaryVindexes() {
 	for _, tableCreate := range vb.ddls {
 		tableName := tableCreate.Table.Name.String()
-		foreignKeyColName := tableNameToColName(tableName)
-		if _, ok := vb.vindexes[foreignKeyColName]; ok {
-			continue
-		}
 
-		hasIDCol := false
-		for _, col := range tableCreate.TableSpec.Columns {
-			if "id" == col.Name.String() {
-				hasIDCol = true
-				break
-			}
+		if shouldCreateSecondaryVindex := vb.hasColumn(tableCreate, "id"); !shouldCreateSecondaryVindex {
+			continue //bypass this table, as neither scatter cache or lookup vindex would be needed.
 		}
-		if !hasIDCol {
-			continue
-		}
-
-		vb.vindexes[foreignKeyColName] = &vschemapb.Vindex{
-			Type: "scatter_cache",
-			Params: map[string]string{
-				"table":    tableName,
-				"capacity": strconv.FormatUint(vb.scatterCacheCapacity(tableName), 10),
-				"from":     "id",
-				"to":       "g_advertiser_id",
-			},
+		// create scatter cache
+		vb.createScatterCache(tableName)
+		// create lookup vindex if needed
+		shouldCreateLookupVindex := vb.hasColumn(tableCreate, "g_advertiser_id") && vb.shouldCreateLookupVindex(tableName)
+		if shouldCreateLookupVindex {
+			vb.createPinLookupVindex(tableName)
 		}
 	}
 }
