@@ -80,7 +80,7 @@ then
 
   #deb-s3 upload --preserve-versions --visibility private --fail-if-exists --bucket pinterest-repo-trusty/apt --arch amd64 --sign BC0BEAD1 --codename trusty $BUILD_DIR/*.deb
   #vitess_20190410.1534_all.deb
-  DEB_PATH=$(find "$BUILD_DIR" -name '*.deb' -print -quit)
+  DEB_PATH=$(find BUILD_DIR/ -name '*.deb' -print -quit)
 
   if [[ ! -f "$DEB_PATH" ]]; then
     echo -e "ERROR locating deb file at:${DEB_PATH}"
