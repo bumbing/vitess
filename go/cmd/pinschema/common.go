@@ -2,7 +2,6 @@ package main
 
 import (
 	"strings"
-
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
@@ -49,3 +48,19 @@ func colShouldBeSequence(config pinschemaConfig, col *sqlparser.ColumnDefinition
 	}
 	return false
 }
+
+func tableInVindexWhitelist(config pinschemaConfig, tableCreate *sqlparser.DDL) bool {
+	if len(config.lookupVindexWhitelist) == 0 {
+		return true
+	}
+
+	tableName := tableCreate.Table.Name.String()
+	for _, tblName := range config.lookupVindexWhitelist{
+		if strings.ToLower(tableName) == strings.ToLower(tblName) {
+			return true
+		}
+	}
+
+	return false
+}
+

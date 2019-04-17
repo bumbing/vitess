@@ -23,6 +23,8 @@ import (
 var (
 	createPrimaryVindexes       = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
 	createSecondaryVindexes     = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
+	createLookupVindexTables    = flag.Bool("create-lookup-vindex-tables", false, "Whether to create vindex tables")
+	lookupVindexWriteOnly       = flag.Bool("lookup-vindex-write-only", false, "Whether vindex tables are in write-only mode")
 	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
 	includeCols                 = flag.Bool("include-cols", false, "Whether to include a column list for each table")
 	queryTablePrefix            = flag.String("query-table-prefix", "", "A prefix to add to tables for generated queries. Used to support hive with the sharding integrity check")
@@ -33,11 +35,14 @@ var (
 	tableScatterCacheCapacity   flagutil.StringMapValue
 	ignoredTables               flagutil.StringListValue
 	sequenceTables              flagutil.StringListValue
+	lookupVindexWhitelist       flagutil.StringListValue
 )
 
 type pinschemaConfig struct {
 	createPrimary               bool
 	createSecondary             bool
+	createLookupVindexTables    bool
+	lookupVindexWriteOnly       bool
 	createSeq                   bool
 	defaultScatterCacheCapacity uint64
 	tableScatterCacheCapacity   map[string]uint64
@@ -47,6 +52,7 @@ type pinschemaConfig struct {
 	tableResultLimit            int
 	summarize                   bool
 	sequenceTableWhitelist      []string
+	lookupVindexWhitelist       []string
 }
 
 var commands = make(map[string]func([]*sqlparser.DDL, pinschemaConfig) (string, error))
@@ -63,6 +69,10 @@ func init() {
 	flag.Var(&sequenceTables,
 		"seq-table-whitelist",
 		"comma separated whitelist of tables that should use sequences, for incrementally rolling out sequences to a keyspace table by table")
+
+	flag.Var(&lookupVindexWhitelist,
+		"lookup-vindex-whitelist",
+		"comma separated whitelist of tables that should use lookup vindex, for incrementally rolling out sequences to a keyspace table by table")
 
 	logger := logutil.NewConsoleLogger()
 	flag.CommandLine.SetOutput(logutil.NewLoggerWriter(logger))
@@ -131,6 +141,8 @@ func parseAndRun(command string, args []string) error {
 	config := pinschemaConfig{
 		createPrimary:               *createPrimaryVindexes,
 		createSecondary:             *createSecondaryVindexes,
+		createLookupVindexTables:    *createLookupVindexTables,
+		lookupVindexWriteOnly:       *lookupVindexWriteOnly,
 		createSeq:                   *createSequences,
 		includeCols:                 *includeCols,
 		colsAuthoritative:           *colsAuthoritative,
@@ -140,6 +152,7 @@ func parseAndRun(command string, args []string) error {
 		tableResultLimit:            *tableResultLimit,
 		summarize:                   *summarize,
 		sequenceTableWhitelist:      sequenceTables,
+		lookupVindexWhitelist:       lookupVindexWhitelist,
 	}
 
 	var ddls []*sqlparser.DDL
@@ -178,7 +191,7 @@ func parseAndRun(command string, args []string) error {
 
 func shouldIgnoreTable(table *sqlparser.DDL, ignoredTables []string) bool {
 	tableName := strings.ToLower(table.Table.Name.String())
-	if strings.HasPrefix(tableName, "dark_write") || strings.HasPrefix(tableName, "_") {
+	if strings.HasPrefix(tableName, "_") {
 		return true
 	}
 	for _, ignoredTable := range ignoredTables {
