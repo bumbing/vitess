@@ -16,6 +16,11 @@ PATIOGENERAL_ARGS=""
 UPDATE_GENERAL=true
 SKIP_VALIDATE="${SKIP_VALIDATE:-false}"
 
+VSCHEMA_ROLLBACK=""
+if [[ $# -gt 1 ]]; then
+  VSCHEMA_ROLLBACK="$2"
+fi
+
 VTENV="$1"
 if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
   PATIO_ARGS=(-create-sequences -include-cols -cols-authoritative
@@ -74,6 +79,23 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   fi
 fi
 
+if [[ "$VSCHEMA_ROLLBACK" == "--rollback" ]]; then
+  if [[ $# -lt 3 ]]; then
+    echo "rollback must provide golden md5 as: $0 $1 $2 {md5}"
+    exit 1
+  else
+    GOLDEN_MD5="$3"
+    VSCHEMA_GOLDEN_FILE="/vt/vtdataroot/vschema_${GOLDEN_MD5}.backup"
+    if ! $PVCTL_CMD "$VTENV" ApplyVSchema -vschema_file="$VSCHEMA_GOLDEN_FILE" patio; then
+      echo "rollback failed, please double check the given golden md5: ${GOLDEN_MD5}"
+      exit 1
+    else
+      echo "rollback succeeded with the given golden md5: ${GOLDEN_MD5}"
+    fi
+  fi
+  exit 0
+fi
+
 if [[ "$SKIP_VALIDATE" != "true" ]]; then
   echo Validating consistent shard schemas...
   $PVCTL_CMD "$VTENV" ValidateSchemaKeyspace patio
@@ -110,7 +132,7 @@ if $UPDATE_GENERAL; then
   if [ "$DIFF" ]; then
     echo "$DIFF" | less
 
-    while read -p "Does this change to patiogeneral vschema look right (y/n)? " choice
+    while read -rp "Does this change to patiogeneral vschema look right (y/n)? " choice
     do
       case "$choice" in
         y|Y|n|N ) break;;
@@ -132,9 +154,20 @@ PATIO_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIO_ARGS[@]}" "$PATIO_SCHEMA_
 PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
 DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || test "$?" -eq 1)
 if [ "$DIFF" ]; then
+  # backup the vschema golden file to vtctld:/mnt/vtdataroot/
+  if [[ -z "$(command -v md5sum)" ]]; then
+    GOLDEN_MD5=$(echo -n "${PATIO_VSCHEMA_OLD}" | md5)
+  else
+    GOLDEN_MD5=$(echo -n "${PATIO_VSCHEMA_OLD}" | md5sum)
+  fi
+  GOLDEN_MD5="${GOLDEN_MD5%  -}"
+  VTCTLD_HOST=$(fh -h "vtctld-${VTENV}" | head -n 1)
+  VSCHEMA_GOLDEN_FILE="/mnt/vtdataroot/vschema_${GOLDEN_MD5}.backup"
+  echo "${PATIO_VSCHEMA_OLD}" | ssh -T "$VTCTLD_HOST" tee "${VSCHEMA_GOLDEN_FILE}" >/dev/null
+
   echo "$DIFF" | less
 
-  while read -p "Does this change to patio vschema look right (y/n)? " choice
+  while read -rp "Does this change to patio vschema look right (y/n)? " choice
   do
     case "$choice" in
       y|Y|n|N ) break;;
@@ -143,7 +176,10 @@ if [ "$DIFF" ]; then
   done
 
   case "$choice" in
-    y|Y ) $PVCTL_CMD "$VTENV" ApplyVSchema -vschema="$PATIO_VSCHEMA" patio;;
+    y|Y )
+      $PVCTL_CMD "$VTENV" ApplyVSchema -vschema="$PATIO_VSCHEMA" patio
+      echo "VSchema applied, if rollback needed, please use: $0 $1 --rollback ${GOLDEN_MD5}"
+    ;;
     * ) echo "Cancelled"; exit 1;;
   esac
 else
