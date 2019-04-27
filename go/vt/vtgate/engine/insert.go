@@ -576,8 +576,18 @@ func (ins *Insert) processUnowned(vcursor VCursor, vindexColumnsKeys [][]sqltype
 	//
 	// This is all a long-winded way of saying: vtgate verification doesn't quite work for our use case, but it's
 	// ok and we can turn off those extra safety checks.
-	scatterCache, ok := colVindex.Vindex.(*vindexes.ScatterCache)
-	canVerifyNull := ok && scatterCache.CanVerifyNull()
+	var canVerifyNull = false
+	scatterCache, isScatterCache := colVindex.Vindex.(*vindexes.ScatterCache)
+	if isScatterCache {
+		canVerifyNull = scatterCache.CanVerifyNull()
+	}
+
+	// PinLookupVindex does not support Reverse Map. Null value is always regarded as verified ok.
+	_, isPinLookupVindex :=  colVindex.Vindex.(*vindexes.PinLookupHashUnique)
+	if isPinLookupVindex {
+		canVerifyNull = true
+	}
+
 
 	for rowNum, rowColumnKeys := range vindexColumnsKeys {
 		// Right now, we only validate against the first column of a colvindex.

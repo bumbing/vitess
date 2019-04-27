@@ -1482,3 +1482,119 @@ func TestInsertShardedUnownedReverseMapFail(t *testing.T) {
 	_, err = ins.Execute(vc, map[string]*querypb.BindVariable{}, false)
 	expectError(t, "Execute", err, "execInsertSharded: getInsertShardedRoute: value must be supplied for column [c3]")
 }
+
+// Pinterest test for NULL-valued Unowned Vindex column inserting.
+func TestInsertShardedUnownedNullSuccess(t *testing.T) {
+	invschema := &vschemapb.SrvVSchema{
+		Keyspaces: map[string]*vschemapb.Keyspace{
+			"sharded": {
+				Sharded: true,
+				Vindexes: map[string]*vschemapb.Vindex{
+					"primary": {
+						Type: "hash",
+					},
+					"own": {
+						Type: "pin_lookup_hash_unique",
+						Params: map[string]string{
+							"table": "lkp1",
+							"from":  "from",
+							"to":    "toc",
+						},
+						Owner: "t1",
+					},
+					"unown": {
+						Type: "pin_lookup_hash_unique",
+						Params: map[string]string{
+							"table": "lkp2",
+							"from":  "from",
+							"to":    "toc",
+						},
+						Owner: "t2",
+					},
+				},
+				Tables: map[string]*vschemapb.Table{
+					"t1": {
+						ColumnVindexes: []*vschemapb.ColumnVindex{{
+							Name:    "primary",
+							Columns: []string{"id"},
+						}, {
+							Name:    "own",
+							Columns: []string{"c3"},
+						}, {
+							Name:    "unown",
+							Columns: []string{"c4"},
+						}},
+					},
+				},
+			},
+		},
+	}
+	vs, err := vindexes.BuildVSchema(invschema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ks := vs.Keyspaces["sharded"]
+
+	ins := &Insert{
+		Opcode:   InsertSharded,
+		Keyspace: ks.Keyspace,
+		VindexValues: []sqltypes.PlanValue{{
+			// colVindex columns: id
+			Values: []sqltypes.PlanValue{{
+				// rows for id
+				Values: []sqltypes.PlanValue{{
+					Value: sqltypes.NewInt64(1),
+				}},
+			}},
+		}, {
+			// colVindex columns: c3
+			Values: []sqltypes.PlanValue{{
+				// rows for c3
+				Values: []sqltypes.PlanValue{{
+					Value: sqltypes.NewInt64(2),
+				}},
+			}},
+		}, {
+			// colVindex columns: c4
+			Values: []sqltypes.PlanValue{{
+				// rows for c3
+				Values: []sqltypes.PlanValue{{
+					Value: sqltypes.NULL,
+				}},
+			}},
+		}},
+		Table:  ks.Tables["t1"],
+		Prefix: "prefix",
+		Mid:    []string{" mid1", " mid2", " mid3", " mid4"},
+		Suffix: " suffix",
+	}
+
+	ksid0 := sqltypes.MakeTestResult(
+		sqltypes.MakeTestFields(
+			"to",
+			"varbinary",
+		),
+		"\x00",
+	)
+
+	vc := &loggingVCursor{
+		shards:       []string{"-20", "20-"},
+		shardForKsid: []string{"-20", "20-"},
+		results: []*sqltypes.Result{
+			ksid0,
+			ksid0,
+			ksid0,
+		},
+	}
+	_, err = ins.Execute(vc, map[string]*querypb.BindVariable{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vc.ExpectLog(t, []string{
+		`Execute insert into lkp1(from, toc) values(:from0, :toc0) from0: type:INT64 value:"2" toc0: type:UINT64 ` +
+			`value:"1"  true`,
+		`ResolveDestinations sharded [value:"0" ] Destinations:DestinationKeyspaceID(166b40b44aba4bd6)`,
+		`ExecuteMultiShard sharded.-20: prefix mid1 suffix /* vtgate:: keyspace_id:166b40b44aba4bd6 */ ` +
+			`{_c30: type:INT64 value:"2" _c40: _id0: type:INT64 value:"1" } true true`,
+	})
+}

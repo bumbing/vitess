@@ -164,6 +164,13 @@ func buildChangedVindexesValues(eupd *engine.Update, update *sqlparser.Update, c
 		}
 
 		if !vindex.Owned {
+			// Need to allow unowned vindex update, as the column like campaign_spec_id in campaign is updated from null to
+			// something. Whenever the campaign_spec is modified, a new association with different campaign_spec_id will
+			// trigger another update.
+			if _, ok := vindex.Vindex.(*vindexes.PinLookupHashUnique); ok {
+				continue
+			}
+
 			return nil, vterrors.Errorf(vtrpcpb.Code_UNIMPLEMENTED, "unsupported: You can only update owned vindexes. Invalid update on vindex: %v", vindex.Name)
 		}
 		changedVindexes[vindex.Name] = vindexValues

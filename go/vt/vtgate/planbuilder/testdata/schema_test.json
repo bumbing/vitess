@@ -58,11 +58,29 @@
         "advertiser_idx": {
           "type": "hash_test"
         },
+        "adgroup_spec_id_idx": {
+          "type": "pin_lookup_hash_unique",
+          "params": {
+            "table": "adgroup_spec_id_idx",
+            "from": "id",
+            "to": "advertiser_id"
+          },
+          "owner": "adgroup_specs"
+        },
         "billing_profile_idx": {
           "type": "scatter_cache",
           "params": {
             "capacity": "10000",
             "table": "billing_profiles",
+            "from": "id",
+            "to": "advertiser_id"
+          }
+        },
+        "adgroup_idx": {
+          "type": "scatter_cache",
+          "params": {
+            "capacity": "10000",
+            "table": "adgroups",
             "from": "id",
             "to": "advertiser_id"
           }
@@ -254,6 +272,22 @@
             {
               "column": "id",
               "name": "campaign_idx"
+            }
+          ]
+        },
+        "adgroups": {
+          "column_vindexes": [
+            {
+              "column": "advertiser_id",
+              "name": "advertiser_idx"
+            },
+            {
+              "column": "adgroup_spec_id",
+              "name": "adgroup_spec_id_idx"
+            },
+            {
+              "column": "id",
+              "name": "adgroup_idx"
             }
           ]
         }

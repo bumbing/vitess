@@ -121,6 +121,32 @@
   }
 }
 
+# Insert Ad_group with NULL value in unowned PinLookupVindex
+# The Unowned PinLookupVindex will have a mapping Keyspace ID in "Values", but it won't be used as Unwoned Vindex is
+# always skipped.
+"insert into adgroups(id) values(1)"
+{
+  "Original": "insert into adgroups(id) values(1)",
+  "Instructions": {
+    "Opcode": "InsertSharded",
+    "Keyspace": {
+      "Name": "user",
+      "Sharded": true
+    },
+    "Query":"insert into adgroups(id, advertiser_id, adgroup_spec_id) values (:_id0, :_advertiser_id0, :_adgroup_spec_id0)",
+    "Values": [
+      [[null]],
+      [[null]],
+      [[1]]
+    ],
+    "Table": "adgroups",
+    "Prefix": "insert into adgroups(id, advertiser_id, adgroup_spec_id) values ",
+    "Mid": [
+      "(:_id0, :_advertiser_id0, :_adgroup_spec_id0)"
+    ]
+  }
+}
+
 # Update to populate billing profile ID, which has a scatter-cache vindex column
 "update advertisers set billing_profile_id = 5 where id = 6"
 {
