@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/trace"
 
 	"vitess.io/vitess/go/acl"
 	"vitess.io/vitess/go/cache"
@@ -125,6 +126,11 @@ func NewExecutor(ctx context.Context, serv srvtopo.Server, cell, statsName strin
 
 // Execute executes a non-streaming query.
 func (e *Executor) Execute(ctx context.Context, method string, safeSession *SafeSession, sql string, bindVars map[string]*querypb.BindVariable) (result *sqltypes.Result, err error) {
+	span, ctx := trace.NewSpan(ctx, "executor.Execute")
+	span.Annotate("method", method)
+	trace.AnnotateSQL(span, sql)
+	defer span.Finish()
+
 	logStats := NewLogStats(ctx, method, sql, bindVars)
 	result, err = e.execute(ctx, safeSession, sql, bindVars, logStats)
 	logStats.Error = err
@@ -292,7 +298,7 @@ func (e *Executor) handleExec(ctx context.Context, safeSession *SafeSession, sql
 		logStats.SQL = sql
 		logStats.BindVariables = bindVars
 		result, err := e.destinationExec(ctx, safeSession, sql, bindVars, dest, destKeyspace, destTabletType, logStats)
-		logStats.ExecuteTime = time.Now().Sub(execStart)
+		logStats.ExecuteTime = time.Since(execStart)
 		queriesRouted.Add("ShardDirect", int64(logStats.ShardQueries))
 		return result, err
 	}
@@ -412,7 +418,7 @@ func (e *Executor) handleVSchemaDDL(ctx context.Context, safeSession *SafeSessio
 		return errNoKeyspace
 	}
 
-	ks, _ := vschema.Keyspaces[ksName]
+	ks := vschema.Keyspaces[ksName]
 	ks, err := topotools.ApplyVSchemaDDL(ksName, ks, ddl)
 
 	if err != nil {
@@ -639,7 +645,7 @@ func (e *Executor) handleSet(ctx context.Context, safeSession *SafeSession, sql 
 			if !ok {
 				return nil, vterrors.Errorf(vtrpcpb.Code_INVALID_ARGUMENT, "unexpected value type for wait_timeout: %T", v)
 			}
-		case "net_write_timeout", "net_read_timeout", "lc_messages", "collation_connection":
+		case "sql_mode", "net_write_timeout", "net_read_timeout", "lc_messages", "collation_connection":
 			log.Warningf("Ignored inapplicable SET %v = %v", k, v)
 			warnings.Add("IgnoredSet", 1)
 		case "charset", "names":
@@ -793,7 +799,7 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 			show.ShowTablesOpt.DbName = ""
 		}
 		sql = sqlparser.String(show)
-	case sqlparser.KeywordString(sqlparser.DATABASES), sqlparser.KeywordString(sqlparser.VITESS_KEYSPACES):
+	case sqlparser.KeywordString(sqlparser.DATABASES), sqlparser.KeywordString(sqlparser.SCHEMAS), sqlparser.KeywordString(sqlparser.VITESS_KEYSPACES):
 		keyspaces, err := e.resolver.resolver.GetAllKeyspaces(ctx)
 		if err != nil {
 			return nil, err
@@ -954,7 +960,7 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 		}
 		sort.Strings(ksNames)
 		for _, ksName := range ksNames {
-			ks, _ := vschema.Keyspaces[ksName]
+			ks := vschema.Keyspaces[ksName]
 
 			vindexNames := make([]string, 0, len(ks.Vindexes))
 			for name := range ks.Vindexes {
@@ -962,7 +968,7 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 			}
 			sort.Strings(vindexNames)
 			for _, vindexName := range vindexNames {
-				vindex, _ := ks.Vindexes[vindexName]
+				vindex := ks.Vindexes[vindexName]
 
 				params := make([]string, 0, 4)
 				for k, v := range vindex.GetParams() {
@@ -983,7 +989,7 @@ func (e *Executor) handleShow(ctx context.Context, safeSession *SafeSession, sql
 			{Name: "Type", Type: sqltypes.Uint16},
 			{Name: "Message", Type: sqltypes.VarChar},
 		}
-		rows := make([][]sqltypes.Value, 0, 0)
+		rows := make([][]sqltypes.Value, 0)
 
 		if safeSession.Warnings != nil {
 			for _, warning := range safeSession.Warnings {
@@ -1063,7 +1069,7 @@ func (e *Executor) handleOther(ctx context.Context, safeSession *SafeSession, sq
 }
 
 func (e *Executor) handleComment(sql string) (*sqltypes.Result, error) {
-	_, sql = sqlparser.ExtractMysqlComment(sql)
+	_, _ = sqlparser.ExtractMysqlComment(sql)
 	// Not sure if this is a good idea.
 	return &sqltypes.Result{}, nil
 }
@@ -1304,11 +1310,8 @@ func (e *Executor) getPlan(vcursor *vcursorImpl, sql string, comments sqlparser.
 		return nil, errors.New("vschema not initialized")
 	}
 	keyspace := vcursor.keyspace
-	key := sql
-	if keyspace != "" {
-		key = keyspace + ":" + sql
-	}
-	if result, ok := e.plans.Get(key); ok {
+	planKey := keyspace + vindexes.TabletTypeSuffix[vcursor.tabletType] + ":" + sql
+	if result, ok := e.plans.Get(planKey); ok {
 		return result.(*engine.Plan), nil
 	}
 	stmt, err := sqlparser.Parse(sql)
@@ -1321,7 +1324,7 @@ func (e *Executor) getPlan(vcursor *vcursorImpl, sql string, comments sqlparser.
 			return nil, err
 		}
 		if !skipQueryPlanCache && !sqlparser.SkipQueryPlanCacheDirective(stmt) {
-			e.plans.Set(key, plan)
+			e.plans.Set(planKey, plan)
 		}
 		return plan, nil
 	}
@@ -1335,11 +1338,8 @@ func (e *Executor) getPlan(vcursor *vcursorImpl, sql string, comments sqlparser.
 		logStats.BindVariables = bindVars
 	}
 
-	normkey := normalized
-	if keyspace != "" {
-		normkey = keyspace + ":" + normalized
-	}
-	if result, ok := e.plans.Get(normkey); ok {
+	planKey = keyspace + vindexes.TabletTypeSuffix[vcursor.tabletType] + ":" + normalized
+	if result, ok := e.plans.Get(planKey); ok {
 		return result.(*engine.Plan), nil
 	}
 	plan, err := planbuilder.BuildFromStmt(normalized, stmt, vcursor)
@@ -1347,7 +1347,7 @@ func (e *Executor) getPlan(vcursor *vcursorImpl, sql string, comments sqlparser.
 		return nil, err
 	}
 	if !skipQueryPlanCache && !sqlparser.SkipQueryPlanCacheDirective(stmt) {
-		e.plans.Set(normkey, plan)
+		e.plans.Set(planKey, plan)
 	}
 	return plan, nil
 }

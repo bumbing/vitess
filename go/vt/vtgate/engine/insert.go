@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc.
+Copyright 2018 The Vitess Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"vitess.io/vitess/go/jsonutil"
 	"vitess.io/vitess/go/sqltypes"
@@ -76,6 +77,40 @@ type Insert struct {
 	// However some application use cases would prefer that the statement partially
 	// succeed in order to get the performance benefits of autocommit.
 	MultiShardAutocommit bool
+
+	// QueryTimeout contains the optional timeout (in milliseconds) to apply to this query
+	QueryTimeout int
+}
+
+// NewQueryInsert creates an Insert with a query string.
+func NewQueryInsert(opcode InsertOpcode, keyspace *vindexes.Keyspace, query string) *Insert {
+	return &Insert{
+		Opcode:   opcode,
+		Keyspace: keyspace,
+		Query:    query,
+	}
+}
+
+// NewSimpleInsert creates an Insert for a Table.
+func NewSimpleInsert(opcode InsertOpcode, table *vindexes.Table, keyspace *vindexes.Keyspace) *Insert {
+	return &Insert{
+		Opcode:   opcode,
+		Table:    table,
+		Keyspace: keyspace,
+	}
+}
+
+// NewInsert creates a new Insert.
+func NewInsert(opcode InsertOpcode, keyspace *vindexes.Keyspace, vindexValues []sqltypes.PlanValue, table *vindexes.Table, prefix string, mid []string, suffix string) *Insert {
+	return &Insert{
+		Opcode:       opcode,
+		Keyspace:     keyspace,
+		VindexValues: vindexValues,
+		Table:        table,
+		Prefix:       prefix,
+		Mid:          mid,
+		Suffix:       suffix,
+	}
 }
 
 // MarshalJSON serializes the Insert into a JSON representation.
@@ -96,6 +131,7 @@ func (ins *Insert) MarshalJSON() ([]byte, error) {
 		Mid                  []string             `json:",omitempty"`
 		Suffix               string               `json:",omitempty"`
 		MultiShardAutocommit bool                 `json:",omitempty"`
+		QueryTimeout         int                  `json:",omitempty"`
 	}{
 		Opcode:               ins.Opcode,
 		Keyspace:             ins.Keyspace,
@@ -107,6 +143,7 @@ func (ins *Insert) MarshalJSON() ([]byte, error) {
 		Mid:                  ins.Mid,
 		Suffix:               ins.Suffix,
 		MultiShardAutocommit: ins.MultiShardAutocommit,
+		QueryTimeout:         ins.QueryTimeout,
 	}
 	return jsonutil.MarshalNoEscape(marshalInsert)
 }
@@ -160,6 +197,11 @@ func (ins *Insert) RouteType() string {
 
 // Execute performs a non-streaming exec.
 func (ins *Insert) Execute(vcursor VCursor, bindVars map[string]*querypb.BindVariable, wantfields bool) (*sqltypes.Result, error) {
+	if ins.QueryTimeout != 0 {
+		cancel := vcursor.SetContextTimeout(time.Duration(ins.QueryTimeout) * time.Millisecond)
+		defer cancel()
+	}
+
 	switch ins.Opcode {
 	case InsertUnsharded:
 		return ins.execInsertUnsharded(vcursor, bindVars)
@@ -414,9 +456,7 @@ func (ins *Insert) processPrimary(vcursor VCursor, vindexKeys [][]sqltypes.Value
 	var flattenedVindexKeys []sqltypes.Value
 	// TODO: @rafael - this will change once vindex Primary keys also support multicolumns
 	for _, val := range vindexKeys {
-		for _, internalVal := range val {
-			flattenedVindexKeys = append(flattenedVindexKeys, internalVal)
-		}
+		flattenedVindexKeys = append(flattenedVindexKeys, val...)
 	}
 
 	destinations, err := colVindex.Vindex.Map(vcursor, flattenedVindexKeys)

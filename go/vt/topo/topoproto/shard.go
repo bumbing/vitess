@@ -37,7 +37,7 @@ func KeyspaceShardString(keyspace, shard string) string {
 func ParseKeyspaceShard(param string) (string, string, error) {
 	keySpaceShard := strings.Split(param, "/")
 	if len(keySpaceShard) != 2 {
-		return "", "", fmt.Errorf("Invalid shard path: %v", param)
+		return "", "", fmt.Errorf("invalid shard path: %v", param)
 	}
 	return keySpaceShard[0], keySpaceShard[1], nil
 }
@@ -60,14 +60,4 @@ func SourceShardAsHTML(source *topodatapb.Shard_SourceShard) template.HTML {
 			strings.Join(source.Tables, " "))
 	}
 	return template.HTML(result)
-}
-
-// ShardHasCell returns true if the cell is listed in the Cells for the shard.
-func ShardHasCell(shard *topodatapb.Shard, cell string) bool {
-	for _, c := range shard.Cells {
-		if c == cell {
-			return true
-		}
-	}
-	return false
 }

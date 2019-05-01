@@ -17,10 +17,13 @@ limitations under the License.
 // Package services exposes all the services for the vtgateclienttest binary.
 package services
 
-import "vitess.io/vitess/go/vt/vtgate/vtgateservice"
+import (
+	"vitess.io/vitess/go/vt/vtgate/vtgateservice"
+)
 
 // CreateServices creates the implementation chain of all the test cases
 func CreateServices() vtgateservice.VTGateService {
+	//lint:ignore S1021 declare s of type interface that all the clients implement
 	var s vtgateservice.VTGateService
 	s = newTerminalClient()
 	s = newSuccessClient(s)

@@ -30,7 +30,11 @@ import environment
 from mysql_flavor import mysql_flavor
 from protocols_flavor import protocols_flavor
 from topo_flavor.server import topo_server
+from urlparse import urlparse
 import utils
+
+import grpc
+from vtproto.tabletmanagerservice_pb2_grpc import TabletManagerStub
 
 # Dropping a table inexplicably produces a warning despite
 # the 'IF EXISTS' clause. Squelch these warnings.
@@ -94,7 +98,8 @@ class Tablet(object):
     self.shard = None
     self.index = None
     self.tablet_index = None
-
+    # default to false
+    self.external_mysql = False
     # utility variables
     self.tablet_alias = 'test_%s-%010d' % (self.cell, self.tablet_uid)
     self.zk_tablet_path = (
@@ -225,7 +230,6 @@ class Tablet(object):
 
   def mysql_connection_parameters(self, dbname, user='vt_dba'):
     result = dict(user=user,
-                  unix_socket=self.tablet_dir + '/mysql.sock',
                   db=dbname)
     if user == 'vt_dba' and self.vt_dba_passwd:
       result['passwd'] = self.vt_dba_passwd
@@ -233,6 +237,10 @@ class Tablet(object):
 
   def connect(self, dbname='', user='vt_dba', **params):
     params.update(self.mysql_connection_parameters(dbname, user))
+    if 'port' not in params.keys():
+      params['unix_socket']=self.tablet_dir + '/mysql.sock'
+    else:
+      params['host']='127.0.0.1'
     conn = MySQLdb.Connect(**params)
     return conn, conn.cursor()
 
@@ -253,6 +261,8 @@ class Tablet(object):
     """
     if conn_params is None:
       conn_params = {}
+    if self.external_mysql:
+      conn_params['port']=self.mysql_port
     conn, cursor = self.connect(dbname, user=user, **conn_params)
     if write:
       conn.begin()
@@ -377,13 +387,14 @@ class Tablet(object):
   def init_tablet(self, tablet_type, keyspace, shard,
                   tablet_index=None,
                   start=False, dbname=None, parent=True, wait_for_start=True,
-                  include_mysql_port=True, **kwargs):
+                  include_mysql_port=True, external_mysql=False, **kwargs):
     """Initialize a tablet's record in topology."""
 
     self.tablet_type = tablet_type
     self.keyspace = keyspace
     self.shard = shard
     self.tablet_index = tablet_index
+    self.external_mysql = external_mysql
 
     self.dbname = dbname or ('vt_' + self.keyspace)
 
@@ -473,6 +484,7 @@ class Tablet(object):
     args.extend(['-health_check_interval', '2s'])
     args.extend(['-enable_replication_reporter'])
     args.extend(['-degraded_threshold', '5s'])
+    args.extend(['-lock_tables_timeout', '5s'])
     args.extend(['-watch_replication_stream'])
     if enable_semi_sync:
       args.append('-enable_semi_sync')
@@ -482,6 +494,10 @@ class Tablet(object):
       args.extend(
           ['-mysqlctl_socket', os.path.join(self.tablet_dir, 'mysqlctl.sock')])
 
+    if self.external_mysql:
+      args.extend(['-db_host', '127.0.0.1'])
+      args.extend(['-db_port', str(self.mysql_port)])
+      args.append('-disable_active_reparents')
     if full_mycnf_args:
       # this flag is used to specify all the mycnf_ flags, to make
       # sure that code works.
@@ -635,10 +651,10 @@ class Tablet(object):
             break
           else:
             logging.debug(
-                '  vttablet %s in state %s != %s', self.tablet_alias, s,
+                '  vttablet %s in state: %s, expected: %s', self.tablet_alias, s,
                 expected)
       timeout = utils.wait_step(
-          'waiting for %s state %s (last seen state: %s)' %
+          '%s state %s (last seen state: %s)' %
           (self.tablet_alias, expected, last_seen_state),
           timeout, sleep_time=0.1)
 
@@ -842,6 +858,12 @@ class Tablet(object):
       return 'localhost:%d' % self.grpc_port
     return 'localhost:%d' % self.port
 
+  def tablet_manager(self):
+    """Returns a rpc client able to talk to the TabletManager rpc server in go"""
+    addr = self.rpc_endpoint()
+    p = urlparse('http://' + addr)
+    channel = grpc.insecure_channel('%s:%s' % (p.hostname, p.port))
+    return TabletManagerStub(channel)
 
 def kill_tablets(tablets):
   for t in tablets:
@@ -854,3 +876,5 @@ def kill_tablets(tablets):
     if t.proc is not None:
       t.proc.wait()
       t.proc = None
+
+

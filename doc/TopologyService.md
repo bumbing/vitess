@@ -6,7 +6,7 @@ store small pieces of configuration data about the Vitess cluster, and provide
 cluster-wide locks. It also supports watches, and master election.
 
 Concretely, the Topology Service features are implemented by
-a [Lock Server](http://en.wikipedia.org/wiki/Distributed_lock_manager), referred
+a [Lock Server](https://en.wikipedia.org/wiki/Distributed_lock_manager), referred
 to as Topology Server in the rest of this document. We use a plug-in
 implementation and we support multiple Lock Servers (Zookeeper, etcd, Consul, …)
 as backends for the service.
@@ -294,7 +294,7 @@ the same server address, and very importantly a *different* root directory.
 [Zookeeper
 Observers](https://zookeeper.apache.org/doc/trunk/zookeeperObservers.html) can
 also be used to limit the load on the global Zookeeper.  They are configured by
-specifying the adresses of the observers in the server address, after a `|`,
+specifying the addresses of the observers in the server address, after a `|`,
 for instance:
 `global_server1:p1,global_server2:p2|observer1:po1,observer2:po2`.
 
@@ -451,7 +451,7 @@ all cells to route traffic. Note this is necessary to access the master in
 another cell.
 
 After the extension to two cells, the original topo service contains both the
-global topology data, and the first cell topology data. The more symetrical
+global topology data, and the first cell topology data. The more symmetrical
 configuration we're after would be to split that original service into two: a
 global one that only contains the global data (spread across both cells), and a
 local one to the original cells. To achieve that split:
@@ -471,7 +471,7 @@ local one to the original cells. To achieve that split:
 * Remove all remaining data in the global topology service that are in the old
   local server root.
 
-After this split, the configuration is completely symetrical:
+After this split, the configuration is completely symmetrical:
 
 * a global topology service, with servers in all cells. Only contains global
   topology data about Keyspaces, Shards and VSchema. Typically it has 5 servers

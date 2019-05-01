@@ -24,19 +24,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"strings"
 	"testing"
 
 	"vitess.io/vitess/go/sqltypes"
-	"vitess.io/vitess/go/testfiles"
 	"vitess.io/vitess/go/vt/key"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/topo/topoproto"
 	"vitess.io/vitess/go/vt/vtgate/engine"
 	"vitess.io/vitess/go/vt/vtgate/vindexes"
-
-	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 // hashIndex is a functional, unique Vindex.
@@ -168,10 +165,6 @@ func TestPlan(t *testing.T) {
 		flag.Set("merge_keyspace_joins_to_single_shard", "true")
 		testFile(t, "pinterest_merge_routes.txt", vschema)
 		flag.Set("merge_keyspace_joins_to_single_shard", "false")
-
-		flag.Set("merge_left_join_unique_vindexes", "true")
-		testFile(t, "pinterest_merge_left_joins.txt", vschema)
-		flag.Set("merge_left_join_unique_vindexes", "false")
 	}
 }
 
@@ -188,6 +181,11 @@ func loadSchema(t *testing.T, filename string) *vindexes.VSchema {
 	vschema, err := vindexes.BuildVSchema(formal)
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, ks := range vschema.Keyspaces {
+		if ks.Error != nil {
+			t.Fatal(ks.Error)
+		}
 	}
 	return vschema
 }
@@ -208,16 +206,16 @@ func (vw *vschemaWrapper) FindTable(tab sqlparser.TableName) (*vindexes.Table, s
 	return table, destKeyspace, destTabletType, destTarget, nil
 }
 
-func (vw *vschemaWrapper) FindTableOrVindex(tab sqlparser.TableName) (*vindexes.Table, vindexes.Vindex, string, topodatapb.TabletType, key.Destination, error) {
+func (vw *vschemaWrapper) FindTablesOrVindex(tab sqlparser.TableName) ([]*vindexes.Table, vindexes.Vindex, string, topodatapb.TabletType, key.Destination, error) {
 	destKeyspace, destTabletType, destTarget, err := topoproto.ParseDestination(tab.Qualifier.String(), topodatapb.TabletType_MASTER)
 	if err != nil {
 		return nil, nil, destKeyspace, destTabletType, destTarget, err
 	}
-	table, vindex, err := vw.v.FindTableOrVindex(destKeyspace, tab.Name.String())
+	tables, vindex, err := vw.v.FindTablesOrVindex(destKeyspace, tab.Name.String(), topodatapb.TabletType_MASTER)
 	if err != nil {
 		return nil, nil, destKeyspace, destTabletType, destTarget, err
 	}
-	return table, vindex, destKeyspace, destTabletType, destTarget, nil
+	return tables, vindex, destKeyspace, destTabletType, destTarget, nil
 }
 
 func (vw *vschemaWrapper) DefaultKeyspace() (*vindexes.Keyspace, error) {
@@ -237,30 +235,32 @@ type testPlan struct {
 
 func testFile(t *testing.T, filename string, vschema *vindexes.VSchema) {
 	for tcase := range iterateExecFile(filename) {
-		plan, err := Build(tcase.input, &vschemaWrapper{
-			v: vschema,
-		})
-		var out string
-		if err != nil {
-			out = err.Error()
-		} else {
-			bout, _ := json.Marshal(testPlan{
-				Original:     plan.Original,
-				Instructions: plan.Instructions,
+		t.Run(tcase.comments, func(t *testing.T) {
+			plan, err := Build(tcase.input, &vschemaWrapper{
+				v: vschema,
 			})
-			out = string(bout)
-		}
-		if out != tcase.output {
-			t.Errorf("File: %s, Line:%v\n%s, want\n%s", filename, tcase.lineno, out, tcase.output)
-			// Uncomment these lines to re-generate input files
+			var out string
 			if err != nil {
-				out = fmt.Sprintf("\"%s\"", out)
+				out = err.Error()
 			} else {
-				bout, _ := json.MarshalIndent(plan, "", "  ")
+				bout, _ := json.Marshal(testPlan{
+					Original:     plan.Original,
+					Instructions: plan.Instructions,
+				})
 				out = string(bout)
 			}
-			fmt.Printf("%s\"%s\"\n%s\n\n", tcase.comments, tcase.input, out)
-		}
+			if out != tcase.output {
+				t.Errorf("File: %s, Line:%v\n got:\n%s, \nwant:\n%s", filename, tcase.lineno, out, tcase.output)
+				// Uncomment these lines to re-generate input files
+				if err != nil {
+					out = fmt.Sprintf("\"%s\"", out)
+				} else {
+					bout, _ := json.MarshalIndent(plan, "", "  ")
+					out = string(bout)
+				}
+				fmt.Printf("%s\"%s\"\n%s\n\n", tcase.comments, tcase.input, out)
+			}
+		})
 	}
 }
 
@@ -348,8 +348,5 @@ func iterateExecFile(name string) (testCaseIterator chan testCase) {
 }
 
 func locateFile(name string) string {
-	if path.IsAbs(name) {
-		return name
-	}
-	return testfiles.Locate("vtgate/" + name)
+	return "testdata/" + name
 }

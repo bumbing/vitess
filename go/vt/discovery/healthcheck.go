@@ -77,9 +77,7 @@ var (
 const (
 	DefaultHealthCheckRetryDelay = 5 * time.Second
 	DefaultHealthCheckTimeout    = 1 * time.Minute
-)
 
-const (
 	// DefaultTopoReadConcurrency can be used as default value for the topoReadConcurrency parameter of a TopologyWatcher.
 	DefaultTopoReadConcurrency int = 5
 	// DefaultTopologyWatcherRefreshInterval can be used as the default value for
@@ -527,24 +525,17 @@ func (hc *HealthCheckImpl) checkConn(hcc *healthCheckConn, name string) {
 		// between the goroutine that sets it and the check for its value
 		// later.
 		timedout := sync2.NewAtomicBool(false)
-		serving := hcc.tabletStats.Serving
 		go func() {
 			for {
 				select {
-				case serving = <-servingStatus:
+				case <-servingStatus:
 					continue
 				case <-time.After(hc.healthCheckTimeout):
-					// Ignore if not serving.
-					if !serving {
-						continue
-					}
 					timedout.Set(true)
 					streamCancel()
 					return
 				case <-streamCtx.Done():
-					// If stream returns while serving is false, the function
-					// will get stuck in an infinite loop. This code path
-					// breaks the loop.
+					// If the stream is done, stop watching.
 					return
 				}
 			}
@@ -583,6 +574,10 @@ func (hc *HealthCheckImpl) checkConn(hcc *healthCheckConn, name string) {
 		case <-time.After(retryDelay):
 			// Exponentially back-off to prevent tight-loop.
 			retryDelay *= 2
+			// Limit the retry delay backoff to the health check timeout
+			if retryDelay > hc.healthCheckTimeout {
+				retryDelay = hc.healthCheckTimeout
+			}
 		}
 	}
 }

@@ -29,17 +29,15 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/vttablet/endtoend/framework"
 	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
-
-	querypb "vitess.io/vitess/go/vt/proto/query"
-	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 func TestSimpleRead(t *testing.T) {
@@ -364,7 +362,13 @@ func TestBindInSelect(t *testing.T) {
 		},
 	}
 	if !qr.Equal(want) {
-		t.Errorf("Execute: \n%#v, want \n%#v", prettyPrint(*qr), prettyPrint(*want))
+		// MariaDB 10.3 has different behavior.
+		want2 := want.Copy()
+		want2.Fields[0].Type = sqltypes.Int32
+		want2.Rows[0][0] = sqltypes.NewInt32(1)
+		if !qr.Equal(want2) {
+			t.Errorf("Execute:\n%v, want\n%v or\n%v", prettyPrint(*qr), prettyPrint(*want), prettyPrint(*want2))
+		}
 	}
 
 	// String bind var.
@@ -382,7 +386,6 @@ func TestBindInSelect(t *testing.T) {
 			Type:         sqltypes.VarChar,
 			ColumnLength: 12,
 			Charset:      33,
-			Decimals:     31,
 			Flags:        1,
 		}},
 		RowsAffected: 1,
@@ -392,6 +395,8 @@ func TestBindInSelect(t *testing.T) {
 			},
 		},
 	}
+	// MariaDB 10.3 has different behavior.
+	qr.Fields[0].Decimals = 0
 	if !qr.Equal(want) {
 		t.Errorf("Execute: \n%#v, want \n%#v", prettyPrint(*qr), prettyPrint(*want))
 	}
@@ -411,7 +416,6 @@ func TestBindInSelect(t *testing.T) {
 			Type:         sqltypes.VarChar,
 			ColumnLength: 6,
 			Charset:      33,
-			Decimals:     31,
 			Flags:        1,
 		}},
 		RowsAffected: 1,
@@ -421,6 +425,8 @@ func TestBindInSelect(t *testing.T) {
 			},
 		},
 	}
+	// MariaDB 10.3 has different behavior.
+	qr.Fields[0].Decimals = 0
 	if !qr.Equal(want) {
 		t.Errorf("Execute: \n%#v, want \n%#v", prettyPrint(*qr), prettyPrint(*want))
 	}
@@ -445,7 +451,7 @@ func TestHealth(t *testing.T) {
 
 func TestStreamHealth(t *testing.T) {
 	var health *querypb.StreamHealthResponse
-	framework.Server.BroadcastHealth(0, nil)
+	framework.Server.BroadcastHealth(0, nil, time.Minute)
 	if err := framework.Server.StreamHealth(context.Background(), func(shr *querypb.StreamHealthResponse) error {
 		health = shr
 		return io.EOF
@@ -454,6 +460,23 @@ func TestStreamHealth(t *testing.T) {
 	}
 	if !proto.Equal(health.Target, &framework.Target) {
 		t.Errorf("Health: %+v, want %+v", *health.Target, framework.Target)
+	}
+}
+
+func TestStreamHealth_Expired(t *testing.T) {
+	var health *querypb.StreamHealthResponse
+	framework.Server.BroadcastHealth(0, nil, time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+	if err := framework.Server.StreamHealth(ctx, func(shr *querypb.StreamHealthResponse) error {
+		health = shr
+		return io.EOF
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if health != nil {
+		t.Errorf("Health: %v, want %v", health, nil)
 	}
 }
 
@@ -468,7 +491,7 @@ func TestQueryStats(t *testing.T) {
 		t.Fatal(err)
 	}
 	stat := framework.QueryStats()[query]
-	duration := int(time.Now().Sub(start))
+	duration := int(time.Since(start))
 	if stat.Time <= 0 || stat.Time > duration {
 		t.Errorf("stat.Time: %d, must be between 0 and %d", stat.Time, duration)
 	}
@@ -698,7 +721,7 @@ func TestClientFoundRows(t *testing.T) {
 
 func TestLastInsertId(t *testing.T) {
 	client := framework.NewClient()
-	res, err := client.Execute("insert ignore into vitess_autoinc_seq SET name = 'foo', sequence = 0", nil)
+	_, err := client.Execute("insert ignore into vitess_autoinc_seq SET name = 'foo', sequence = 0", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -709,7 +732,7 @@ func TestLastInsertId(t *testing.T) {
 	}
 	defer client.Rollback()
 
-	res, err = client.Execute("insert ignore into vitess_autoinc_seq SET name = 'foo', sequence = 0", nil)
+	res, err := client.Execute("insert ignore into vitess_autoinc_seq SET name = 'foo', sequence = 0", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -67,6 +67,8 @@ var (
 	appPoolSize    = flag.Int("app_pool_size", 40, "Size of the connection pool for app connections")
 	appIdleTimeout = flag.Duration("app_idle_timeout", time.Minute, "Idle timeout for app connections")
 
+	poolDynamicHostnameResolution = flag.Duration("pool_hostname_resolve_interval", 0, "if set force an update to all hostnames and reconnect if changed, defaults to 0 (disabled)")
+
 	socketFile        = flag.String("mysqlctl_socket", "", "socket file to use for remote mysqlctl actions (empty for local actions)")
 	mycnfTemplateFile = flag.String("mysqlctl_mycnf_template", "", "template file to use for generating the my.cnf file during server init")
 
@@ -98,11 +100,11 @@ func NewMysqld(dbcfgs *dbconfigs.DBConfigs) *Mysqld {
 	}
 
 	// Create and open the connection pool for dba access.
-	result.dbaPool = dbconnpool.NewConnectionPool("DbaConnPool", *dbaPoolSize, *dbaIdleTimeout)
+	result.dbaPool = dbconnpool.NewConnectionPool("DbaConnPool", *dbaPoolSize, *dbaIdleTimeout, *poolDynamicHostnameResolution)
 	result.dbaPool.Open(dbcfgs.Dba(), dbaMysqlStats)
 
 	// Create and open the connection pool for app access.
-	result.appPool = dbconnpool.NewConnectionPool("AppConnPool", *appPoolSize, *appIdleTimeout)
+	result.appPool = dbconnpool.NewConnectionPool("AppConnPool", *appPoolSize, *appIdleTimeout, *poolDynamicHostnameResolution)
 	result.appPool.Open(dbcfgs.AppWithDB(), appMysqlStats)
 
 	return result
@@ -210,7 +212,7 @@ func (mysqld *Mysqld) startNoWait(ctx context.Context, cnf *Mycnf, mysqldArgs ..
 		name, err = binaryPath(dir, "mysqld_safe")
 		if err != nil {
 			// The movement to use systemd means that mysqld_safe is not always provided.
-			// This should not be considered an issue do do not generate a warning.
+			// This should not be considered an issue do not generate a warning.
 			log.Infof("%v: trying to launch mysqld instead", err)
 			name, err = binaryPath(dir, "mysqld")
 			// If this also fails, return an error.
@@ -653,6 +655,11 @@ func getMycnfTemplates(root string) []string {
 		if !contains(cnfTemplatePaths, path) {
 			cnfTemplatePaths = append(cnfTemplatePaths, path)
 		}
+	case "MySQL80":
+		path := path.Join(root, "config/mycnf/master_mysql80.cnf")
+		if !contains(cnfTemplatePaths, path) {
+			cnfTemplatePaths = append(cnfTemplatePaths, path)
+		}
 	default:
 		path := path.Join(root, "config/mycnf/master_mysql56.cnf")
 		// By default we assume Mysql56 compatable
@@ -686,22 +693,22 @@ func (mysqld *Mysqld) RefreshConfig(ctx context.Context, cnf *Mycnf) error {
 	}
 	f, err := ioutil.TempFile(path.Dir(cnf.path), "my.cnf")
 	if err != nil {
-		return fmt.Errorf("Could not create temp file: %v", err)
+		return fmt.Errorf("could not create temp file: %v", err)
 	}
 
 	defer os.Remove(f.Name())
 	err = mysqld.initConfig(root, cnf, f.Name())
 	if err != nil {
-		return fmt.Errorf("Could not initConfig in %v: %v", f.Name(), err)
+		return fmt.Errorf("could not initConfig in %v: %v", f.Name(), err)
 	}
 
 	existing, err := ioutil.ReadFile(cnf.path)
 	if err != nil {
-		return fmt.Errorf("Could not read existing file %v: %v", cnf.path, err)
+		return fmt.Errorf("could not read existing file %v: %v", cnf.path, err)
 	}
 	updated, err := ioutil.ReadFile(f.Name())
 	if err != nil {
-		return fmt.Errorf("Could not read updated file %v: %v", f.Name(), err)
+		return fmt.Errorf("could not read updated file %v: %v", f.Name(), err)
 	}
 
 	if bytes.Equal(existing, updated) {
@@ -712,11 +719,11 @@ func (mysqld *Mysqld) RefreshConfig(ctx context.Context, cnf *Mycnf) error {
 	backupPath := cnf.path + ".previous"
 	err = os.Rename(cnf.path, backupPath)
 	if err != nil {
-		return fmt.Errorf("Could not back up existing %v: %v", cnf.path, err)
+		return fmt.Errorf("could not back up existing %v: %v", cnf.path, err)
 	}
 	err = os.Rename(f.Name(), cnf.path)
 	if err != nil {
-		return fmt.Errorf("Could not move %v to %v: %v", f.Name(), cnf.path, err)
+		return fmt.Errorf("could not move %v to %v: %v", f.Name(), cnf.path, err)
 	}
 	log.Infof("Updated my.cnf. Backup of previous version available in %v", backupPath)
 

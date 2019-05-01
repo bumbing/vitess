@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/vt/vterrors"
 
 	"vitess.io/vitess/go/json2"
 	"vitess.io/vitess/go/vt/discovery"
@@ -72,8 +73,9 @@ func initVtgateExecutor(vSchemaStr string, opts *Options) error {
 }
 
 func newFakeResolver(opts *Options, hc discovery.HealthCheck, serv srvtopo.Server, cell string) *vtgate.Resolver {
-	gw := gateway.GetCreator()(hc, serv, cell, 3)
-	gw.WaitForTablets(context.Background(), []topodatapb.TabletType{topodatapb.TabletType_REPLICA})
+	ctx := context.Background()
+	gw := gateway.GetCreator()(ctx, hc, serv, cell, 3)
+	gw.WaitForTablets(ctx, []topodatapb.TabletType{topodatapb.TabletType_REPLICA})
 
 	txMode := vtgatepb.TransactionMode_MULTI
 	if opts.ExecutionMode == ModeTwoPC {
@@ -137,7 +139,7 @@ func vtgateExecute(sql string) ([]*engine.Plan, map[string]*TabletActions, error
 		}
 		planCache.Clear()
 
-		return nil, nil, fmt.Errorf("vtexplain execute error in '%s': %v", sql, err)
+		return nil, nil, vterrors.Wrapf(err, "vtexplain execute error in '%s'", sql)
 	}
 
 	var plans []*engine.Plan

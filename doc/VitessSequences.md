@@ -50,7 +50,7 @@ Alternative to auto-incrementing IDs are:
   ID. If taken (because the statement returns an integrity error), try another
   ID.
 
-* use a UUID scheme, and generate trully unique IDs.
+* use a UUID scheme, and generate truly unique IDs.
 
 Now that this is out of the way, let's get to MySQL auto-increment.
 
@@ -87,7 +87,7 @@ Let's start by looking at the MySQL auto-increment feature:
 
 An early design was to use a single unsharded database and a table with an
 auto-increment value to generate new values. However, this has serious
-limitations, in particular throughtput, and storing one entry for each value in
+limitations, in particular throughput, and storing one entry for each value in
 that table, for no reason.
 
 So we decided instead to base sequences on a MySQL table, and use a single value

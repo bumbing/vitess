@@ -24,23 +24,21 @@ import (
 	"strings"
 	"time"
 
-	"vitess.io/vitess/go/vt/vterrors"
-
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/event"
 	"vitess.io/vitess/go/trace"
+	"vitess.io/vitess/go/vt/key"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/mysqlctl"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	"vitess.io/vitess/go/vt/topo"
 	"vitess.io/vitess/go/vt/topo/topoproto"
+	"vitess.io/vitess/go/vt/vterrors"
 	"vitess.io/vitess/go/vt/vttablet/tabletmanager/events"
 	"vitess.io/vitess/go/vt/vttablet/tabletmanager/vreplication"
 	"vitess.io/vitess/go/vt/vttablet/tabletserver/rules"
 	"vitess.io/vitess/go/vt/vttablet/tabletserver/tabletenv"
-
-	querypb "vitess.io/vitess/go/vt/proto/query"
-	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
 var (
@@ -104,6 +102,7 @@ func (agent *ActionAgent) broadcastHealth() {
 	replicationDelay := agent._replicationDelay
 	healthError := agent._healthy
 	terTime := agent._tabletExternallyReparentedTime
+	healthyTime := agent._healthyTime
 	agent.mutex.Unlock()
 
 	// send it to our observers
@@ -115,12 +114,17 @@ func (agent *ActionAgent) broadcastHealth() {
 	stats.Qps = tabletenv.QPSRates.TotalRate()
 	if healthError != nil {
 		stats.HealthError = healthError.Error()
+	} else {
+		timeSinceLastCheck := time.Since(healthyTime)
+		if timeSinceLastCheck > *healthCheckInterval*3 {
+			stats.HealthError = fmt.Sprintf("last health check is too old: %s > %s", timeSinceLastCheck, *healthCheckInterval*3)
+		}
 	}
 	var ts int64
 	if !terTime.IsZero() {
 		ts = terTime.Unix()
 	}
-	go agent.QueryServiceControl.BroadcastHealth(ts, stats)
+	go agent.QueryServiceControl.BroadcastHealth(ts, stats, *healthCheckInterval*3)
 }
 
 // refreshTablet needs to be run after an action may have changed the current
@@ -129,11 +133,9 @@ func (agent *ActionAgent) refreshTablet(ctx context.Context, reason string) erro
 	agent.checkLock()
 	log.Infof("Executing post-action state refresh: %v", reason)
 
-	span := trace.NewSpanFromContext(ctx)
-	span.StartLocal("ActionAgent.refreshTablet")
+	span, ctx := trace.NewSpan(ctx, "ActionAgent.refreshTablet")
 	span.Annotate("reason", reason)
 	defer span.Finish()
-	ctx = trace.NewContext(ctx, span)
 
 	// Actions should have side effects on the tablet, so reload the data.
 	ti, err := agent.TopoServer.GetTablet(ctx, agent.TabletAlias)
@@ -190,8 +192,7 @@ func (agent *ActionAgent) updateState(ctx context.Context, newTablet *topodatapb
 func (agent *ActionAgent) changeCallback(ctx context.Context, oldTablet, newTablet *topodatapb.Tablet) {
 	agent.checkLock()
 
-	span := trace.NewSpanFromContext(ctx)
-	span.StartLocal("ActionAgent.changeCallback")
+	span, ctx := trace.NewSpan(ctx, "ActionAgent.changeCallback")
 	defer span.Finish()
 
 	allowQuery := topo.IsRunningQueryService(newTablet.Type)
@@ -217,12 +218,30 @@ func (agent *ActionAgent) changeCallback(ctx context.Context, oldTablet, newTabl
 					disallowQueryReason = "master tablet with filtered replication on"
 				}
 			}
+			srvKeyspace, err := agent.TopoServer.GetSrvKeyspace(ctx, newTablet.Alias.Cell, newTablet.Keyspace)
+			if err != nil {
+				log.Errorf("failed to get SrvKeyspace %v with: %v", newTablet.Keyspace, err)
+			} else {
+
+				for _, partition := range srvKeyspace.GetPartitions() {
+					if partition.GetServedType() != newTablet.Type {
+						continue
+					}
+
+					for _, tabletControl := range partition.GetShardTabletControls() {
+						if key.KeyRangeEqual(tabletControl.GetKeyRange(), newTablet.GetKeyRange()) {
+							if tabletControl.QueryServiceDisabled {
+								allowQuery = false
+								disallowQueryReason = "TabletControl.DisableQueryService set"
+							}
+							break
+						}
+					}
+				}
+			}
 			if tc := shardInfo.GetTabletControl(newTablet.Type); tc != nil {
 				if topo.InCellList(newTablet.Alias.Cell, tc.Cells) {
-					if tc.DisableQueryService {
-						allowQuery = false
-						disallowQueryReason = "TabletControl.DisableQueryService set"
-					}
+
 					blacklistedTables = tc.BlacklistedTables
 				}
 			}

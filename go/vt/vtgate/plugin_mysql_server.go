@@ -32,6 +32,7 @@ import (
 	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
+	"vitess.io/vitess/go/trace"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/callinfo"
 	"vitess.io/vitess/go/vt/log"
@@ -106,8 +107,11 @@ func (vh *vtgateHandler) ConnectionClosed(c *mysql.Conn) {
 }
 
 func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.Result) error) error {
-	var ctx context.Context
+	ctx := context.Background()
 	var cancel context.CancelFunc
+	span, ctx := trace.NewSpan(ctx, "vtgateHandler.ComQuery")
+	trace.AnnotateSQL(span, query)
+	defer span.Finish()
 
 	ctx = callinfo.MysqlCallInfo(ctx, c)
 

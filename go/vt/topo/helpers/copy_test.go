@@ -26,6 +26,7 @@ import (
 	"vitess.io/vitess/go/vt/topo/topoproto"
 
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
 )
 
 func createSetup(ctx context.Context, t *testing.T) (*topo.Server, *topo.Server) {
@@ -41,12 +42,6 @@ func createSetup(ctx context.Context, t *testing.T) (*topo.Server, *topo.Server)
 	}
 	if err := fromTS.CreateShard(ctx, "test_keyspace", "0"); err != nil {
 		t.Fatalf("cannot create shard: %v", err)
-	}
-	if _, err := fromTS.UpdateShardFields(ctx, "test_keyspace", "0", func(si *topo.ShardInfo) error {
-		si.Cells = []string{"test_cell"}
-		return nil
-	}); err != nil {
-		t.Fatalf("cannot update shard: %v", err)
 	}
 	tablet1 := &topodatapb.Tablet{
 		Alias: &topodatapb.TabletAlias{
@@ -92,6 +87,16 @@ func createSetup(ctx context.Context, t *testing.T) (*topo.Server, *topo.Server)
 		t.Fatalf("cannot create slave tablet: %v", err)
 	}
 
+	rr := &vschemapb.RoutingRules{
+		Rules: []*vschemapb.RoutingRule{{
+			FromTable: "t1",
+			ToTables:  []string{"t2", "t3"},
+		}},
+	}
+	if err := fromTS.SaveRoutingRules(ctx, rr); err != nil {
+		t.Fatalf("cannot save routing rules: %v", err)
+	}
+
 	return fromTS, toTS
 }
 
@@ -120,21 +125,14 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("unexpected shards: %v", shards)
 	}
 	CopyShards(ctx, fromTS, toTS)
-	si, err := toTS.GetShard(ctx, "test_keyspace", "0")
-	if err != nil {
-		t.Fatalf("cannot read shard: %v", err)
-	}
-	if len(si.Shard.Cells) != 1 || si.Shard.Cells[0] != "test_cell" {
-		t.Fatalf("bad shard data: %v", *si.Shard)
-	}
 
 	// check ShardReplication copy
-	sr, err := fromTS.GetShardReplication(ctx, "test_cell", "test_keyspace", "0")
+	_, err = fromTS.GetShardReplication(ctx, "test_cell", "test_keyspace", "0")
 	if err != nil {
 		t.Fatalf("fromTS.GetShardReplication failed: %v", err)
 	}
 	CopyShardReplications(ctx, fromTS, toTS)
-	sr, err = toTS.GetShardReplication(ctx, "test_cell", "test_keyspace", "0")
+	sr, err := toTS.GetShardReplication(ctx, "test_cell", "test_keyspace", "0")
 	if err != nil {
 		t.Fatalf("toTS.GetShardReplication failed: %v", err)
 	}

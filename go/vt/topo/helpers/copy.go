@@ -146,6 +146,11 @@ func CopyShardReplications(ctx context.Context, fromTS, toTS *topo.Server) {
 		log.Fatalf("fromTS.GetKeyspaces: %v", err)
 	}
 
+	cells, err := fromTS.GetCellInfoNames(ctx)
+	if err != nil {
+		log.Fatalf("GetCellInfoNames(): %v", err)
+	}
+
 	for _, keyspace := range keyspaces {
 		shards, err := fromTS.GetShardNames(ctx, keyspace)
 		if err != nil {
@@ -153,14 +158,7 @@ func CopyShardReplications(ctx context.Context, fromTS, toTS *topo.Server) {
 		}
 
 		for _, shard := range shards {
-
-			// read the source shard to get the cells
-			si, err := fromTS.GetShard(ctx, keyspace, shard)
-			if err != nil {
-				log.Fatalf("GetShard(%v, %v): %v", keyspace, shard, err)
-			}
-
-			for _, cell := range si.Shard.Cells {
+			for _, cell := range cells {
 				sri, err := fromTS.GetShardReplication(ctx, cell, keyspace, shard)
 				if err != nil {
 					log.Fatalf("GetShardReplication(%v, %v, %v): %v", cell, keyspace, shard, err)
@@ -175,5 +173,16 @@ func CopyShardReplications(ctx context.Context, fromTS, toTS *topo.Server) {
 				}
 			}
 		}
+	}
+}
+
+// CopyRoutingRules will create the routing rules in the destination topo.
+func CopyRoutingRules(ctx context.Context, fromTS, toTS *topo.Server) {
+	rr, err := fromTS.GetRoutingRules(ctx)
+	if err != nil {
+		log.Fatalf("GetRoutingRules: %v", err)
+	}
+	if err := toTS.SaveRoutingRules(ctx, rr); err != nil {
+		log.Errorf("SaveRoutingRules(%v): %v", rr, err)
 	}
 }

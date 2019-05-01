@@ -85,6 +85,14 @@ func NewEngine(checker connpool.MySQLChecker, config tabletenv.TabletConfig) *En
 
 		http.Handle("/debug/schema", se)
 		http.HandleFunc("/schemaz", func(w http.ResponseWriter, r *http.Request) {
+			// Ensure schema engine is Open. If vttablet came up in a non_serving role,
+			// the schema engine may not have been initialized.
+			err := se.Open()
+			if err != nil {
+				w.Write([]byte(err.Error()))
+				return
+			}
+
 			schemazHandler(se.GetSchema(), w, r)
 		})
 	})
@@ -105,7 +113,7 @@ func (se *Engine) Open() error {
 		return nil
 	}
 	start := time.Now()
-	defer log.Infof("Time taken to load the schema: %v", time.Now().Sub(start))
+	defer log.Infof("Time taken to load the schema: %v", time.Since(start))
 	ctx := tabletenv.LocalContext()
 	dbaParams := se.dbconfigs.DbaWithDB()
 	se.conns.Open(dbaParams, dbaParams, dbaParams)
@@ -483,6 +491,14 @@ func (se *Engine) ServeHTTP(response http.ResponseWriter, request *http.Request)
 }
 
 func (se *Engine) handleHTTPSchema(response http.ResponseWriter, request *http.Request) {
+	// Ensure schema engine is Open. If vttablet came up in a non_serving role,
+	// the schema engine may not have been initialized.
+	err := se.Open()
+	if err != nil {
+		response.Write([]byte(err.Error()))
+		return
+	}
+
 	response.Header().Set("Content-Type", "application/json; charset=utf-8")
 	b, err := json.MarshalIndent(se.GetSchema(), "", " ")
 	if err != nil {

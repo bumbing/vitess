@@ -17,11 +17,11 @@ limitations under the License.
 package topo
 
 import (
-	"fmt"
 	"path"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/vt/vterrors"
 
 	"vitess.io/vitess/go/trace"
 	"vitess.io/vitess/go/vt/log"
@@ -78,8 +78,7 @@ func (sri *ShardReplicationInfo) GetShardReplicationNode(tabletAlias *topodatapb
 // UpdateShardReplicationRecord is a low level function to add / update an
 // entry to the ShardReplication object.
 func UpdateShardReplicationRecord(ctx context.Context, ts *Server, keyspace, shard string, tabletAlias *topodatapb.TabletAlias) error {
-	span := trace.NewSpanFromContext(ctx)
-	span.StartClient("TopoServer.UpdateShardReplicationFields")
+	span, ctx := trace.NewSpan(ctx, "TopoServer.UpdateShardReplicationFields")
 	span.Annotate("keyspace", keyspace)
 	span.Annotate("shard", shard)
 	span.Annotate("tablet", topoproto.TabletAliasString(tabletAlias))
@@ -179,7 +178,7 @@ func (ts *Server) UpdateShardReplicationFields(ctx context.Context, cell, keyspa
 		case err == nil:
 			// Use any data we got.
 			if err = proto.Unmarshal(data, sr); err != nil {
-				return fmt.Errorf("bad ShardReplication data %v", err)
+				return vterrors.Wrap(err, "bad ShardReplication data")
 			}
 		default:
 			return err
@@ -236,7 +235,7 @@ func (ts *Server) GetShardReplication(ctx context.Context, cell, keyspace, shard
 
 	sr := &topodatapb.ShardReplication{}
 	if err = proto.Unmarshal(data, sr); err != nil {
-		return nil, fmt.Errorf("bad ShardReplication data %v", err)
+		return nil, vterrors.Wrap(err, "bad ShardReplication data")
 	}
 
 	return NewShardReplicationInfo(sr, cell, keyspace, shard), nil

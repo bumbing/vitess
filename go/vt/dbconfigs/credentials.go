@@ -26,7 +26,10 @@ import (
 	"errors"
 	"flag"
 	"io/ioutil"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/mysql"
@@ -38,7 +41,7 @@ var (
 	dbCredentialsServer = flag.String("db-credentials-server", "file", "db credentials server type (use 'file' for the file implementation)")
 
 	// 'file' implementation flags
-	dbCredentialsFile = flag.String("db-credentials-file", "", "db credentials file")
+	dbCredentialsFile = flag.String("db-credentials-file", "", "db credentials file; send SIGHUP to reload this file")
 
 	// ErrUnknownUser is returned by credential server when the
 	// user doesn't exist
@@ -149,4 +152,16 @@ func (kcs *knoxCredentialsServer) GetUserAndPassword(role string) (string, strin
 func init() {
 	AllCredentialsServers["file"] = &FileCredentialsServer{}
 	AllCredentialsServers["knox"] = &knoxCredentialsServer{}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGHUP)
+	go func() {
+		for range sigChan {
+			if fcs, ok := AllCredentialsServers["file"].(*FileCredentialsServer); ok {
+				fcs.mu.Lock()
+				fcs.dbCredentials = nil
+				fcs.mu.Unlock()
+			}
+		}
+	}()
 }

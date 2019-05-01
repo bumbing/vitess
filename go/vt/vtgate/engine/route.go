@@ -83,6 +83,24 @@ type Route struct {
 	ScatterErrorsAsWarnings bool
 }
 
+// NewSimpleRoute creates a Route with the bare minimum of parameters.
+func NewSimpleRoute(opcode RouteOpcode, keyspace *vindexes.Keyspace) *Route {
+	return &Route{
+		Opcode:   opcode,
+		Keyspace: keyspace,
+	}
+}
+
+// NewRoute creates a Route.
+func NewRoute(opcode RouteOpcode, keyspace *vindexes.Keyspace, query, fieldQuery string) *Route {
+	return &Route{
+		Opcode:     opcode,
+		Keyspace:   keyspace,
+		Query:      query,
+		FieldQuery: fieldQuery,
+	}
+}
+
 // OrderbyParams specifies the parameters for ordering.
 // This is used for merge-sorting scatter queries.
 type OrderbyParams struct {
@@ -125,7 +143,8 @@ func (route *Route) MarshalJSON() ([]byte, error) {
 
 // RouteOpcode is a number representing the opcode
 // for the Route primitve. Adding new opcodes here
-// will require review of the join code in planbuilder.
+// will require review of the join code and
+// the finalizeOptions code in planbuilder.
 type RouteOpcode int
 
 // This is the list of RouteOpcode values.
@@ -152,6 +171,8 @@ const (
 	SelectNext
 	// SelectDBA is for executing a DBA statement.
 	SelectDBA
+	// SelectReference is for fetching from a reference table.
+	SelectReference
 )
 
 var routeName = map[RouteOpcode]string{
@@ -162,6 +183,7 @@ var routeName = map[RouteOpcode]string{
 	SelectScatter:     "SelectScatter",
 	SelectNext:        "SelectNext",
 	SelectDBA:         "SelectDBA",
+	SelectReference:   "SelectReference",
 }
 
 var (
@@ -193,16 +215,13 @@ func (route *Route) Execute(vcursor VCursor, bindVars map[string]*querypb.BindVa
 }
 
 func (route *Route) execute(vcursor VCursor, bindVars map[string]*querypb.BindVariable, wantfields bool) (*sqltypes.Result, error) {
-	switch route.Opcode {
-	case SelectNext, SelectDBA:
-		return execAnyShard(vcursor, route.Query, bindVars, route.Keyspace)
-	}
-
 	var rss []*srvtopo.ResolvedShard
 	var bvs []map[string]*querypb.BindVariable
 	var err error
 	switch route.Opcode {
-	case SelectUnsharded, SelectScatter:
+	case SelectUnsharded, SelectNext, SelectDBA, SelectReference:
+		rss, bvs, err = route.paramsAnyShard(vcursor, bindVars)
+	case SelectScatter:
 		rss, bvs, err = route.paramsAllShards(vcursor, bindVars)
 	case SelectEqual, SelectEqualUnique:
 		rss, bvs, err = route.paramsSelectEqual(vcursor, bindVars)
@@ -259,7 +278,9 @@ func (route *Route) StreamExecute(vcursor VCursor, bindVars map[string]*querypb.
 		defer cancel()
 	}
 	switch route.Opcode {
-	case SelectUnsharded, SelectScatter:
+	case SelectUnsharded, SelectNext, SelectDBA, SelectReference:
+		rss, bvs, err = route.paramsAnyShard(vcursor, bindVars)
+	case SelectScatter:
 		rss, bvs, err = route.paramsAllShards(vcursor, bindVars)
 	case SelectEqual, SelectEqualUnique:
 		rss, bvs, err = route.paramsSelectEqual(vcursor, bindVars)
@@ -303,7 +324,7 @@ func (route *Route) GetFields(vcursor VCursor, bindVars map[string]*querypb.Bind
 	}
 	if len(rss) != 1 {
 		// This code is unreachable. It's just a sanity check.
-		return nil, fmt.Errorf("No shards for keyspace: %s", route.Keyspace.Name)
+		return nil, fmt.Errorf("no shards for keyspace: %s", route.Keyspace.Name)
 	}
 	qr, err := execShard(vcursor, route.FieldQuery, bindVars, rss[0], false /* isDML */, false /* canAutocommit */)
 	if err != nil {
@@ -316,6 +337,18 @@ func (route *Route) paramsAllShards(vcursor VCursor, bindVars map[string]*queryp
 	rss, _, err := vcursor.ResolveDestinations(route.Keyspace.Name, nil, []key.Destination{key.DestinationAllShards{}})
 	if err != nil {
 		return nil, nil, vterrors.Wrap(err, "paramsAllShards")
+	}
+	multiBindVars := make([]map[string]*querypb.BindVariable, len(rss))
+	for i := range multiBindVars {
+		multiBindVars[i] = bindVars
+	}
+	return rss, multiBindVars, nil
+}
+
+func (route *Route) paramsAnyShard(vcursor VCursor, bindVars map[string]*querypb.BindVariable) ([]*srvtopo.ResolvedShard, []map[string]*querypb.BindVariable, error) {
+	rss, _, err := vcursor.ResolveDestinations(route.Keyspace.Name, nil, []key.Destination{key.DestinationAnyShard{}})
+	if err != nil {
+		return nil, nil, vterrors.Wrap(err, "paramsAnyShard")
 	}
 	multiBindVars := make([]map[string]*querypb.BindVariable, len(rss))
 	for i := range multiBindVars {
@@ -432,20 +465,6 @@ func resolveSingleShard(vcursor VCursor, vindex vindexes.Vindex, keyspace *vinde
 		return nil, nil, fmt.Errorf("ResolveDestinations maps to %v shards", len(rss))
 	}
 	return rss[0], ksid, nil
-}
-
-func execAnyShard(vcursor VCursor, query string, bindVars map[string]*querypb.BindVariable, keyspace *vindexes.Keyspace) (*sqltypes.Result, error) {
-	rss, _, err := vcursor.ResolveDestinations(keyspace.Name, nil, []key.Destination{key.DestinationAnyShard{}})
-	if err != nil {
-		// TODO(alainjobart): this eats the error code. Use vterrors.Wrapf instead.
-		// And audit the entire file for it.
-		return nil, fmt.Errorf("execAnyShard: %v", err)
-	}
-	if len(rss) != 1 {
-		// This code is unreachable. It's just a sanity check.
-		return nil, fmt.Errorf("No shards for keyspace: %s", keyspace.Name)
-	}
-	return vcursor.ExecuteStandalone(query, bindVars, rss[0])
 }
 
 func execShard(vcursor VCursor, query string, bindVars map[string]*querypb.BindVariable, rs *srvtopo.ResolvedShard, isDML, canAutocommit bool) (*sqltypes.Result, error) {

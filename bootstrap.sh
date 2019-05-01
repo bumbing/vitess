@@ -177,17 +177,16 @@ function install_zookeeper() {
   local dist="$2"
 
   zk="zookeeper-$version"
-  wget "http://apache.org/dist/zookeeper/$zk/$zk.tar.gz"
+  wget "https://apache.org/dist/zookeeper/$zk/$zk.tar.gz"
   tar -xzf "$zk.tar.gz"
+  ant -f "$zk/build.xml" package
+  ant -f "$zk/zookeeper-contrib/zookeeper-contrib-fatjar/build.xml" jar
   mkdir -p lib
-  cp "$zk/contrib/fatjar/$zk-fatjar.jar" lib
-  # TODO(sougou): when version changes, see if we can drop the 'zip -d' hack to get the fatjars working.
-  #               If yes, also delete "zip" from the Dockerfile files and the manual build instructions again.
-  # 3.4.13 workaround: Delete META-INF files which should not be in there.
-  zip -d "lib/$zk-fatjar.jar" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*SF'
+  cp "$zk/build/zookeeper-contrib/zookeeper-contrib-fatjar/zookeeper-dev-fatjar.jar" "lib/$zk-fatjar.jar"
+  zip -d "lib/$zk-fatjar.jar" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*SF' || true # needed for >=3.4.10 <3.5
   rm -rf "$zk" "$zk.tar.gz"
 }
-zk_ver=3.4.13
+zk_ver=${ZK_VERSION:-3.4.14}
 install_dep "Zookeeper" "$zk_ver" "$VTROOT/dist/vt-zookeeper-$zk_ver" install_zookeeper
 
 
@@ -196,13 +195,22 @@ function install_etcd() {
   local version="$1"
   local dist="$2"
 
-  download_url=https://github.com/coreos/etcd/releases/download
-  tar_file="etcd-${version}-linux-amd64.tar.gz"
+  case $(uname) in
+    Linux)  local platform=linux; local ext=tar.gz;;
+    Darwin) local platform=darwin; local ext=zip;;
+  esac
 
-  wget "$download_url/$version/$tar_file"
-  tar xzf "$tar_file"
-  rm "$tar_file"
-  ln -snf "$dist/etcd-${version}-linux-amd64/etcd" "$VTROOT/bin/etcd"
+  download_url=https://github.com/coreos/etcd/releases/download
+  file="etcd-${version}-${platform}-amd64.${ext}"
+
+  wget "$download_url/$version/$file"
+  if [ "$ext" = "tar.gz" ]; then
+    tar xzf "$file"
+  else
+    unzip "$file"
+  fi
+  rm "$file"
+  ln -snf "$dist/etcd-${version}-${platform}-amd64/etcd" "$VTROOT/bin/etcd"
 }
 install_dep "etcd" "v3.3.10" "$VTROOT/dist/etcd" install_etcd
 
@@ -212,9 +220,14 @@ function install_consul() {
   local version="$1"
   local dist="$2"
 
+  case $(uname) in
+    Linux)  local platform=linux;;
+    Darwin) local platform=darwin;;
+  esac
+
   download_url=https://releases.hashicorp.com/consul
-  wget "${download_url}/${version}/consul_${version}_linux_amd64.zip"
-  unzip "consul_${version}_linux_amd64.zip"
+  wget "${download_url}/${version}/consul_${version}_${platform}_amd64.zip"
+  unzip "consul_${version}_${platform}_amd64.zip"
   ln -snf "$dist/consul" "$VTROOT/bin/consul"
 }
 install_dep "Consul" "1.4.0" "$VTROOT/dist/consul" install_consul
@@ -264,12 +277,12 @@ function install_chromedriver() {
   local version="$1"
   local dist="$2"
 
-  curl -sL "http://chromedriver.storage.googleapis.com/$version/chromedriver_linux64.zip" > chromedriver_linux64.zip
+  curl -sL "https://chromedriver.storage.googleapis.com/$version/chromedriver_linux64.zip" > chromedriver_linux64.zip
   unzip -o -q chromedriver_linux64.zip -d "$dist"
   rm chromedriver_linux64.zip
 }
 if [ "$BUILD_TESTS" == 1 ] ; then
-    install_dep "chromedriver" "2.44" "$VTROOT/dist/chromedriver" install_chromedriver
+    install_dep "chromedriver" "73.0.3683.20" "$VTROOT/dist/chromedriver" install_chromedriver
 fi
 
 
@@ -326,13 +339,13 @@ if [ "$BUILD_TESTS" == 1 ] ; then
     echo "MYSQL_FLAVOR environment variable not set. Using default: $MYSQL_FLAVOR"
   fi
   case "$MYSQL_FLAVOR" in
-    "MySQL56")
+    "MySQL56" | "MySQL80")
       myversion="$("$VT_MYSQL_ROOT/bin/mysql" --version)"
       [[ "$myversion" =~ Distrib\ 5\.[67] || "$myversion" =~ Ver\ 8\. ]] || fail "Couldn't find MySQL 5.6+ in $VT_MYSQL_ROOT. Set VT_MYSQL_ROOT to override search location."
       echo "Found MySQL 5.6+ installation in $VT_MYSQL_ROOT."
       ;;
 
-    "MariaDB")
+    "MariaDB" | "MariaDB103")
       myversion="$("$VT_MYSQL_ROOT/bin/mysql" --version)"
       [[ "$myversion" =~ MariaDB ]] || fail "Couldn't find MariaDB in $VT_MYSQL_ROOT. Set VT_MYSQL_ROOT to override search location."
       echo "Found MariaDB installation in $VT_MYSQL_ROOT."
@@ -364,7 +377,7 @@ if [ "$BUILD_TESTS" == 1 ] ; then
  echo "bootstrap finished - run 'source dev.env' in your shell before building."
 else
  echo
- echo "bootstrap finished - run 'source build.env' in your shell before building."    
+ echo "bootstrap finished - run 'source build.env' in your shell before building."
 fi
 
 

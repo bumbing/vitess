@@ -79,11 +79,11 @@ The following table lists the methods in each group and links to more detail abo
 <tr><td class="api-method-summary-group" colspan="2">v3 API (alpha)</td></tr>
 <tr>
 <td><code><a href="#execute">Execute</a></code></td>
-<td>Execute tries to route the query to the right shard. It depends on the query and bind variables to provide enough information in conjonction with the vindexes to route the query.</td>
+<td>Execute tries to route the query to the right shard. It depends on the query and bind variables to provide enough information in conjunction with the vindexes to route the query.</td>
 </tr>
 <tr>
 <td><code><a href="#streamexecute">StreamExecute</a></code></td>
-<td>StreamExecute executes a streaming query based on shards. It depends on the query and bind variables to provide enough information in conjonction with the vindexes to route the query. Use this method if the query returns a large number of rows.</td>
+<td>StreamExecute executes a streaming query based on shards. It depends on the query and bind variables to provide enough information in conjunction with the vindexes to route the query. Use this method if the query returns a large number of rows.</td>
 </tr>
 </table>
 ##Range-based Sharding
@@ -488,7 +488,7 @@ Split a query into non-overlapping sub queries
 
 #### Request
 
- SplitQueryRequest is the payload to SplitQuery.  SplitQuery takes a "SELECT" query and generates a list of queries called "query-parts". Each query-part consists of the original query with an added WHERE clause that restricts the query-part to operate only on rows whose values in the the columns listed in the "split_column" field of the request (see below) are in a particular range.  It is guaranteed that the set of rows obtained from executing each query-part on a database snapshot and merging (without deduping) the results is equal to the set of rows obtained from executing the original query on the same snapshot with the rows containing NULL values in any of the split_column's excluded.  This is typically called by the MapReduce master when reading from Vitess. There it's desirable that the sets of rows returned by the query-parts have roughly the same size.
+ SplitQueryRequest is the payload to SplitQuery.  SplitQuery takes a "SELECT" query and generates a list of queries called "query-parts". Each query-part consists of the original query with an added WHERE clause that restricts the query-part to operate only on rows whose values in the columns listed in the "split_column" field of the request (see below) are in a particular range.  It is guaranteed that the set of rows obtained from executing each query-part on a database snapshot and merging (without deduping) the results is equal to the set of rows obtained from executing the original query on the same snapshot with the rows containing NULL values in any of the split_column's excluded.  This is typically called by the MapReduce master when reading from Vitess. There it's desirable that the sets of rows returned by the query-parts have roughly the same size.
 
 ##### Parameters
 
@@ -572,7 +572,7 @@ GetSrvKeyspace returns a SrvKeyspace object (as seen by this vtgate). This metho
 ##v3 API (alpha)
 ### Execute
 
-Execute tries to route the query to the right shard. It depends on the query and bind variables to provide enough information in conjonction with the vindexes to route the query.
+Execute tries to route the query to the right shard. It depends on the query and bind variables to provide enough information in conjunction with the vindexes to route the query.
 
 #### Request
 
@@ -604,7 +604,7 @@ Execute tries to route the query to the right shard. It depends on the query and
 
 ### StreamExecute
 
-StreamExecute executes a streaming query based on shards. It depends on the query and bind variables to provide enough information in conjonction with the vindexes to route the query. Use this method if the query returns a large number of rows.
+StreamExecute executes a streaming query based on shards. It depends on the query and bind variables to provide enough information in conjunction with the vindexes to route the query. Use this method if the query returns a large number of rows.
 
 #### Request
 
@@ -666,7 +666,7 @@ StreamExecute executes a streaming query based on shards. It depends on the quer
 | <code>BIT</code> | <code>2073</code> | BIT specifies a BIT type. Properties: 25, IsQuoted.  |
 | <code>ENUM</code> | <code>2074</code> | ENUM specifies an ENUM type. Properties: 26, IsQuoted.  |
 | <code>SET</code> | <code>2075</code> | SET specifies a SET type. Properties: 27, IsQuoted.  |
-| <code>TUPLE</code> | <code>28</code> | TUPLE specifies a a tuple. This cannot be returned in a QueryResult, but it can be sent as a bind var. Properties: 28, None.  |
+| <code>TUPLE</code> | <code>28</code> | TUPLE specifies a tuple. This cannot be returned in a QueryResult, but it can be sent as a bind var. Properties: 28, None.  |
 | <code>GEOMETRY</code> | <code>2077</code> | GEOMETRY specifies a GEOMETRY type. Properties: 29, IsQuoted.  |
 | <code>JSON</code> | <code>2078</code> | JSON specified a JSON type. Properties: 30, IsQuoted.  |
 
@@ -839,7 +839,7 @@ Field describes a single column returned by a query
 | <code>org_name</code> <br>string| |
 | <code>column_length</code> <br>uint32| column_length is really a uint32. All 32 bits can be used. |
 | <code>charset</code> <br>uint32| charset is actually a uint16. Only the lower 16 bits are used. |
-| <code>decimals</code> <br>uint32| decimals is actualy a uint8. Only the lower 8 bits are used. |
+| <code>decimals</code> <br>uint32| decimals is actually a uint8. Only the lower 8 bits are used. |
 | <code>flags</code> <br>uint32| flags is actually a uint16. Only the lower 16 bits are used. |
 
 ### query.QueryResult

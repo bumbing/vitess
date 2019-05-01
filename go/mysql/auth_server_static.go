@@ -20,21 +20,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"vitess.io/vitess/go/vt/log"
 	querypb "vitess.io/vitess/go/vt/proto/query"
+	"vitess.io/vitess/go/vt/proto/vtrpc"
+	"vitess.io/vitess/go/vt/vterrors"
 )
 
 var (
-	mysqlAuthServerStaticFile   = flag.String("mysql_auth_server_static_file", "", "JSON File to read the users/passwords from.")
-	mysqlAuthServerStaticString = flag.String("mysql_auth_server_static_string", "", "JSON representation of the users/passwords config.")
+	mysqlAuthServerStaticFile           = flag.String("mysql_auth_server_static_file", "", "JSON File to read the users/passwords from.")
+	mysqlAuthServerStaticString         = flag.String("mysql_auth_server_static_string", "", "JSON representation of the users/passwords config.")
+	mysqlAuthServerStaticReloadInterval = flag.Duration("mysql_auth_static_reload_interval", 0, "Ticker to reload credentials")
 )
 
 const (
@@ -148,15 +151,33 @@ func (a *AuthServerStatic) installSignalHandlers() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGHUP)
 	go func() {
-		for {
-			<-sigChan
+		for range sigChan {
 			a.loadConfigFromParams(*mysqlAuthServerStaticFile, "")
 		}
 	}()
+
+	// If duration is set, it will reload configuration every interval
+	if *mysqlAuthServerStaticReloadInterval > 0 {
+		ticker := time.NewTicker(*mysqlAuthServerStaticReloadInterval)
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					if *mysqlAuthServerStaticReloadInterval <= 0 {
+						ticker.Stop()
+						return
+					}
+					sigChan <- syscall.SIGHUP
+				}
+			}
+		}()
+	}
 }
 
 func parseConfig(jsonConfig []byte, config *map[string][]*AuthServerStaticEntry) error {
-	if err := json.Unmarshal(jsonConfig, config); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(jsonConfig))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(config); err != nil {
 		// Couldn't parse, will try to parse with legacy config
 		return parseLegacyConfig(jsonConfig, config)
 	}
@@ -166,22 +187,23 @@ func parseConfig(jsonConfig []byte, config *map[string][]*AuthServerStaticEntry)
 func parseLegacyConfig(jsonConfig []byte, config *map[string][]*AuthServerStaticEntry) error {
 	// legacy config doesn't have an array
 	legacyConfig := make(map[string]*AuthServerStaticEntry)
-	err := json.Unmarshal(jsonConfig, &legacyConfig)
-	if err == nil {
-		log.Warningf("Config parsed using legacy configuration. Please update to the latest format: {\"user\":[{\"Password\": \"xxx\"}, ...]}")
-		for key, value := range legacyConfig {
-			(*config)[key] = append((*config)[key], value)
-		}
-		return nil
+	decoder := json.NewDecoder(bytes.NewReader(jsonConfig))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&legacyConfig); err != nil {
+		return err
 	}
-	return err
+	log.Warningf("Config parsed using legacy configuration. Please update to the latest format: {\"user\":[{\"Password\": \"xxx\"}, ...]}")
+	for key, value := range legacyConfig {
+		(*config)[key] = append((*config)[key], value)
+	}
+	return nil
 }
 
 func validateConfig(config map[string][]*AuthServerStaticEntry) error {
 	for _, entries := range config {
 		for _, entry := range entries {
 			if entry.SourceHost != "" && entry.SourceHost != localhostName {
-				return fmt.Errorf("Invalid SourceHost found (only localhost is supported): %v", entry.SourceHost)
+				return vterrors.Errorf(vtrpc.Code_INVALID_ARGUMENT, "invalid SourceHost found (only localhost is supported): %v", entry.SourceHost)
 			}
 		}
 	}
@@ -217,7 +239,7 @@ func (a *AuthServerStatic) ValidateHash(salt []byte, user string, authResponse [
 		} else {
 			computedAuthResponse := ScramblePassword(salt, []byte(entry.Password))
 			// Validate the password.
-			if matchSourceHost(remoteAddr, entry.SourceHost) && bytes.Compare(authResponse, computedAuthResponse) == 0 {
+			if matchSourceHost(remoteAddr, entry.SourceHost) && bytes.Equal(authResponse, computedAuthResponse) {
 				return &StaticUserData{entry.UserData, entry.Groups}, nil
 			}
 		}

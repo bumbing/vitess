@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/net/context"
 	"vitess.io/vitess/go/exit"
+	"vitess.io/vitess/go/trace"
 	"vitess.io/vitess/go/vt/log"
 	"vitess.io/vitess/go/vt/logutil"
 	"vitess.io/vitess/go/vt/vtctl/vtctlclient"
@@ -43,11 +44,14 @@ func main() {
 
 	flag.Parse()
 
+	closer := trace.StartTracing("vtctlclient")
+	defer trace.LogErrorsWhenClosing(closer)
+
 	logger := logutil.NewConsoleLogger()
 
 	// We can't do much without a -server flag
 	if *server == "" {
-		log.Error(errors.New("Please specify -server <vtctld_host:vtctld_port> to specify the vtctld server to connect to"))
+		log.Error(errors.New("please specify -server <vtctld_host:vtctld_port> to specify the vtctld server to connect to"))
 		os.Exit(1)
 	}
 

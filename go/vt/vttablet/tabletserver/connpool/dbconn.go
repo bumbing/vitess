@@ -37,7 +37,7 @@ import (
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
-// BinlogFormat is used for for specifying the binlog format.
+// BinlogFormat is used for specifying the binlog format.
 type BinlogFormat int
 
 // The following constants specify the possible binlog format values.
@@ -94,8 +94,7 @@ func NewDBConnNoPool(params *mysql.ConnParams, dbaPool *dbconnpool.ConnectionPoo
 // Exec executes the specified query. If there is a connection error, it will reconnect
 // and retry. A failed reconnect will trigger a CheckMySQL.
 func (dbc *DBConn) Exec(ctx context.Context, query string, maxrows int, wantfields bool) (*sqltypes.Result, error) {
-	span := trace.NewSpanFromContext(ctx)
-	span.StartClient("DBConn.Exec")
+	span, ctx := trace.NewSpan(ctx, "DBConn.Exec")
 	defer span.Finish()
 
 	for attempt := 1; attempt <= 2; attempt++ {
@@ -161,8 +160,8 @@ func (dbc *DBConn) ExecOnce(ctx context.Context, query string, maxrows int, want
 
 // Stream executes the query and streams the results.
 func (dbc *DBConn) Stream(ctx context.Context, query string, callback func(*sqltypes.Result) error, streamBufferSize int, includedFields querypb.ExecuteOptions_IncludedFields) error {
-	span := trace.NewSpanFromContext(ctx)
-	span.StartClient("DBConn.Stream")
+	span, ctx := trace.NewSpan(ctx, "DBConn.Stream")
+	trace.AnnotateSQL(span, query)
 	defer span.Finish()
 
 	resultSent := false
@@ -231,8 +230,8 @@ var (
 )
 
 // VerifyMode is a helper method to verify mysql is running with
-// sql_mode = STRICT_TRANS_TABLES and autocommit=ON. It also returns
-// the current binlog format.
+// sql_mode = STRICT_TRANS_TABLES or STRICT_ALL_TABLES and autocommit=ON.
+// It also returns the current binlog format.
 func (dbc *DBConn) VerifyMode(strictTransTables bool) (BinlogFormat, error) {
 	if strictTransTables {
 		qr, err := dbc.conn.ExecuteFetch(getModeSQL, 2, false)
@@ -242,8 +241,9 @@ func (dbc *DBConn) VerifyMode(strictTransTables bool) (BinlogFormat, error) {
 		if len(qr.Rows) != 1 {
 			return 0, fmt.Errorf("incorrect rowcount received for %s: %d", getModeSQL, len(qr.Rows))
 		}
-		if !strings.Contains(qr.Rows[0][0].ToString(), "STRICT_TRANS_TABLES") {
-			return 0, fmt.Errorf("require sql_mode to be STRICT_TRANS_TABLES: got '%s'", qr.Rows[0][0].ToString())
+		sqlMode := qr.Rows[0][0].ToString()
+		if !(strings.Contains(sqlMode, "STRICT_TRANS_TABLES") || strings.Contains(sqlMode, "STRICT_ALL_TABLES")) {
+			return 0, fmt.Errorf("require sql_mode to be STRICT_TRANS_TABLES or STRICT_ALL_TABLES: got '%s'", qr.Rows[0][0].ToString())
 		}
 	}
 	qr, err := dbc.conn.ExecuteFetch(getAutocommit, 2, false)
@@ -370,7 +370,7 @@ func (dbc *DBConn) setDeadline(ctx context.Context) (chan bool, *sync.WaitGroup)
 		case <-done:
 			return
 		}
-		elapsed := time.Now().Sub(startTime)
+		elapsed := time.Since(startTime)
 
 		// Give 2x the elapsed time and some buffer as grace period
 		// for the query to get killed.

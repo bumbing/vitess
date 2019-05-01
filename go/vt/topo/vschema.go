@@ -17,10 +17,10 @@ limitations under the License.
 package topo
 
 import (
-	"fmt"
 	"path"
 
 	"golang.org/x/net/context"
+	"vitess.io/vitess/go/vt/vterrors"
 
 	"github.com/golang/protobuf/proto"
 	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
@@ -60,7 +60,40 @@ func (ts *Server) GetVSchema(ctx context.Context, keyspace string) (*vschemapb.K
 	var vs vschemapb.Keyspace
 	err = proto.Unmarshal(data, &vs)
 	if err != nil {
-		return nil, fmt.Errorf("bad vschema data (%v): %q", err, data)
+		return nil, vterrors.Wrapf(err, "bad vschema data: %q", data)
 	}
 	return &vs, nil
+}
+
+// SaveRoutingRules saves the routing rules into the topo.
+func (ts *Server) SaveRoutingRules(ctx context.Context, routingRules *vschemapb.RoutingRules) error {
+	data, err := proto.Marshal(routingRules)
+	if err != nil {
+		return err
+	}
+
+	if len(data) == 0 {
+		// No vschema, remove it. So we can remove the keyspace.
+		return ts.globalCell.Delete(ctx, RoutingRulesFile, nil)
+	}
+
+	_, err = ts.globalCell.Update(ctx, RoutingRulesFile, data, nil)
+	return err
+}
+
+// GetRoutingRules fetches the routing rules from the topo.
+func (ts *Server) GetRoutingRules(ctx context.Context) (*vschemapb.RoutingRules, error) {
+	rr := &vschemapb.RoutingRules{}
+	data, _, err := ts.globalCell.Get(ctx, RoutingRulesFile)
+	if err != nil {
+		if IsErrType(err, NoNode) {
+			return rr, nil
+		}
+		return nil, err
+	}
+	err = proto.Unmarshal(data, rr)
+	if err != nil {
+		return nil, vterrors.Wrapf(err, "bad routing rules data: %q", data)
+	}
+	return rr, nil
 }
