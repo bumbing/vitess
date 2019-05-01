@@ -68,7 +68,6 @@ import (
 
 	// init plugin state change
 	_ "vitess.io/vitess/go/vt/vttablet"
-
 )
 
 const (

@@ -17,6 +17,7 @@ limitations under the License.
 package tabletserver
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"strings"
@@ -872,13 +873,18 @@ func (qre *QueryExecutor) txFetch(conn *TxConnection, parsedQuery *sqlparser.Par
 	}
 
 	// DMLs to a sequence table should clear the in-memory cache of SequenceInfo
-	if *sequenceDMLClearsCache && qre.plan.PlanID.MinRole() == tableacl.WRITER {
+	if *sequenceDMLClearsCache {
 		t := qre.plan.Table
 		if t != nil && t.Type == schema.Sequence {
-			t.SequenceInfo.Lock()
-			t.SequenceInfo.NextVal = 0
-			t.SequenceInfo.LastVal = 0
-			t.SequenceInfo.Unlock()
+			for _, p := range qre.plan.Permissions {
+				if p.Role == tableacl.WRITER || p.Role == tableacl.ADMIN {
+					t.SequenceInfo.Lock()
+					t.SequenceInfo.NextVal = 0
+					t.SequenceInfo.LastVal = 0
+					t.SequenceInfo.Unlock()
+					break
+				}
+			}
 		}
 	}
 
