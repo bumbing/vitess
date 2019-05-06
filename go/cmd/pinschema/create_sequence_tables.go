@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"strings"
-
 	"vitess.io/vitess/go/sqlescape"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
@@ -18,10 +16,6 @@ func buildSequenceDDLs(ddls []*sqlparser.DDL, config pinschemaConfig) (string, e
 
 	for _, tableCreate := range ddls {
 		tableName := tableCreate.Table.Name.String()
-		if strings.HasPrefix(tableName, "dark_write") {
-			continue
-		}
-
 		hasAutoincrement := false
 		for _, col := range tableCreate.TableSpec.Columns {
 			if colShouldBeSequence(config, col, tableCreate) {
