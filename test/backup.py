@@ -60,6 +60,21 @@ def setUpModule():
   try:
     environment.topo_server().setup()
 
+    # Determine which column is used for user passwords in this MySQL version.
+    proc = tablet_master.init_mysql()
+    if use_mysqlctld:
+      tablet_master.wait_for_mysqlctl_socket()
+    else:
+      utils.wait_procs([proc])
+    try:
+      tablet_master.mquery('mysql', 'select password from mysql.user limit 0',
+                           user='root')
+      password_col = 'password'
+    except MySQLdb.DatabaseError:
+      password_col = 'authentication_string'
+    utils.wait_procs([tablet_master.teardown_mysql()])
+    tablet_master.remove_tree(ignore_options=True)
+
     # Create a new init_db.sql file that sets up passwords for all users.
     # Then we use a db-credentials-file with the passwords.
     new_init_db = environment.tmproot + '/init_db_with_passwords.sql'
@@ -69,14 +84,20 @@ def setUpModule():
       fd.write(init_db)
       fd.write('''
 # Set real passwords for all users.
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'RootPass';
-ALTER USER 'vt_dba'@'localhost' IDENTIFIED BY 'VtDbaPass';
-ALTER USER 'vt_app'@'localhost' IDENTIFIED BY 'VtAppPass';
-ALTER USER 'vt_allprivs'@'localhost' IDENTIFIED BY 'VtAllPrivsPass';
-ALTER USER 'vt_repl'@'%' IDENTIFIED BY 'VtReplPass';
-ALTER USER 'vt_filtered'@'localhost' IDENTIFIED BY 'VtFilteredPass';
+UPDATE mysql.user SET %s = PASSWORD('RootPass')
+  WHERE User = 'root' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtDbaPass')
+  WHERE User = 'vt_dba' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtAppPass')
+  WHERE User = 'vt_app' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtAllprivsPass')
+  WHERE User = 'vt_allprivs' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtReplPass')
+  WHERE User = 'vt_repl' AND Host = '%%';
+UPDATE mysql.user SET %s = PASSWORD('VtFilteredPass')
+  WHERE User = 'vt_filtered' AND Host = 'localhost';
 FLUSH PRIVILEGES;
-''')
+''' % tuple([password_col] * 6))
     credentials = {
         'vt_dba': ['VtDbaPass'],
         'vt_app': ['VtAppPass'],

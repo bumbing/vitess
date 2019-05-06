@@ -121,12 +121,18 @@ def setUpModule():
       fd.write(init_db)
       fd.write('''
 # Set real passwords for all users.
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'RootPass';
-ALTER USER 'vt_dba'@'localhost' IDENTIFIED BY 'VtDbaPass';
-ALTER USER 'vt_app'@'localhost' IDENTIFIED BY 'VtAppPass';
-ALTER USER 'vt_allprivs'@'localhost' IDENTIFIED BY 'VtAllPrivsPass';
-ALTER USER 'vt_repl'@'%' IDENTIFIED BY 'VtReplPass';
-ALTER USER 'vt_filtered'@'localhost' IDENTIFIED BY 'VtFilteredPass';
+UPDATE mysql.user SET %s = PASSWORD('RootPass')
+  WHERE User = 'root' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtDbaPass')
+  WHERE User = 'vt_dba' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtAppPass')
+  WHERE User = 'vt_app' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtAllprivsPass')
+  WHERE User = 'vt_allprivs' AND Host = 'localhost';
+UPDATE mysql.user SET %s = PASSWORD('VtReplPass')
+  WHERE User = 'vt_repl' AND Host = '%%';
+UPDATE mysql.user SET %s = PASSWORD('VtFilteredPass')
+  WHERE User = 'vt_filtered' AND Host = 'localhost';
 
 # connecting through a port requires 127.0.0.1
 # --host=localhost will connect through socket
@@ -161,7 +167,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, PROCESS, FILE,
   ON *.* TO 'vt_filtered'@'127.0.0.1';
 
 FLUSH PRIVILEGES;
-''')
+''' % tuple([password_col] * 6))
     credentials = {
         'vt_dba': ['VtDbaPass'],
         'vt_app': ['VtAppPass'],
