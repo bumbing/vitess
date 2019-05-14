@@ -36,6 +36,9 @@ var (
 	ignoredTables               flagutil.StringListValue
 	sequenceTables              flagutil.StringListValue
 	lookupVindexWhitelist       flagutil.StringListValue
+	validateKeyspace            = flag.String("validate-keyspace", "patio", "Which keyspace needs to validate the vschema correctness")
+	validateShards              = flag.Int("validate-shards", 2, "How many shards is actively serving master for the validate keyspace")
+	validateVschemaFile         = flag.String("validate-vschema-file", "", "Where the vschema file is for validation")
 )
 
 type pinschemaConfig struct {
@@ -53,6 +56,9 @@ type pinschemaConfig struct {
 	summarize                   bool
 	sequenceTableWhitelist      []string
 	lookupVindexWhitelist       []string
+	validateVschema             string
+	validateKeyspace            string
+	validateShards              int
 }
 
 var commands = make(map[string]func([]*sqlparser.DDL, pinschemaConfig) (string, error))
@@ -153,6 +159,8 @@ func parseAndRun(command string, args []string) error {
 		summarize:                   *summarize,
 		sequenceTableWhitelist:      sequenceTables,
 		lookupVindexWhitelist:       lookupVindexWhitelist,
+		validateKeyspace:            *validateKeyspace,
+		validateShards:              *validateShards,
 	}
 
 	var ddls []*sqlparser.DDL
@@ -172,6 +180,15 @@ func parseAndRun(command string, args []string) error {
 	sort.Slice(ddls, func(i int, j int) bool {
 		return ddls[i].Table.Name.String() < ddls[j].Table.Name.String()
 	})
+
+	// get validate vschema if needed
+	if *validateVschemaFile != "" {
+		vschema, err := ioutil.ReadFile(*validateVschemaFile)
+		if err != nil {
+			return err
+		}
+		config.validateVschema = string(vschema)
+	}
 
 	commandImpl, ok := commands[command]
 	if !ok {

@@ -25,7 +25,8 @@ VTENV="$1"
 if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
   PATIO_ARGS=(-create-sequences -include-cols -cols-authoritative
               -create-primary-vindexes -create-secondary-vindexes
-              -default-scatter-cache-capacity 100000)
+              -default-scatter-cache-capacity 100000
+              -validate-keyspace patio -validate-shards 2)
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
 
   # TODO(dweitzman): Remove this after turning down the old shard that still has
@@ -36,6 +37,7 @@ elif [[ "$VTENV" == "shadow" ]]; then
               -create-primary-vindexes -create-secondary-vindexes
               -default-scatter-cache-capacity 100000
               -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
+              -validate-keyspace patio -validate-shards 2
              )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
   UPDATE_GENERAL=false
@@ -45,6 +47,7 @@ elif [[ "$VTENV" == "prod" ]]; then
     -create-primary-vindexes -create-secondary-vindexes
     -default-scatter-cache-capacity 100000
     -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
+    -validate-keyspace patio -validate-shards 2
   )
   PATIOGENERAL_ARGS=(-include-cols)
 else
@@ -149,45 +152,53 @@ if $UPDATE_GENERAL; then
   fi
 fi
 
-echo Diffing patio vschema...
+echo Validating patio vschema ...
 PATIO_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIO_ARGS[@]}" "$PATIO_SCHEMA_FILE")
-PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
-DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || test "$?" -eq 1)
-if [ "$DIFF" ]; then
-  # backup the vschema golden file to vtctld:/mnt/vtdataroot/
-  if [[ -z "$(command -v md5sum)" ]]; then
-    GOLDEN_MD5=$(echo -n "${PATIO_VSCHEMA_OLD}" | md5)
-  else
-    GOLDEN_MD5=$(echo -n "${PATIO_VSCHEMA_OLD}" | md5sum)
-  fi
-  GOLDEN_MD5="${GOLDEN_MD5%  -}"
-  VTCTLD_HOST=$(fh -h "vtctld-${VTENV}" | head -n 1)
-  VSCHEMA_GOLDEN_FILE="/mnt/vtdataroot/vschema_${GOLDEN_MD5}.backup"
-  echo "${PATIO_VSCHEMA_OLD}" | ssh -T "$VTCTLD_HOST" "sudo tee ${VSCHEMA_GOLDEN_FILE} >/dev/null"
+PATIO_VSCHEMA_FILE=$(mktemp -t patio-vschema.json.XXXX)
+echo "$PATIO_VSCHEMA" > "$PATIO_VSCHEMA_FILE"
 
-  echo "$DIFF" | less
+if VALIDATION=$($PINSCHEMA_CMD validate-vschema "${PATIO_ARGS[@]}" -validate-vschema-file "$PATIO_VSCHEMA_FILE" "$PATIO_SCHEMA_FILE" 2>&1); then
+  PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
+  DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || test "$?" -eq 1)
+  if [ "$DIFF" ]; then
+    # backup the vschema golden file to vtctld:/mnt/vtdataroot/
+    if [[ -z "$(command -v md5sum)" ]]; then
+      GOLDEN_MD5=$(echo -n "${PATIO_VSCHEMA_OLD}" | md5)
+    else
+      GOLDEN_MD5=$(echo -n "${PATIO_VSCHEMA_OLD}" | md5sum)
+      GOLDEN_MD5="${GOLDEN_MD5%  -}"
+    fi
+    VTCTLD_HOST=$(fh -h "vtctld-${VTENV}" | head -n 1)
+    VSCHEMA_GOLDEN_FILE="/mnt/vtdataroot/vschema_${GOLDEN_MD5}.backup"
+    echo "${PATIO_VSCHEMA_OLD}" | ssh -T "$VTCTLD_HOST" "sudo tee ${VSCHEMA_GOLDEN_FILE} >/dev/null"
 
-  while read -rp "Does this change to patio vschema look right (y/n)? " choice
-  do
+    echo "$DIFF" | less
+
+    while read -rp "Does this change to patio vschema look right (y/n)? " choice
+    do
+      case "$choice" in
+        y|Y|n|N ) break;;
+        * ) echo "Type 'y' or 'n'"; continue ;;
+      esac
+    done
+
     case "$choice" in
-      y|Y|n|N ) break;;
-      * ) echo "Type 'y' or 'n'"; continue ;;
+      y|Y )
+        $PVCTL_CMD "$VTENV" ApplyVSchema -vschema="$PATIO_VSCHEMA" patio
+        echo "VSchema applied, if rollback needed, please use: $0 $1 --rollback ${GOLDEN_MD5}"
+      ;;
+      * ) echo "Cancelled"; exit 1;;
     esac
-  done
-
-  case "$choice" in
-    y|Y )
-      $PVCTL_CMD "$VTENV" ApplyVSchema -vschema="$PATIO_VSCHEMA" patio
-      echo "VSchema applied, if rollback needed, please use: $0 $1 --rollback ${GOLDEN_MD5}"
-    ;;
-    * ) echo "Cancelled"; exit 1;;
-  esac
+  else
+    echo "No change to patio vschema"
+  fi
 else
-  echo "No change to patio vschema"
+  echo "Validate patio vschema failed, because of: ${VALIDATION}"
 fi
 
 echo Cleaning up temp files...
 rm -f "$PATIO_SCHEMA_FILE"
+rm -f "$PATIO_VSCHEMA_FILE"
 if $UPDATE_GENERAL; then
   rm -f "$PATIOGENERAL_SCHEMA_FILE"
 fi
