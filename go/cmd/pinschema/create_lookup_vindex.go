@@ -28,7 +28,7 @@ func createVindexTable(tableCreate *sqlparser.DDL, b *bytes.Buffer) {
 	indexTableName := sqlescape.EscapeID(tableName + "_id" + vindexTableSuffix)
 	_, _ = fmt.Fprintf(
 		b,
-		"create table if not exists %s(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';\n",
+		"CREATE TABLE IF NOT EXISTS %s (\n  `id` bigint(20) NOT NULL DEFAULT '0',\n  `g_advertiser_id` bigint(20) DEFAULT NULL,\n  primary key(`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';\n",
 		indexTableName)
 }
 

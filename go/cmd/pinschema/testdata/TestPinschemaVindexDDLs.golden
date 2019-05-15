@@ -1,35 +1,175 @@
-create table if not exists `accepted_tos_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `ad_group_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `ad_group_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `advertiser_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `app_event_tracking_config_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `bill_detail_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `billing_action_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `billing_contact_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `billing_profile_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `bill_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `bulk_v2_job_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `business_profile_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `campaign_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `campaign_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `carousel_slot_promotion_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `conversion_tag_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `goal_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `notification_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `order_line_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `order_line_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `pin_promotion_label_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `pin_promotion_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `pin_promotion_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `pin_promotions_history_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `pinner_list_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `pinner_list_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `product_group_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `product_group_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `promoted_catalog_product_group_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `promoted_catalog_product_groups_history_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `rule_subscription_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `targeting_attribute_history_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `targeting_attribute_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `targeting_spec_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
-create table if not exists `user_preference_id_idx`(id bigint, g_advertiser_id bigint, primary key(id)) comment 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `accepted_tos_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `ad_group_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `ad_group_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `advertiser_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `app_event_tracking_config_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `bill_detail_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `billing_action_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `billing_contact_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `billing_profile_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `bill_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `bulk_v2_job_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `business_profile_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `campaign_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `campaign_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `carousel_slot_promotion_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `conversion_tag_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `goal_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `notification_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `order_line_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `order_line_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `pin_promotion_label_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `pin_promotion_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `pin_promotion_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `pin_promotions_history_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `pinner_list_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `pinner_list_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `product_group_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `product_group_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `promoted_catalog_product_group_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `promoted_catalog_product_groups_history_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `rule_subscription_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `targeting_attribute_history_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `targeting_attribute_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `targeting_spec_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
+CREATE TABLE IF NOT EXISTS `user_preference_id_idx` (
+  `id` bigint(20) NOT NULL DEFAULT '0',
+  `g_advertiser_id` bigint(20) DEFAULT NULL,
+  primary key(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT 'vitess_lookup_vindex';
