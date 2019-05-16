@@ -53,4 +53,4 @@ for tablet in $tablets; do
   echo "$zkcmd" rm -r "$old_path/tablets"
 done
 
-echo "$zkcmd" rm "$old_path/SrvVSchema" "$new_path/SrvVSchema"
+echo "$zkcmd" rm "$old_path/SrvVSchema"
