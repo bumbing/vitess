@@ -13,10 +13,11 @@
 # If the operation needs to be retried, zk rm -r /zk/path can be used
 # to clear out the new path and start again. But USE CAUTION IF DELETING!
 
-server=vitess-infra-zookeeper-dev-001:2181
-zkcmd="go run ./go/cmd/zk -server $server"
-old_path=/vitess/m10n/dev/global
-new_path=/vitess/m10n/dev/test
+zk_raw_cmd="${ZK_CMD:-go run ./go/cmd/zk}"
+server="${ZK_SERVER:-vitess-infra-zookeeper-dev-001:2181}"
+zkcmd="$zk_raw_cmd -server $server"
+old_path="${ZK_OLD_PATH:-/vitess/m10n/dev/global}"
+new_path="${ZK_NEW_PATH:-/vitess/m10n/dev/test}"
 
 tablets=$($zkcmd ls $old_path/tablets/)
 keyspaces=$($zkcmd ls $old_path/keyspaces/)
