@@ -163,7 +163,7 @@ if [ "$DIFF" ]; then
   GOLDEN_MD5="${GOLDEN_MD5%  -}"
   VTCTLD_HOST=$(fh -h "vtctld-${VTENV}" | head -n 1)
   VSCHEMA_GOLDEN_FILE="/mnt/vtdataroot/vschema_${GOLDEN_MD5}.backup"
-  echo "${PATIO_VSCHEMA_OLD}" | ssh -T "$VTCTLD_HOST" tee "${VSCHEMA_GOLDEN_FILE}" >/dev/null
+  echo "${PATIO_VSCHEMA_OLD}" | ssh -T "$VTCTLD_HOST" "sudo tee ${VSCHEMA_GOLDEN_FILE} >/dev/null"
 
   echo "$DIFF" | less
 
