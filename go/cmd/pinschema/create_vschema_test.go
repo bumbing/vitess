@@ -44,6 +44,19 @@ func TestCreateVSchema(t *testing.T) {
 				},
 			},
 		},
+		{"LookupVindexWhitelist",
+			pinschemaConfig{
+				createPrimary:               true,
+				createSecondary:             true,
+				defaultScatterCacheCapacity: 10000,
+				tableScatterCacheCapacity: map[string]uint64{
+					"campaigns": 20000,
+				},
+				lookupVindexWriteOnly: true,
+				lookupVindexWhitelist: []string{"ad_groups", "ad_group_specs"},
+				createLookupVindexTables: true,
+			},
+		},
 		{"LookupVindex",
 			pinschemaConfig{
 				createPrimary:               true,

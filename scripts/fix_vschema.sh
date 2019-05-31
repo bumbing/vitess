@@ -15,7 +15,7 @@ PATIO_ARGS=""
 PATIOGENERAL_ARGS=""
 UPDATE_GENERAL=true
 SKIP_VALIDATE="${SKIP_VALIDATE:-false}"
-LOOKUP_VINDEX_WHITELIST='-lookup-vindex-whitelist \"accepted_tos_id_idx,ad_group_spec_id_idx,ad_group_id_idx,advertiser_id_idx,app_event_tracking_config_id_idx,bill_detail_id_idx,billing_action_id_idx,billing_contact_id_idx,billing_profile_id_idx,bill_id_idx,bulk_v2_job_id_idx,business_profile_id_idx,campaign_spec_id_idx,campaign_id_idx,carousel_slot_promotion_id_idx,conversion_tag_id_idx,goal_id_idx,notification_id_idx,order_line_spec_id_idx,order_line_id_idx,pin_promotion_spec_id_idx,pin_promotion_id_idx,pinner_list_spec_id_idx,pinner_list_id_idx,product_group_spec_id_idx,product_group_id_idx,promoted_catalog_product_group_id_idx,promoted_catalog_product_groups_history_id_idx,rule_subscription_id_idx,targeting_attribute_history_id_idx,targeting_attribute_id_idx,targeting_spec_id_idx,user_preference_id_idx\" '
+LOOKUP_VINDEX_WHITELIST='-lookup-vindex-whitelist \"goals\" '
 
 VSCHEMA_ROLLBACK=""
 if [[ $# -gt 1 ]]; then

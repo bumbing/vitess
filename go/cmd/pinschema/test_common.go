@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -33,7 +34,7 @@ func goldenTest(t *testing.T, testName string, ddlsFile string, command string, 
 		}
 
 		goldenString := string(goldenOutput)
-		if goldenString != output {
+		if strings.Compare(goldenString, output) != 0 {
 			t.Errorf("Found differences.\nGot: %v\nWant: %v", output, goldenString)
 		}
 	}
