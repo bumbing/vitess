@@ -93,6 +93,29 @@ func (vb *vschemaBuilder) addColumnVindex(vindexName string, colName string, isP
 	}
 }
 
+func (vb *vschemaBuilder) shouldUseLookupVindex(tableName string, colName string, vindexName string) bool {
+	if !vb.shouldCreateLookupVindex(tableName) {
+		return false
+	}
+
+	// Vindex table from Id column is owned by this table. The owner should always has it in ColumnVindex.
+	if "id" == colName {
+		return true
+	}
+
+	// Unowned vindex depends whether they are in the whitelist.
+	if 0 == len(vb.config.unownedLookupVindexWhiteList) {
+		return true
+	}
+
+	for _, unownedLookupVindexWhiteList := range vb.config.unownedLookupVindexWhiteList {
+		if unownedLookupVindexWhiteList == vindexName {
+			return true
+		}
+	}
+	return false
+}
+
 func (vb *vschemaBuilder) shouldCreateLookupVindex(tableName string) bool {
 	if !vb.config.createLookupVindexTables {
 		return false
@@ -153,8 +176,8 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 
 			vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
 
-			if vb.shouldCreateLookupVindex(tableName) {
-				lookupVindexName := vindexName + vindexTableSuffix
+			lookupVindexName := vindexName + vindexTableSuffix
+			if vb.shouldUseLookupVindex(tableName, colName, lookupVindexName) {
 				vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
 			}
 

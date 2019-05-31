@@ -44,6 +44,20 @@ func TestCreateVSchema(t *testing.T) {
 				},
 			},
 		},
+		{"LookupVindexUnownedVindexWhitelist",
+			pinschemaConfig{
+				createPrimary:               true,
+				createSecondary:             true,
+				defaultScatterCacheCapacity: 10000,
+				tableScatterCacheCapacity: map[string]uint64{
+					"campaigns": 20000,
+				},
+				lookupVindexWriteOnly:        true,
+				lookupVindexWhitelist:        []string{"ad_groups", "ad_group_specs"},
+				unownedLookupVindexWhiteList: []string{"ad_group_id_idx"},
+				createLookupVindexTables:     true,
+			},
+		},
 		{"LookupVindexWhitelist",
 			pinschemaConfig{
 				createPrimary:               true,
@@ -52,8 +66,8 @@ func TestCreateVSchema(t *testing.T) {
 				tableScatterCacheCapacity: map[string]uint64{
 					"campaigns": 20000,
 				},
-				lookupVindexWriteOnly: true,
-				lookupVindexWhitelist: []string{"ad_groups", "ad_group_specs"},
+				lookupVindexWriteOnly:    true,
+				lookupVindexWhitelist:    []string{"ad_groups", "ad_group_specs"},
 				createLookupVindexTables: true,
 			},
 		},
@@ -65,7 +79,7 @@ func TestCreateVSchema(t *testing.T) {
 				tableScatterCacheCapacity: map[string]uint64{
 					"campaigns": 20000,
 				},
-				lookupVindexWriteOnly: true,
+				lookupVindexWriteOnly:    true,
 				createLookupVindexTables: true,
 			},
 		},
