@@ -184,7 +184,19 @@ func TestParsePinterestTargetOverride(t *testing.T) {
 		// Insert statements don't get v2 routing
 		{
 			in:   "/* VitessTarget=patio:80-@rdonly */ insert into foo (a) values (1)",
-			want: "",
+			want: "patio@rdonly",
+		},
+		{
+			in:   "/* VitessTarget=patio:80-@master */ insert into foo (a) values (1)",
+			want: "patio",
+		},
+		{
+			in:   "/* VitessTarget=patio[abcd] */ insert into foo (a) values (1)",
+			want: "patio",
+		},
+		{
+			in:   "/* VitessTarget=patio[no_closing_bracket */ insert into foo (a) values (1)",
+			want: "patio[no_closing_bracket",
 		},
 		{
 			in:   "/* VitessTarget= */ select 1",

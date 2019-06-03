@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -40,6 +41,7 @@ import (
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 	"vitess.io/vitess/go/vt/servenv"
 	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/topo/topoproto"
 	"vitess.io/vitess/go/vt/vttls"
 )
 
@@ -196,20 +198,37 @@ var vitessTargetComment = regexp.MustCompile(`\sVitessTarget=([^,\s]+),?\s`)
 // adding by that driver when setClientInfo() is called on a connection.
 func maybeTargetOverrideForQuery(query string) string {
 	stmtType := sqlparser.Preview(query)
-	// NOTE(dweitzman): v2-targeting is disabled for insert statements
-	// because v2 execution mode doesn't respect sequences and can
-	// silently do the wrong thing. The vitess sharding model requires
-	// insert statements to have a column that can be used to determine
-	// the keyspace ID anyway, so v2-targeting an insert statement
-	// has no benefits anyway.
-	if stmtType == sqlparser.StmtInsert {
-		return ""
+
+	removeKeyspaceIdForInserts := func(target string) string {
+		if stmtType != sqlparser.StmtInsert {
+			return target
+		}
+
+		// NOTE(dweitzman): v2-targeting is disabled for insert statements
+		// because v2 execution mode doesn't respect sequences and can
+		// silently do the wrong thing. The vitess sharding model requires
+		// insert statements to have a column that can be used to determine
+		// the keyspace ID anyway, so v2-targeting an insert statement
+		// has no benefits anyway.
+		//
+		// Remove anything from ":" or "[" until the end of the string
+		destKeyspace, destTabletType, _, err := topoproto.ParseDestination(target, defaultTabletType)
+		if err != nil {
+			// Target is badly formatted. It'll generate an error later in the executor.
+			return target
+		}
+		result := destKeyspace
+		if destTabletType != defaultTabletType {
+			// This case shouldn't really ever happen because inserts are always against master.
+			result = result + "@" + strings.ToLower(destTabletType.String())
+		}
+		return result
 	}
 
 	_, marginComments := sqlparser.SplitMarginComments(query)
 	submatch := vitessTargetComment.FindStringSubmatch(marginComments.Leading)
 	if len(submatch) > 1 {
-		return submatch[1]
+		return removeKeyspaceIdForInserts(submatch[1])
 	}
 
 	// NOTE(dweitzman): For the moment we also allow the VitessTarget directive in
@@ -218,7 +237,7 @@ func maybeTargetOverrideForQuery(query string) string {
 	// comments.
 	submatch = vitessTargetComment.FindStringSubmatch(marginComments.Trailing)
 	if len(submatch) > 1 {
-		return submatch[1]
+		return removeKeyspaceIdForInserts(submatch[1])
 	}
 	return ""
 }
