@@ -15,7 +15,7 @@ PATIO_ARGS=""
 PATIOGENERAL_ARGS=""
 UPDATE_GENERAL=true
 SKIP_VALIDATE="${SKIP_VALIDATE:-false}"
-LOOKUP_VINDEX_WHITELIST='-lookup-vindex-whitelist \"goals\" '
+LOOKUP_VINDEX_WHITELIST='-lookup-vindex-whitelist goals '
 
 VSCHEMA_ROLLBACK=""
 if [[ $# -gt 1 ]]; then
@@ -28,7 +28,8 @@ if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
               -create-primary-vindexes -create-secondary-vindexes
               -default-scatter-cache-capacity 100000
               -validate-keyspace patio -validate-shards 2
-              "$LOOKUP_VINDEX_WHITELIST"
+              -create-lookup-vindex-tables
+              $LOOKUP_VINDEX_WHITELIST
               )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
 
@@ -41,7 +42,8 @@ elif [[ "$VTENV" == "shadow" ]]; then
               -default-scatter-cache-capacity 100000
               -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
               -validate-keyspace patio -validate-shards 2
-              "$LOOKUP_VINDEX_WHITELIST"
+              -create-lookup-vindex-tables
+              $LOOKUP_VINDEX_WHITELIST
              )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
   UPDATE_GENERAL=false
@@ -52,7 +54,8 @@ elif [[ "$VTENV" == "prod" ]]; then
     -default-scatter-cache-capacity 100000
     -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
     -validate-keyspace patio -validate-shards 2
-    "$LOOKUP_VINDEX_WHITELIST"
+    -create-lookup-vindex-tables
+    $LOOKUP_VINDEX_WHITELIST
   )
   PATIOGENERAL_ARGS=(-include-cols)
 else

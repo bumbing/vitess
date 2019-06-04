@@ -257,7 +257,7 @@ func (vb *vschemaBuilder) createScatterCache(tableName string) {
 func (vb *vschemaBuilder) createPinLookupVindex(tableName string) {
 	indexTableName := tableNameToColName(tableName) + vindexTableSuffix
 	vb.vindexes[indexTableName] = &vschemapb.Vindex{
-		Type:  "PinLookupHashUnique",
+		Type:  "pin_lookup_hash_unique",
 		Owner: tableName,
 		Params: map[string]string{
 			"table":      indexTableName,

@@ -20,7 +20,7 @@
       }
     },
     "ad_group_id_idx": {
-      "type": "PinLookupHashUnique",
+      "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
         "table": "ad_group_id_idx",
@@ -39,7 +39,7 @@
       }
     },
     "ad_group_spec_id_idx": {
-      "type": "PinLookupHashUnique",
+      "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
         "table": "ad_group_spec_id_idx",
