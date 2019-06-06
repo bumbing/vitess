@@ -1,0 +1,84 @@
+{
+  "patio": {
+    "sharded": true,
+    "vindexes": {
+      "accepted_tos_id": {
+        "type": "scatter_cache",
+        "params": {
+          "capacity": "0",
+          "from": "id",
+          "table": "accepted_tos",
+          "to": "g_advertiser_id"
+        }
+      },
+      "accepted_tos_id_idx": {
+        "type": "pin_lookup_hash_unique",
+        "params": {
+          "from": "id",
+          "table": "accepted_tos_id_idx",
+          "to": "g_advertiser_id",
+          "write_only": "true"
+        },
+        "owner": "accepted_tos"
+      }
+    },
+    "tables": {
+      "accepted_tos": {
+        "columnVindexes": [
+          {
+            "name": "accepted_tos_id",
+            "columns": [
+              "id"
+            ]
+          },
+          {
+            "name": "accepted_tos_id_idx",
+            "columns": [
+              "id"
+            ]
+          }
+        ],
+        "autoIncrement": {
+          "column": "id",
+          "sequence": "accepted_tos_seq"
+        },
+        "columns": [
+          {
+            "name": "advertiser_id"
+          },
+          {
+            "name": "g_advertiser_id"
+          },
+          {
+            "name": "tos_id"
+          },
+          {
+            "name": "accept_date"
+          },
+          {
+            "name": "properties"
+          },
+          {
+            "name": "id"
+          }
+        ],
+        "columnListAuthoritative": true
+      }
+    }
+  },
+  "patiogeneral": {
+    "tables": {
+      "accepted_tos_id_idx": {
+        "columns": [
+          {
+            "name": "g_advertiser_id"
+          },
+          {
+            "name": "id"
+          }
+        ],
+        "columnListAuthoritative": true
+      }
+    }
+  }
+}

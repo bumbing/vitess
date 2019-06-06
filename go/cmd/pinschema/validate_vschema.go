@@ -31,7 +31,7 @@ func init() {
 func validateVschema(ddls []*sqlparser.DDL, config pinschemaConfig) (string, error) {
 
 	keyspace := config.validateKeyspace
-	ksVschema := fmt.Sprintf(`{"%s": %s}`, keyspace, config.validateVschema)
+	ksVschema := config.validateVschema
 	wrappedStr := fmt.Sprintf(`{"keyspaces": %s}`, ksVschema)
 	srvVSchema := &vschemapb.SrvVSchema{}
 	if err := json2.Unmarshal([]byte(wrappedStr), srvVSchema); err != nil {
@@ -62,6 +62,10 @@ func validateVschema(ddls []*sqlparser.DDL, config pinschemaConfig) (string, err
 	}
 
 	for _, ddl := range ddls {
+		if _, ok := ks.Tables[strings.ToLower(ddl.Table.Name.String())]; !ok {
+			// the table isn't part of the validate keyspace, ignore it
+			continue
+		}
 		var err error
 		// first validate if the table structure and vschema's table def is a match
 		if err = validateColumns(keyspace, ks, ddl); err != nil {
@@ -160,9 +164,12 @@ func validateSQL(explains []*vtexplain.Explain) error {
 	if len(explains) == 0 || len(explains[0].Plans) == 0 {
 		return ErrVtExplainNoExplains
 	}
-	// the plan must have `ShardQueries==1, and RouteType=="DeleteEqual"`
-	if plan := explains[0].Plans[0]; plan.ShardQueries != 1 || plan.Instructions.RouteType() != "DeleteEqual" {
-		return ErrPrimaryVindexNotUsed
+	for _, plan := range explains[0].Plans {
+		// lookup vindex route should be `DeleteUnsharded`
+		// onwer table route should be `DeleteEqual`
+		if plan.Instructions.RouteType() != "DeleteUnsharded" && plan.Instructions.RouteType() != "DeleteEqual" {
+			return ErrPrimaryVindexNotUsed
+		}
 	}
 	return nil
 }
@@ -202,6 +209,10 @@ COLUMN_VINDEXES:
 			}
 			return nil, fmt.Errorf("vindex:%s in table:%s is not found in the column list", vic, ddl.Table.Name)
 		}
+	}
+
+	if len(vindexCols) == 0 {
+		return nil, fmt.Errorf("table:%s has no functional vindex", ddl.Table.Name)
 	}
 
 	return vindexCols, nil

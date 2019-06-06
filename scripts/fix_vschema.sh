@@ -160,12 +160,28 @@ if $UPDATE_GENERAL; then
   fi
 fi
 
-echo Validating patio vschema ...
+echo Generating patio vschema ...
 PATIO_VSCHEMA=$($PINSCHEMA_CMD create-vschema "${PATIO_ARGS[@]}" "$PATIO_SCHEMA_FILE")
 PATIO_VSCHEMA_FILE=$(mktemp -t patio-vschema.json.XXXX)
 echo "$PATIO_VSCHEMA" > "$PATIO_VSCHEMA_FILE"
 
-if VALIDATION=$($PINSCHEMA_CMD validate-vschema "${PATIO_ARGS[@]}" -validate-vschema-file "$PATIO_VSCHEMA_FILE" "$PATIO_SCHEMA_FILE" 2>&1); then
+echo Validating patio vschema ...
+# create ddl validation source file which combines the ddls from both patiogeneral and patio
+PATIO_SCHEMA_VALIDATION_FILE=$(mktemp -t patio-schema-validation.sql.XXXX)
+cat "$PATIOGENERAL_SCHEMA_FILE" > "$PATIO_SCHEMA_VALIDATION_FILE"
+printf "\n" >> "$PATIO_SCHEMA_VALIDATION_FILE"
+cat "$PATIO_SCHEMA_FILE" >> "$PATIO_SCHEMA_VALIDATION_FILE"
+
+# create vschema validation source file which combines both patiogeneral and patio
+PATIO_VSCHEMA_VALIDATION_FILE=$(mktemp -t patio-vschema-validation.json.XXXX)
+cat << EOF > "$PATIO_VSCHEMA_VALIDATION_FILE"
+{
+  "patio":$PATIO_VSCHEMA,
+  "patiogeneral":$($PVCTL_CMD "$VTENV" GetVSchema patiogeneral)
+}
+EOF
+
+if VALIDATION=$($PINSCHEMA_CMD validate-vschema "${PATIO_ARGS[@]}" -validate-vschema-file "$PATIO_VSCHEMA_VALIDATION_FILE" "$PATIO_SCHEMA_VALIDATION_FILE" 2>&1); then
   PATIO_VSCHEMA_OLD=$($PVCTL_CMD "$VTENV" GetVSchema patio)
   DIFF=$(diff --strip-trailing-cr -u <(echo "$PATIO_VSCHEMA_OLD") <(echo "$PATIO_VSCHEMA") || test "$?" -eq 1)
   if [ "$DIFF" ]; then
@@ -207,6 +223,8 @@ fi
 echo Cleaning up temp files...
 rm -f "$PATIO_SCHEMA_FILE"
 rm -f "$PATIO_VSCHEMA_FILE"
+rm -f "$PATIO_SCHEMA_VALIDATION_FILE"
+rm -f "$PATIO_VSCHEMA_VALIDATION_FILE"
 if $UPDATE_GENERAL; then
   rm -f "$PATIOGENERAL_SCHEMA_FILE"
 fi
