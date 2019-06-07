@@ -6,7 +6,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"vitess.io/vitess/go/knox"
 )
 
 var (
@@ -17,21 +16,13 @@ var (
 
 // KnoxAuthClientCreds holder for client credentials
 type KnoxAuthClientCreds struct {
-	role       string
-	knoxClient knox.Client
+	role string
 }
 
 // GetRequestMetadata  gets the request metadata as a map from KnoxAuthClientCreds
 func (c *KnoxAuthClientCreds) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
-	username, password, err := c.knoxClient.GetPrimaryCredentials(c.role)
-
-	if err != nil {
-		return nil, err
-	}
-
 	return map[string]string{
-		"username": username,
-		"password": password,
+		"username": c.role,
 	}, nil
 }
 
@@ -50,8 +41,7 @@ func AppendKnoxAuth(opts []grpc.DialOption) ([]grpc.DialOption, error) {
 		return opts, nil
 	}
 	clientCreds := KnoxAuthClientCreds{
-		role:       *knoxRole,
-		knoxClient: knox.CreateFromFlags(),
+		role: *knoxRole,
 	}
 	creds := grpc.WithPerRPCCredentials(&clientCreds)
 	opts = append(opts, creds)

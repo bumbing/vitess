@@ -44,6 +44,9 @@ args=(
   -mysql_server_ssl_key /var/lib/normandie/fuse/key/generic
   -mysql_server_ssl_ca /var/lib/normandie/fuse/ca/generic
   -mysql_server_ssl_reload_frequency 15m
+  -grpc_cert /var/lib/normandie/fuse/cert/generic
+  -grpc_key /var/lib/normandie/fuse/key/generic
+  -grpc_ca /var/lib/normandie/fuse/ca/generic
   -emit_stats
   -stats_emit_period 1m
   -stats_backend opentsdb

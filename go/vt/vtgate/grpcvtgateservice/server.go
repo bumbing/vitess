@@ -20,26 +20,26 @@ package grpcvtgateservice
 import (
 	"flag"
 
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-
-	"golang.org/x/net/context"
+	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/callinfo"
-	"vitess.io/vitess/go/vt/servenv"
-	"vitess.io/vitess/go/vt/topo/topoproto"
-	"vitess.io/vitess/go/vt/vterrors"
-	"vitess.io/vitess/go/vt/vtgate"
-	"vitess.io/vitess/go/vt/vtgate/vtgateservice"
-
 	binlogdatapb "vitess.io/vitess/go/vt/proto/binlogdata"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 	vtgateservicepb "vitess.io/vitess/go/vt/proto/vtgateservice"
 	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
+	"vitess.io/vitess/go/vt/servenv"
+	"vitess.io/vitess/go/vt/topo/topoproto"
+	"vitess.io/vitess/go/vt/vterrors"
+	"vitess.io/vitess/go/vt/vtgate"
+	"vitess.io/vitess/go/vt/vtgate/vtgateservice"
 )
 
 const (
@@ -62,13 +62,6 @@ type VTGate struct {
 // and will be used when talking to vttablet.
 // vttablet in turn can use table ACLs to validate access is authorized.
 func immediateCallerID(ctx context.Context) (string, []string) {
-	// TODO(dweitzman): There should be a cleaner way to deal with knox auth that doesn't require server.go
-	// to know that knox exists. We should refactor something and contribute it back upstream to open source.
-	knoxRole, ok := servenv.GetKnoxAuthenticatedRole(ctx)
-	if ok {
-		return knoxRole, nil
-	}
-
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return "", nil
@@ -80,6 +73,15 @@ func immediateCallerID(ctx context.Context) (string, []string) {
 	if !ok {
 		return "", nil
 	}
+
+	if md, ok := metadata.FromIncomingContext(ctx); ok && len(md["username"]) == 1 {
+		knoxUser := md["username"][0]
+		knoxGroups, err := knox.VerifyTLS(knoxUser, &(tlsInfo.State), false)
+		if err == nil {
+			return knoxUser, knoxGroups
+		}
+	}
+
 	if len(tlsInfo.State.VerifiedChains) < 1 {
 		return "", nil
 	}
