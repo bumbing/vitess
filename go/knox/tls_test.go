@@ -4,81 +4,124 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"regexp"
+	"net/url"
+	"reflect"
 	"testing"
-
-	querypb "vitess.io/vitess/go/vt/proto/query"
 )
 
-func TestVerifyTLS(t *testing.T) {
-	pepsiLatest := &tls.ConnectionState{
+func makeCert(t *testing.T, commonName string, spiffe []string) *tls.ConnectionState {
+	var uris []*url.URL
+	for _, uri := range spiffe {
+		parsedUri, err := url.Parse(uri)
+		if err != nil {
+			t.Error("Error setting up test with spiffe URI cert", err)
+		}
+		uris = append(uris, parsedUri)
+	}
+
+	return &tls.ConnectionState{
 		PeerCertificates: []*x509.Certificate{
 			{
 				Subject: pkix.Name{
-					CommonName: "pepsi-latest-12345",
+					CommonName: commonName,
 				},
+				URIs: uris,
+			},
+		},
+	}
+}
+
+func TestVerifyTLS(t *testing.T) {
+	typicalConfig := authConfig{
+		UserGroups: map[string][]string{
+			"scriptro": []string{"reader"},
+			"scriptrw": []string{"reader", "writer", "admin"},
+		},
+		GroupAuthz: map[string]subjectList{
+			"admin": subjectList{
+				TLSSubjects: []string{
+					"spiffe://pin220.com/teletraan/pepsi/latest",
+					"foo-*.ec2.pin220.com",
+				},
+			},
+			"writer": subjectList{
+				TLSSubjects: []string{
+					"spiffe://pin220.com/teletraan/pepsi/latest",
+					"foo-*.ec2.pin220.com",
+				},
+			},
+			"reader": subjectList{
+				TLSSubjects: []string{
+					"spiffe://pin220.com/teletraan/pepsi/latest",
+					"foo-*.ec2.pin220.com",
+				},
+				KnoxRoles: []string{"scriptro"},
 			},
 		},
 	}
 
 	testCases := []struct {
-		callerid        *querypb.VTGateCallerID
+		desc            string
+		username        string
 		connectionState *tls.ConnectionState
-		groupTLSRegexes map[string]*regexp.Regexp
+		hasKnox         bool
+		config          authConfig
+		wantGroups      []string
 		wantErr         string
 	}{
-		// no TLS, no required TLS for that user
 		{
-			callerid: &querypb.VTGateCallerID{
-				Username: "scriptro",
-				Groups:   []string{"readers"},
-			},
-			connectionState: nil,
-			groupTLSRegexes: map[string]*regexp.Regexp{
-				"writers": regexp.MustCompile("pepsi-latest-.*"),
-			},
-			wantErr: "",
+			desc:     "bad role name",
+			username: "bad_user",
+			config:   typicalConfig,
+			wantErr:  "VerifyTLS: bad_user is not a recognized role with -pinterest_auth_config",
 		},
-		// user with no TLS but requires TLS
 		{
-			callerid: &querypb.VTGateCallerID{
-				Username: "scriptrw",
-				Groups:   []string{"readers", "writers"},
-			},
-			connectionState: nil,
-			groupTLSRegexes: map[string]*regexp.Regexp{
-				"writers": regexp.MustCompile("pepsi-latest-.*"),
-			},
-			wantErr: `VerifyTLS: username:"scriptrw" groups:"readers" groups:"writers"  requires TLS for groups map[writers:pepsi-latest-.*]`,
+			desc:     "no TLS, no knox",
+			username: "scriptro",
+			config:   typicalConfig,
+			wantErr:  "VerifyTLS: user scriptro in group [reader] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] [scriptro]} but only found []string{} (knox auth? false)",
 		},
-		// TLS but no valid CN
 		{
-			callerid: &querypb.VTGateCallerID{
-				Username: "scriptrw",
-				Groups:   []string{"readers", "writers"},
-			},
-			connectionState: pepsiLatest,
-			groupTLSRegexes: map[string]*regexp.Regexp{
-				"writers": regexp.MustCompile("pepsi-prod-.*"),
-			},
-			wantErr: `VerifyTLS: username:"scriptrw" groups:"readers" groups:"writers"  requires a TLS CN matching pepsi-prod-.* but only found []string{"pepsi-latest-12345"}`,
+			desc:       "no TLS, no required TLS for that user",
+			username:   "scriptro",
+			hasKnox:    true,
+			config:     typicalConfig,
+			wantGroups: []string{"reader"},
+			wantErr:    "",
 		},
-		// TLS with valid CN
 		{
-			callerid: &querypb.VTGateCallerID{
-				Username: "scriptrw",
-				Groups:   []string{"readers", "writers"},
-			},
-			connectionState: pepsiLatest,
-			groupTLSRegexes: map[string]*regexp.Regexp{
-				"writers": regexp.MustCompile("pepsi-latest-.*"),
-			},
-			wantErr: "",
+			desc:     "user with no TLS but requires TLS",
+			username: "scriptrw",
+			config:   typicalConfig,
+			wantErr:  `VerifyTLS: user scriptrw in group [reader writer admin] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] [scriptro]} but only found []string{} (knox auth? false)`,
+		},
+		{
+			desc:            "TLS but no valid CN or SPIFFE",
+			username:        "scriptrw",
+			connectionState: makeCert(t, "random-cn", []string{"spiffe://pin220.com/teletraan/pepsi/wrong"}),
+			config:          typicalConfig,
+			wantErr:         `VerifyTLS: user scriptrw in group [reader writer admin] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] [scriptro]} but only found []string{"random-cn", "spiffe://pin220.com/teletraan/pepsi/wrong"} (knox auth? false)`,
+		},
+		{
+			desc:            "TLS with valid CN",
+			username:        "scriptrw",
+			connectionState: makeCert(t, "foo-1234.ec2.pin220.com", nil),
+			config:          typicalConfig,
+			wantGroups:      []string{"reader", "writer", "admin"},
+			wantErr:         "",
+		},
+		{
+			desc:            "TLS with valid SPIFFE",
+			username:        "scriptrw",
+			connectionState: makeCert(t, "random-cn", []string{"spiffe://pin220.com/teletraan/pepsi/latest"}),
+			config:          typicalConfig,
+			wantGroups:      []string{"reader", "writer", "admin"},
+			wantErr:         "",
 		},
 	}
 
 	for _, testCase := range testCases {
-		gotErr := verifyTLSInternal(testCase.callerid, testCase.connectionState, testCase.groupTLSRegexes)
+		gotGroups, gotErr := verifyTLSInternal(testCase.username, testCase.connectionState, testCase.hasKnox, testCase.config)
 
 		var gotErrStr string
 		if gotErr != nil {
@@ -86,7 +129,11 @@ func TestVerifyTLS(t *testing.T) {
 		}
 
 		if gotErrStr != testCase.wantErr {
-			t.Errorf("VerifyTLS(): Want: %v.  Got: %v", testCase.wantErr, gotErrStr)
+			t.Errorf("VerifyTLS(%v): Want: %v.  Got: %v", testCase.desc, testCase.wantErr, gotErrStr)
+		}
+
+		if !reflect.DeepEqual(gotGroups, testCase.wantGroups) {
+			t.Errorf("VerifyTLS(%v): Want groups: %v. Got: %v", testCase.desc, testCase.wantGroups, gotGroups)
 		}
 	}
 }

@@ -30,6 +30,10 @@ fi
 
 host=$(jq -r ".${env_name}.gates.master.host" $env_config_file)
 
+# TODO(dweitzman): Set username to role and omit password. Soon passwords will no longer be
+# needed as long as TLS is in use.
+# username=$role
+# password=
 username=$(knox get "mysql:rbac:$role:credentials" | cut -d@ -f1)
 password=$(knox get "mysql:rbac:$role:credentials" | cut -d\| -f2)
 prompt="hostname='$host', port=3306) \d \u($role)> "
@@ -40,4 +44,5 @@ cmd="mysql -c -A -h $host -P 3306 --user=$username --password=$password \
    --ssl-cert /var/lib/normandie/fuse/cert/generic \
    --ssl-key /var/lib/normandie/fuse/key/generic"
 echo "\$ ${cmd/password=$password/password=REDACTED}"
+# When testing with 127.0.0.1, you'll need to set "--network host"
 docker run -v /var/lib/normandie/fuse/:/var/lib/normandie/fuse/:ro -it mysql:8 sh -c "exec $cmd"

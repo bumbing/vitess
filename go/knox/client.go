@@ -5,34 +5,29 @@
 package knox
 
 import (
-	"flag"
+	"crypto/tls"
 	"fmt"
 	"regexp"
-	"strings"
 	"sync"
 
 	"github.com/pinterest/knox"
-	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/vt/log"
 )
 
 var (
-	knoxSupportedRoles flagutil.StringListValue
-	knoxRe             = regexp.MustCompile(`^([^@|]+)@([^@|]*)\|([^@|]*)$`)
-	errParsingCreds    = fmt.Errorf("failed to parse knox creds. Should match %v", knoxRe)
-	knoxRoleMapping    flagutil.StringMapValue
+	knoxRe          = regexp.MustCompile(`^([^@|]+)@([^@|]*)\|([^@|]*)$`)
+	errParsingCreds = fmt.Errorf("failed to parse knox creds. Should match %v", knoxRe)
 )
 
 func init() {
-	flag.Var(&knoxSupportedRoles, "knox_supported_roles", "comma separated list of roles to support for knox authentication")
-	flag.Var(&knoxRoleMapping, "knox_role_mapping", "comma separated list of role1:group1:group2:...,role2:group1:... mappings from knox to table acl roles")
 }
 
 // Client provides access to username/role/password data from knox.
 type Client interface {
 	GetActivePassword(user string) (role string, password string, err error)
 	GetPrimaryCredentials(role string) (username string, password string, err error)
-	GetGroupsByRole(role string) []string
+	// VerifyTLS typically just forwards to knox.VerifyTLS, but can be mocked by tests.
+	VerifyTLS(username string, tlsState *tls.ConnectionState, knoxAuthenticated bool) ([]string, error)
 }
 
 // clientImpl fetches passwords for a pre-determined set of users from knox.
@@ -41,44 +36,32 @@ type clientImpl struct {
 }
 
 var (
-	once                  sync.Once
+	knoxClientOnce        sync.Once
 	knoxClient            Client
 	parsedKnoxRoleMapping map[string][]string
 )
 
-func initWithFlags() {
+func initKnoxClient() {
 	clientsByRole := make(map[string]knox.Client)
-	for _, username := range knoxSupportedRoles {
-		knoxKey := fmt.Sprintf("mysql:rbac:%s:credentials", username)
-		clientsByRole[username] = requireFileClient(knoxKey)
+
+	for _, authz := range pinterestAuthConfig.GroupAuthz {
+		for _, knoxRole := range authz.KnoxRoles {
+			_, alreadyCreated := clientsByRole[knoxRole]
+			if !alreadyCreated {
+				knoxKey := fmt.Sprintf("mysql:rbac:%s:credentials", knoxRole)
+				clientsByRole[knoxRole] = requireFileClient(knoxKey)
+			}
+		}
 	}
 
 	knoxClient = &clientImpl{
 		clientsByRole: clientsByRole,
 	}
-
-	parsedKnoxRoleMapping = make(map[string][]string)
-	for knoxRole, unparsedTableACLGroups := range knoxRoleMapping {
-		groups := strings.Split(unparsedTableACLGroups, ":")
-		// Make sure the group includes the role name itself, if it wasn't explicitly provided on the command line.
-		shouldAddKnoxRole := true
-		for _, group := range groups {
-			if group == knoxRole {
-				shouldAddKnoxRole = false
-			}
-		}
-		if shouldAddKnoxRole {
-			groups = append(groups, knoxRole)
-		}
-		parsedKnoxRoleMapping[knoxRole] = groups
-	}
-
-	initTLS()
 }
 
 // CreateFromFlags creates Client for the set of users configured with -knox_supported_usernames.
 func CreateFromFlags() Client {
-	once.Do(initWithFlags)
+	knoxClientOnce.Do(initKnoxClient)
 
 	return knoxClient
 }
@@ -110,6 +93,11 @@ func (c *clientImpl) GetActivePassword(user string) (role string, password strin
 	return "", "", fmt.Errorf("User %s not found for any of the whitelisted knox roles", user)
 }
 
+// VerifyTLS forwards to knox.VerifyTLS() which uses command line parameters to enforce authz.
+func (c *clientImpl) VerifyTLS(username string, tlsState *tls.ConnectionState, knoxAuthenticated bool) ([]string, error) {
+	return VerifyTLS(username, tlsState, knoxAuthenticated)
+}
+
 // GetPrimaryCredentials returns the primary credentials for the given user, or an error.
 func (c *clientImpl) GetPrimaryCredentials(role string) (username string, password string, err error) {
 	knoxClient, ok := c.clientsByRole[role]
@@ -118,11 +106,6 @@ func (c *clientImpl) GetPrimaryCredentials(role string) (username string, passwo
 	}
 	user, pass, _, err := parseKnoxCreds(knoxClient.GetPrimary(), role)
 	return user, pass, err
-}
-
-func (c *clientImpl) GetGroupsByRole(role string) []string {
-	result, _ := parsedKnoxRoleMapping[role]
-	return result
 }
 
 // Knox mashes usernames and credentials in a non-standard format (sadness) so we need custom code

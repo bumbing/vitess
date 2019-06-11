@@ -24,7 +24,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"vitess.io/vitess/go/knox"
 	"vitess.io/vitess/go/netutil"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
@@ -340,13 +339,19 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		return
 	}
 
+	var connState *tls.ConnectionState
+		if con, ok := c.conn.(*tls.Conn); ok {
+			state := con.ConnectionState()
+			connState = &state
+		}
+
 	// Compare with what the client sent back.
 	switch {
 	case authServerMethod == MysqlNativePassword && authMethod == MysqlNativePassword:
 		// Both server and client want to use MysqlNativePassword:
 		// the negotiation can be completed right away, using the
 		// ValidateHash() method.
-		userData, err := l.authServer.ValidateHash(salt, user, authResponse, conn.RemoteAddr())
+		userData, err := l.authServer.ValidateHash(salt, user, authResponse, conn.RemoteAddr(), connState)
 		if err != nil {
 			log.Warningf("Error authenticating user using MySQL native password: %v", err)
 			c.writeErrorPacketFromError(err)
@@ -378,7 +383,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		}
 		c.recycleReadPacket()
 
-		userData, err := l.authServer.ValidateHash(salt, user, response, conn.RemoteAddr())
+		userData, err := l.authServer.ValidateHash(salt, user, response, conn.RemoteAddr(), connState)
 		if err != nil {
 			log.Warningf("Error authenticating user using MySQL native password: %v", err)
 			c.writeErrorPacketFromError(err)
@@ -418,13 +423,6 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		c.UserData = userData
 	}
 
-	err = c.checkUserAllowed()
-	if err != nil {
-		log.Errorf("User forbidden from %s: %v", c, err)
-		c.writeErrorPacketFromError(err)
-		return
-	}
-
 	if c.User != "" {
 		connCountPerUser.Add(c.User, 1)
 		defer connCountPerUser.Add(c.User, -1)
@@ -452,19 +450,6 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 			return
 		}
 	}
-}
-
-// checkUserAllowed is a Pinterest-specific check that can make sure roles with write access are on
-// a TLS connection from a whitelisted source machine.
-func (c *Conn) checkUserAllowed() error {
-	callerid := c.UserData.Get()
-	tlsConn, ok := c.conn.(*tls.Conn)
-	var tlsState *tls.ConnectionState
-	if ok {
-		stateCopy := tlsConn.ConnectionState()
-		tlsState = &stateCopy
-	}
-	return knox.VerifyTLS(callerid, tlsState)
 }
 
 // Close stops the listener, which prevents accept of any new connections. Existing connections won't be closed.

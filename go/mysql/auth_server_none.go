@@ -17,6 +17,7 @@ limitations under the License.
 package mysql
 
 import (
+	"crypto/tls"
 	"net"
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
@@ -41,7 +42,7 @@ func (a *AuthServerNone) Salt() ([]byte, error) {
 }
 
 // ValidateHash validates hash
-func (a *AuthServerNone) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (Getter, error) {
+func (a *AuthServerNone) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr, connState *tls.ConnectionState) (Getter, error) {
 	return &NoneGetter{}, nil
 }
 

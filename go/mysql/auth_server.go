@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
+	"crypto/tls"
 	"encoding/hex"
 	"net"
 	"strings"
@@ -64,7 +65,7 @@ type AuthServer interface {
 
 	// ValidateHash validates the data sent by the client matches
 	// what the server computes.  It also returns the user data.
-	ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (Getter, error)
+	ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr, connState *tls.ConnectionState) (Getter, error)
 
 	// Negotiate is called if AuthMethod returns anything else
 	// than MysqlNativePassword. It is handed the connection after the

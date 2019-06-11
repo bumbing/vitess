@@ -19,8 +19,6 @@ args=(
   -mysql_server_port 3306
   -mysql_tcp_version tcp4
   -mysql_auth_server_impl knox
-  -knox_supported_roles "scriptro,longqueryro,scriptrw,longqueryrw${TELETRAAN_ADDITIONAL_KNOX_ROLES:+,}${TELETRAAN_ADDITIONAL_KNOX_ROLES:-}"
-  -knox_role_mapping "scriptro:reader,longqueryro:reader,pepsirw:reader:writer:admin,devpepsirw:reader:writer:admin,scriptrw:reader:writer:admin,pepsilong:reader:writer:admin,devpepsilong:reader:writer:admin,longqueryrw:reader:writer:admin"
   -grpc_keepalive_time 30s
   -cell "${TELETRAAN_CELL:-test}"
   -cells_to_watch "${TELETRAAN_CELL:-test}"
@@ -84,12 +82,99 @@ if [[ ! -z "${TELETRAAN_ALLOWED_TABLET_TYPES:-}" ]]; then
 fi
 
 if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
+  auth_config=$(cat <<'END'
+  {
+    "user_groups": {
+      "scriptro": ["reader"],
+      "longqueryro": ["reader"],
+      "scriptrw": ["reader", "writer", "admin"],
+      "devpepsirw": ["reader", "writer", "admin"],
+      "devpepsilong": ["reader", "writer", "admin"]
+    },
+    "group_authz": {
+      "admin": {
+        "tls_subjects": [
+          "spiffe://pin220.com/teletraan/pepsi/latest",
+          "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
+          "spiffe://pin220.com/teletraan/pepsi/cron_latest",
+          "spiffe://pin220.com/devapp/*/dev",
+          "cloudeng-mysql-open-access-bastion-prod-*"
+        ]
+      },
+      "writer": {
+        "tls_subjects": [
+          "spiffe://pin220.com/teletraan/pepsi/latest",
+          "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
+          "spiffe://pin220.com/teletraan/pepsi/cron_latest",
+          "spiffe://pin220.com/devapp/*/dev",
+          "cloudeng-mysql-open-access-bastion-prod-*"
+        ]
+      },
+      "reader": {
+        "tls_subjects": [
+          "spiffe://pin220.com/teletraan/pepsi/latest",
+          "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
+          "spiffe://pin220.com/teletraan/pepsi/cron_latest",
+          "spiffe://pin220.com/devapp/*/dev",
+          "cloudeng-mysql-open-access-bastion-prod-*"
+        ],
+        "knox_roles": [
+          "scriptro", "longqueryro", "scriptrw", "devpepsirw", "devpepsilong"
+        ]
+      }
+    }
+  }
+END
+  )
+
   args+=(
-    -group_tls_regexes "writer:.*(pepsi|patio|cola|dev-|mysql-open-access-bastion).*"
+    -pinterest_auth_config "$auth_config"
   )
 elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
+  auth_config=$(cat <<'END'
+  {
+    "user_groups": {
+      "scriptro": ["reader"],
+      "longqueryro": ["reader"],
+      "scriptrw": ["reader", "writer", "admin"],
+      "pepsirw": ["reader", "writer", "admin"],
+      "pepsilong": ["reader", "writer", "admin"]
+    },
+    "group_authz": {
+      "admin": {
+        "tls_subjects": [
+          "spiffe://pin220.com/teletraan/pepsi/prod",
+          "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
+          "spiffe://pin220.com/teletraan/pepsi/cron",
+          "cloudeng-mysql-open-access-bastion-prod-*"
+        ]
+      },
+      "writer": {
+        "tls_subjects": [
+          "spiffe://pin220.com/teletraan/pepsi/prod",
+          "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
+          "spiffe://pin220.com/teletraan/pepsi/cron",
+          "cloudeng-mysql-open-access-bastion-prod-*"
+        ]
+      },
+      "reader": {
+        "tls_subjects": [
+          "spiffe://pin220.com/teletraan/pepsi/prod",
+          "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
+          "spiffe://pin220.com/teletraan/pepsi/cron",
+          "cloudeng-sox-mysql-open-access-bastion-prod-*"
+        ],
+        "knox_roles": [
+          "scriptro", "longqueryro", "scriptrw", "pepsirw", "pepsilong"
+        ]
+      }
+    }
+  }
+END
+  )
+
   args+=(
-    -group_tls_regexes "writer:^(m10n-pepsi-(prod|canary|long-jobs-prod|cron|canary)-.*)|^cloudeng-sox-mysql-open-access-bastion-prod-.*"
+    -pinterest_auth_config "$auth_config"
   )
 fi
 

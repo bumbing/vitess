@@ -17,6 +17,7 @@ limitations under the License.
 package ldapauthserver
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -95,7 +96,7 @@ func (asl *AuthServerLdap) Salt() ([]byte, error) {
 }
 
 // ValidateHash is unimplemented for AuthServerLdap.
-func (asl *AuthServerLdap) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (mysql.Getter, error) {
+func (asl *AuthServerLdap) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr, connState *tls.ConnectionState) (mysql.Getter, error) {
 	panic("unimplemented")
 }
 

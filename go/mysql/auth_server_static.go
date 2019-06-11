@@ -18,6 +18,7 @@ package mysql
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -221,7 +222,7 @@ func (a *AuthServerStatic) Salt() ([]byte, error) {
 }
 
 // ValidateHash is part of the AuthServer interface.
-func (a *AuthServerStatic) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (Getter, error) {
+func (a *AuthServerStatic) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr, connState *tls.ConnectionState) (Getter, error) {
 	a.mu.Lock()
 	entries, ok := a.Entries[user]
 	a.mu.Unlock()

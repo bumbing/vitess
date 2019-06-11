@@ -4,6 +4,7 @@ package knoxauth
 
 import (
 	"bytes"
+	"crypto/tls"
 	"net"
 
 	"vitess.io/vitess/go/knox"
@@ -39,23 +40,31 @@ func (a *authServerKnox) Salt() ([]byte, error) {
 }
 
 // ValidateHash is part of the AuthServer interface.
-func (a *authServerKnox) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr) (mysql.Getter, error) {
-	role, password, err := a.knoxClient.GetActivePassword(user)
+func (a *authServerKnox) ValidateHash(salt []byte, user string, authResponse []byte, remoteAddr net.Addr, tlsState *tls.ConnectionState) (mysql.Getter, error) {
+	knoxRole, knoxPassword, err := a.knoxClient.GetActivePassword(user)
+	if err == nil {
+		// We have knox credentials. Verify them.
+		computedAuthResponse := mysql.ScramblePassword(salt, []byte(knoxPassword))
+		if bytes.Compare(authResponse, computedAuthResponse) != 0 {
+			// Bad knox password
+			return &knoxUserData{user: "", groups: nil}, mysql.NewSQLError(
+				mysql.ERAccessDeniedError, mysql.SSAccessDeniedError,
+				"Access denied for user '%v' (credentials don't match knox)", user)
+		}
+	}
+
+	role := user
+	if knoxRole != "" {
+		role = knoxRole
+	}
+
+	groups, err := a.knoxClient.VerifyTLS(role, tlsState, knoxRole != "")
+
 	if err != nil {
 		return &knoxUserData{user: "", groups: nil}, mysql.NewSQLError(
 			mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied: %s", err.Error())
 	}
-
-	computedAuthResponse := mysql.ScramblePassword(salt, []byte(password))
-	if bytes.Compare(authResponse, computedAuthResponse) == 0 {
-		groups := a.knoxClient.GetGroupsByRole(role)
-		return &knoxUserData{user: user, groups: groups}, nil
-	}
-
-	// None of the active credentials matched.
-	return &knoxUserData{user: "", groups: nil}, mysql.NewSQLError(
-		mysql.ERAccessDeniedError, mysql.SSAccessDeniedError,
-		"Access denied for user '%v' (credentials don't match knox)", user)
+	return &knoxUserData{user: user, groups: groups}, nil
 }
 
 // Negotiate is part of the AuthServer interface.

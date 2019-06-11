@@ -2,83 +2,73 @@ package knox
 
 import (
 	"crypto/tls"
-	"flag"
 	"fmt"
-	"regexp"
-
-	"vitess.io/vitess/go/flagutil"
-	querypb "vitess.io/vitess/go/vt/proto/query"
+	"strings"
 )
-
-var (
-	groupTLSRegexesFlag flagutil.StringMapValue
-
-	// Regular expressions that much match the some TLS common name
-	// if the authenticated user has a group listed in this map.
-	groupTLSRegexes map[string]*regexp.Regexp
-)
-
-func init() {
-	flag.Var(&groupTLSRegexesFlag, "group_tls_regexes", "user1:regex1,group2:regex2 requires user1 or users in group2 to have a TLS common name matching the regex")
-}
-
-func initTLS() {
-	compiledRegexes := map[string]*regexp.Regexp{}
-	for role, uncompiledRegex := range groupTLSRegexesFlag {
-		compiledRegexes[role] = regexp.MustCompile(uncompiledRegex)
-	}
-}
 
 // VerifyTLS makes sure the TLS certificate allows acting as the specified user.
-func VerifyTLS(callerid *querypb.VTGateCallerID, tlsState *tls.ConnectionState) error {
-	return verifyTLSInternal(callerid, tlsState, groupTLSRegexes)
+func VerifyTLS(username string, tlsState *tls.ConnectionState, knoxAuthenticated bool) ([]string, error) {
+	return verifyTLSInternal(username, tlsState, knoxAuthenticated, pinterestAuthConfig)
 }
 
 func verifyTLSInternal(
-	callerid *querypb.VTGateCallerID,
+	username string,
 	tlsState *tls.ConnectionState,
-	groupTLSRegexes map[string]*regexp.Regexp) error {
+	knoxAuthenticated bool,
+	config authConfig) ([]string, error) {
 
-	// Collect a list of regexes that need to match the certificate CNs
-	groupsToVerify := make(map[string]*regexp.Regexp)
-
-	for _, role := range callerid.Groups {
-		regex, ok := groupTLSRegexes[role]
-		if ok {
-			groupsToVerify[role] = regex
-		}
+	// Make sure the name is legitimate.
+	groups, ok := config.UserGroups[username]
+	if !ok {
+		return nil, fmt.Errorf("VerifyTLS: %s is not a recognized role with -pinterest_auth_config", username)
 	}
 
-	if len(groupsToVerify) == 0 {
-		return nil
-	}
-
-	if tlsState == nil {
-		return fmt.Errorf("VerifyTLS: %v requires TLS for groups %v", callerid, groupsToVerify)
-	}
-
-	// Collect the CN values from the certificates.
-	commonNames := []string{}
-	peerCerts := tlsState.PeerCertificates
-	if peerCerts != nil {
-		for _, c := range peerCerts {
-			commonName := c.Subject.CommonName
-			commonNames = append(commonNames, commonName)
-		}
-	}
-
-	// Make sure each regex matches at least one commonName
-OUTER:
-	for _, regex := range groupsToVerify {
-		for _, commonName := range commonNames {
-			matches := regex.MatchString(commonName)
-			if matches {
-				continue OUTER
+	subjectNames := []string{}
+	if tlsState != nil {
+		// Collect the CN values from the certificates.
+		peerCerts := tlsState.PeerCertificates
+		if peerCerts != nil {
+			for _, c := range peerCerts {
+				subjectNames = append(subjectNames, c.Subject.CommonName)
+				for _, dnsName := range c.DNSNames {
+					subjectNames = append(subjectNames, dnsName)
+				}
+				for _, uri := range c.URIs {
+					subjectNames = append(subjectNames, uri.String())
+				}
 			}
 		}
-		return fmt.Errorf("VerifyTLS: %v requires a TLS CN matching %v but only found %#v", callerid, regex, commonNames)
+	}
+
+GROUPS:
+	for _, group := range groups {
+		groupAuthz := config.GroupAuthz[group]
+
+		if knoxAuthenticated {
+			for _, knoxRole := range groupAuthz.KnoxRoles {
+				if knoxRole == username {
+					continue GROUPS
+				}
+			}
+		}
+
+		for _, tlsSubject := range groupAuthz.TLSSubjects {
+			// Allow one "*" wildcard in a tls subject for pre-spiffe host pattern matching
+			parts := strings.SplitN(tlsSubject, "*", 2)
+			for _, peerSubject := range subjectNames {
+				if (len(parts) < 2 && tlsSubject == peerSubject) ||
+					(len(parts) == 2 && strings.HasPrefix(peerSubject, parts[0]) &&
+						strings.HasSuffix(peerSubject, parts[1])) {
+					continue GROUPS
+				}
+			}
+		}
+
+		return nil, fmt.Errorf(
+			"VerifyTLS: user %s in group %s requires auth %v but only found %#v (knox auth? %v)",
+			username, groups, groupAuthz, subjectNames, knoxAuthenticated)
 	}
 
 	// All regexes matched some commonName
-	return nil
+	return groups, nil
 }
