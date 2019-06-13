@@ -32,6 +32,10 @@ else
     )
 fi
 
+if [[ -n "$TELETRAAN_LOOKUP_VINDEX_WHITELIST" ]]; then
+    KEYSPACE_ARGS+=("-lookup-vindex-whitelist=$TELETRAAN_LOOKUP_VINDEX_WHITELIST")
+fi
+
 VTCTL_CMD="/vt/bin/vtctlclient -server localhost:15991"
 PINSCHEMA_CMD="/vt/bin/pinschema"
 ALERT_CMD="python -m vitess_utils.alerts"
