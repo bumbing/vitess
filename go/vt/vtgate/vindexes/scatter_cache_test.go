@@ -12,6 +12,7 @@ import (
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 )
 
 type scatterVcursor struct {
@@ -21,13 +22,12 @@ type scatterVcursor struct {
 	autocommits int
 }
 
-func (svc *scatterVcursor) Execute(method string, query string, bindvars map[string]*querypb.BindVariable, isDML bool) (*sqltypes.Result, error) {
+func (svc *scatterVcursor) Execute(method string, query string, bindvars map[string]*querypb.BindVariable, isDML bool, commitOrder vtgatepb.CommitOrder) (*sqltypes.Result, error) {
 	return svc.execute(method, query, bindvars, isDML)
 }
 
-func (svc *scatterVcursor) ExecuteAutocommit(method string, query string, bindvars map[string]*querypb.BindVariable, isDML bool) (*sqltypes.Result, error) {
-	svc.autocommits++
-	return svc.execute(method, query, bindvars, isDML)
+func (svc *scatterVcursor) ExecuteKeyspaceID(keyspace string, ksid []byte, query string, bindVars map[string]*querypb.BindVariable, isDML, autocommit bool) (*sqltypes.Result, error) {
+	return svc.execute("ExecuteKeyspaceID", query, bindVars, isDML)
 }
 
 // This method is copied from the lookup vindex tests.
