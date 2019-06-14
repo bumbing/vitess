@@ -49,6 +49,7 @@ import (
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 )
 
 var (
@@ -217,7 +218,7 @@ func (sc *ScatterCache) scatterLookupIds(vcursor VCursor, foundIds map[string]sc
 	bindVars := map[string]*querypb.BindVariable{
 		sc.fromCol: missingIdsBV,
 	}
-	queryResult, err := vcursor.Execute("VindexScatterCacheLookup", sel, bindVars, false /* isDML */)
+	queryResult, err := vcursor.Execute("VindexScatterCacheLookup", sel, bindVars, false /* isDML */, vtgatepb.CommitOrder_NORMAL)
 	if err != nil {
 		return fmt.Errorf("ScatterCache.Map: %v", err)
 	}
