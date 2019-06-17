@@ -98,6 +98,36 @@
   }
 }
 
+"insert into adgroup_specs(advertiser_id) values(2)"
+{
+  "Original": "insert into adgroup_specs(advertiser_id) values(2)",
+  "Instructions": {
+    "Opcode": "InsertSharded",
+    "Keyspace": {
+      "Name": "user",
+      "Sharded": true
+    },
+    "Query": "insert into adgroup_specs(advertiser_id, id) values (:_advertiser_id0, :_id0)",
+    "Values": [
+      [[2]],
+      [[":__seq0"]]
+    ],
+    "Table": "adgroup_specs",
+    "Generate": {
+      "Keyspace": {
+        "Name": "main",
+        "Sharded": false
+      },
+      "Query": "select next :n values from seq",
+      "Values": [null]
+    },
+    "Prefix": "insert into adgroup_specs(advertiser_id, id) values ",
+    "Mid": [
+      "(:_advertiser_id0, :_id0)"
+    ]
+  }
+}
+
 # Insert omitting billing profile ID, which has a scatter-cache vindex column
 "insert into advertisers(id) values(1)"
 {
@@ -124,25 +154,34 @@
 # Insert Ad_group with NULL value in unowned PinLookupVindex
 # The Unowned PinLookupVindex will have a mapping Keyspace ID in "Values", but it won't be used as Unwoned Vindex is
 # always skipped.
-"insert into adgroups(id) values(1)"
+"insert into adgroups(advertiser_id, adgroup_spec_id) values(1, 2)"
 {
-  "Original": "insert into adgroups(id) values(1)",
+  "Original": "insert into adgroups(advertiser_id, adgroup_spec_id) values(1, 2)",
   "Instructions": {
     "Opcode": "InsertSharded",
     "Keyspace": {
       "Name": "user",
       "Sharded": true
     },
-    "Query":"insert into adgroups(id, advertiser_id, adgroup_spec_id) values (:_id0, :_advertiser_id0, :_adgroup_spec_id0)",
+    "Query":"insert into adgroups(advertiser_id, adgroup_spec_id, id) values (:_advertiser_id0, :_adgroup_spec_id0, :_id0)",
     "Values": [
-      [[null]],
-      [[null]],
-      [[1]]
+      [[1]],
+      [[2]],
+      [[":__seq0"]],
+      [[":__seq0"]]
     ],
     "Table": "adgroups",
-    "Prefix": "insert into adgroups(id, advertiser_id, adgroup_spec_id) values ",
+    "Generate": {
+      "Keyspace": {
+        "Name": "main",
+        "Sharded": false
+      },
+      "Query": "select next :n values from seq",
+      "Values": [null]
+    },
+    "Prefix": "insert into adgroups(advertiser_id, adgroup_spec_id, id) values ",
     "Mid": [
-      "(:_id0, :_advertiser_id0, :_adgroup_spec_id0)"
+      "(:_advertiser_id0, :_adgroup_spec_id0, :_id0)"
     ]
   }
 }

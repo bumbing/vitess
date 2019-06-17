@@ -76,6 +76,15 @@
             "to": "advertiser_id"
           }
         },
+        "adgroup_id_idx": {
+          "type": "pin_lookup_hash_unique",
+          "params": {
+            "capacity": "10000",
+            "table": "adgroup_id_idx",
+            "from": "id",
+            "to": "advertiser_id"
+          }
+        },
         "adgroup_idx": {
           "type": "scatter_cache",
           "params": {
@@ -287,9 +296,33 @@
             },
             {
               "column": "id",
+              "name": "adgroup_id_idx"
+            },
+            {
+              "column": "id",
               "name": "adgroup_idx"
             }
-          ]
+          ],
+          "auto_increment": {
+            "column": "id",
+            "sequence": "seq"
+          }
+        },
+        "adgroup_specs": {
+          "column_vindexes": [
+            {
+              "column": "advertiser_id",
+              "name": "advertiser_idx"
+            },
+            {
+              "column": "id",
+              "name": "adgroup_spec_id_idx"
+            }
+          ],
+          "auto_increment": {
+            "column": "id",
+            "sequence": "seq"
+          }
         }
       }
     },
@@ -341,6 +374,8 @@
         },
         "seq": {
           "type": "sequence"
+        },
+        "adgroup_id_idx": {
         }
       }
     }

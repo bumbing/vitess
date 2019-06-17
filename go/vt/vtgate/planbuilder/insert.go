@@ -159,17 +159,40 @@ func buildInsertShardedPlan(ins *sqlparser.Insert, table *vindexes.Table) (*engi
 			routeValues[vIdx].Values[colIdx].Values = make([]sqltypes.PlanValue, len(rows))
 			colNum := findOrAddColumn(ins, col)
 			// swap bind variables
-			baseName := ":_" + col.CompliantName()
+			// [Pinterest Lookup Vindex temporary fix]: the overlapped vindex column can result to extra column which
+			// can not be recognized when executed. So the temp fix commented out this line and the line assigning row
+			// below. This fix will be synced up back to upstream when Scatter Cache is got ridden of, so that we have
+			// no overlapped Vindex.
+			// The fix comes from Sugu's fix:
+			//   https://github.com/planetscale/vitess/commit/2d9254351236bee70ea057aef2b33351a011a9bb
+			// TODO: uncomment the line below
+			//baseName := ":_" + col.CompliantName()
 			for rowNum, row := range rows {
 				innerpv, err := sqlparser.NewPlanValue(row[colNum])
 				if err != nil {
 					return nil, vterrors.Wrapf(err, "could not compute value for vindex or auto-inc column")
 				}
 				routeValues[vIdx].Values[colIdx].Values[rowNum] = innerpv
+				// [Pinterest Lookup Vindex temporary fix]: same as above
+				// TODO: uncomment the line below
+				//row[colNum] = sqlparser.NewValArg([]byte(baseName + strconv.Itoa(rowNum)))
+			}
+		}
+	}
+
+	// [Pinterest Lookup Vindex temporary fix]: same as above
+	// TODO: remove lines below
+	for _, colVindex := range eins.Table.ColumnVindexes {
+		for _, col := range colVindex.Columns {
+			colNum := findOrAddColumn(ins, col)
+			// swap bind variables
+			baseName := ":_" + col.CompliantName()
+			for rowNum, row := range rows {
 				row[colNum] = sqlparser.NewValArg([]byte(baseName + strconv.Itoa(rowNum)))
 			}
 		}
 	}
+
 	eins.VindexValues = routeValues
 	eins.Query = generateQuery(ins)
 	generateInsertShardedQuery(ins, eins, rows)
