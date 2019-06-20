@@ -19,7 +19,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "ad_group_id_idx": {
+    "ad_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -38,7 +38,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "ad_group_spec_id_idx": {
+    "ad_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -381,19 +381,13 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
-          "columns": [
-            "ad_group_id"
-          ]
-        },
-        {
           "name": "ad_group_spec_id",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "ad_group_spec_id_idx",
+          "name": "ad_group_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -427,7 +421,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "id"
           ]

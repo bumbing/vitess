@@ -10,7 +10,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "accepted_tos_id_idx": {
+    "accepted_tos_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -29,7 +29,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "ad_group_id_idx": {
+    "ad_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -48,7 +48,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "ad_group_spec_id_idx": {
+    "ad_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -73,7 +73,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "app_event_tracking_config_id_idx": {
+    "app_event_tracking_config_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -92,7 +92,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "bill_detail_id_idx": {
+    "bill_detail_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -111,7 +111,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "bill_id_idx": {
+    "bill_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -130,7 +130,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "billing_action_id_idx": {
+    "billing_action_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -149,7 +149,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "billing_contact_id_idx": {
+    "billing_contact_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -168,7 +168,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "billing_profile_id_idx": {
+    "billing_profile_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -187,7 +187,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "bulk_v2_job_id_idx": {
+    "bulk_v2_job_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -206,7 +206,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "business_profile_id_idx": {
+    "business_profile_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -225,7 +225,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "campaign_id_idx": {
+    "campaign_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -244,7 +244,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "campaign_spec_id_idx": {
+    "campaign_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -263,7 +263,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "carousel_slot_promotion_id_idx": {
+    "carousel_slot_promotion_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -282,7 +282,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "conversion_tag_id_idx": {
+    "conversion_tag_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -310,7 +310,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "goal_id_idx": {
+    "goal_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -329,7 +329,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "notification_id_idx": {
+    "notification_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -348,7 +348,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "order_line_id_idx": {
+    "order_line_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -367,7 +367,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "order_line_spec_id_idx": {
+    "order_line_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -386,7 +386,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "pin_promotion_id_idx": {
+    "pin_promotion_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -405,7 +405,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "pin_promotion_label_id_idx": {
+    "pin_promotion_label_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -424,7 +424,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "pin_promotion_spec_id_idx": {
+    "pin_promotion_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -443,7 +443,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "pin_promotions_history_id_idx": {
+    "pin_promotions_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -462,7 +462,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "pinner_list_id_idx": {
+    "pinner_list_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -481,7 +481,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "pinner_list_spec_id_idx": {
+    "pinner_list_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -500,7 +500,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "product_group_id_idx": {
+    "product_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -519,7 +519,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "product_group_spec_id_idx": {
+    "product_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -538,7 +538,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "promoted_catalog_product_group_id_idx": {
+    "promoted_catalog_product_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -557,7 +557,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "promoted_catalog_product_groups_history_id_idx": {
+    "promoted_catalog_product_groups_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -576,7 +576,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "rule_subscription_id_idx": {
+    "rule_subscription_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -595,7 +595,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "targeting_attribute_history_id_idx": {
+    "targeting_attribute_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -614,7 +614,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "targeting_attribute_id_idx": {
+    "targeting_attribute_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -633,7 +633,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "targeting_spec_id_idx": {
+    "targeting_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -652,7 +652,7 @@
         "to": "g_advertiser_id"
       }
     },
-    "user_preference_id_idx": {
+    "user_preference_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
@@ -679,7 +679,7 @@
           ]
         },
         {
-          "name": "accepted_tos_id_idx",
+          "name": "accepted_tos_id_vdx",
           "columns": [
             "id"
           ]
@@ -707,7 +707,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -719,7 +719,7 @@
           ]
         },
         {
-          "name": "ad_group_spec_id_idx",
+          "name": "ad_group_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -737,7 +737,7 @@
           ]
         },
         {
-          "name": "targeting_spec_id_idx",
+          "name": "targeting_spec_id_vdx",
           "columns": [
             "targeting_spec_id"
           ]
@@ -759,7 +759,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "id"
           ]
@@ -771,7 +771,7 @@
           ]
         },
         {
-          "name": "ad_group_spec_id_idx",
+          "name": "ad_group_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -789,7 +789,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -811,7 +811,7 @@
           ]
         },
         {
-          "name": "billing_profile_id_idx",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "billing_profile_id"
           ]
@@ -823,7 +823,7 @@
           ]
         },
         {
-          "name": "business_profile_id_idx",
+          "name": "business_profile_id_vdx",
           "columns": [
             "business_profile_id"
           ]
@@ -851,7 +851,7 @@
           ]
         },
         {
-          "name": "app_event_tracking_config_id_idx",
+          "name": "app_event_tracking_config_id_vdx",
           "columns": [
             "id"
           ]
@@ -879,7 +879,7 @@
           ]
         },
         {
-          "name": "bill_detail_id_idx",
+          "name": "bill_detail_id_vdx",
           "columns": [
             "id"
           ]
@@ -891,7 +891,7 @@
           ]
         },
         {
-          "name": "bill_id_idx",
+          "name": "bill_id_vdx",
           "columns": [
             "bill_id"
           ]
@@ -903,7 +903,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -931,7 +931,7 @@
           ]
         },
         {
-          "name": "bill_id_idx",
+          "name": "bill_id_vdx",
           "columns": [
             "bill_id"
           ]
@@ -943,7 +943,7 @@
           ]
         },
         {
-          "name": "billing_action_id_idx",
+          "name": "billing_action_id_vdx",
           "columns": [
             "id"
           ]
@@ -971,7 +971,7 @@
           ]
         },
         {
-          "name": "billing_contact_id_idx",
+          "name": "billing_contact_id_vdx",
           "columns": [
             "id"
           ]
@@ -999,7 +999,7 @@
           ]
         },
         {
-          "name": "billing_profile_id_idx",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "id"
           ]
@@ -1027,7 +1027,7 @@
           ]
         },
         {
-          "name": "bill_id_idx",
+          "name": "bill_id_vdx",
           "columns": [
             "id"
           ]
@@ -1039,7 +1039,7 @@
           ]
         },
         {
-          "name": "billing_profile_id_idx",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "billing_profile_id"
           ]
@@ -1051,7 +1051,7 @@
           ]
         },
         {
-          "name": "business_profile_id_idx",
+          "name": "business_profile_id_vdx",
           "columns": [
             "business_profile_id"
           ]
@@ -1079,7 +1079,7 @@
           ]
         },
         {
-          "name": "bulk_v2_job_id_idx",
+          "name": "bulk_v2_job_id_vdx",
           "columns": [
             "id"
           ]
@@ -1107,7 +1107,7 @@
           ]
         },
         {
-          "name": "business_profile_id_idx",
+          "name": "business_profile_id_vdx",
           "columns": [
             "id"
           ]
@@ -1135,7 +1135,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -1147,7 +1147,7 @@
           ]
         },
         {
-          "name": "campaign_spec_id_idx",
+          "name": "campaign_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1159,7 +1159,7 @@
           ]
         },
         {
-          "name": "order_line_id_idx",
+          "name": "order_line_id_vdx",
           "columns": [
             "order_line_id"
           ]
@@ -1187,7 +1187,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "id"
           ]
@@ -1199,7 +1199,7 @@
           ]
         },
         {
-          "name": "campaign_spec_id_idx",
+          "name": "campaign_spec_id_vdx",
           "columns": [
             "campaign_spec_id"
           ]
@@ -1227,7 +1227,7 @@
           ]
         },
         {
-          "name": "carousel_slot_promotion_id_idx",
+          "name": "carousel_slot_promotion_id_vdx",
           "columns": [
             "id"
           ]
@@ -1239,7 +1239,7 @@
           ]
         },
         {
-          "name": "pin_promotion_id_idx",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "pin_promotion_id"
           ]
@@ -1267,7 +1267,7 @@
           ]
         },
         {
-          "name": "conversion_tag_id_idx",
+          "name": "conversion_tag_id_vdx",
           "columns": [
             "id"
           ]
@@ -1295,7 +1295,7 @@
           ]
         },
         {
-          "name": "goal_id_idx",
+          "name": "goal_id_vdx",
           "columns": [
             "id"
           ]
@@ -1323,7 +1323,7 @@
           ]
         },
         {
-          "name": "notification_id_idx",
+          "name": "notification_id_vdx",
           "columns": [
             "id"
           ]
@@ -1351,7 +1351,7 @@
           ]
         },
         {
-          "name": "order_line_id_idx",
+          "name": "order_line_id_vdx",
           "columns": [
             "order_line_id"
           ]
@@ -1363,7 +1363,7 @@
           ]
         },
         {
-          "name": "order_line_spec_id_idx",
+          "name": "order_line_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1391,7 +1391,7 @@
           ]
         },
         {
-          "name": "billing_profile_id_idx",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "billing_profile_id"
           ]
@@ -1403,7 +1403,7 @@
           ]
         },
         {
-          "name": "order_line_id_idx",
+          "name": "order_line_id_vdx",
           "columns": [
             "id"
           ]
@@ -1415,7 +1415,7 @@
           ]
         },
         {
-          "name": "order_line_spec_id_idx",
+          "name": "order_line_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -1443,7 +1443,7 @@
           ]
         },
         {
-          "name": "pin_promotion_label_id_idx",
+          "name": "pin_promotion_label_id_vdx",
           "columns": [
             "id"
           ]
@@ -1471,7 +1471,7 @@
           ]
         },
         {
-          "name": "campaign_spec_id_idx",
+          "name": "campaign_spec_id_vdx",
           "columns": [
             "campaign_spec_id"
           ]
@@ -1483,7 +1483,7 @@
           ]
         },
         {
-          "name": "pin_promotion_id_idx",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "pin_promotion_id"
           ]
@@ -1495,7 +1495,7 @@
           ]
         },
         {
-          "name": "pin_promotion_spec_id_idx",
+          "name": "pin_promotion_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1507,7 +1507,7 @@
           ]
         },
         {
-          "name": "targeting_spec_id_idx",
+          "name": "targeting_spec_id_vdx",
           "columns": [
             "targeting_spec_id"
           ]
@@ -1529,7 +1529,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1547,7 +1547,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -1559,7 +1559,7 @@
           ]
         },
         {
-          "name": "pin_promotion_id_idx",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "id"
           ]
@@ -1571,7 +1571,7 @@
           ]
         },
         {
-          "name": "pin_promotion_spec_id_idx",
+          "name": "pin_promotion_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -1593,7 +1593,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1611,7 +1611,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -1623,7 +1623,7 @@
           ]
         },
         {
-          "name": "pin_promotion_id_idx",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "pin_promotion_id"
           ]
@@ -1635,7 +1635,7 @@
           ]
         },
         {
-          "name": "pin_promotions_history_id_idx",
+          "name": "pin_promotions_history_id_vdx",
           "columns": [
             "id"
           ]
@@ -1663,7 +1663,7 @@
           ]
         },
         {
-          "name": "pinner_list_id_idx",
+          "name": "pinner_list_id_vdx",
           "columns": [
             "pinner_list_id"
           ]
@@ -1675,7 +1675,7 @@
           ]
         },
         {
-          "name": "pinner_list_spec_id_idx",
+          "name": "pinner_list_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1703,7 +1703,7 @@
           ]
         },
         {
-          "name": "pinner_list_id_idx",
+          "name": "pinner_list_id_vdx",
           "columns": [
             "id"
           ]
@@ -1715,7 +1715,7 @@
           ]
         },
         {
-          "name": "pinner_list_spec_id_idx",
+          "name": "pinner_list_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -1743,7 +1743,7 @@
           ]
         },
         {
-          "name": "product_group_id_idx",
+          "name": "product_group_id_vdx",
           "columns": [
             "product_group_id"
           ]
@@ -1755,7 +1755,7 @@
           ]
         },
         {
-          "name": "product_group_spec_id_idx",
+          "name": "product_group_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1777,7 +1777,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1795,7 +1795,7 @@
           ]
         },
         {
-          "name": "product_group_id_idx",
+          "name": "product_group_id_vdx",
           "columns": [
             "id"
           ]
@@ -1807,7 +1807,7 @@
           ]
         },
         {
-          "name": "product_group_spec_id_idx",
+          "name": "product_group_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -1829,7 +1829,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1847,7 +1847,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -1859,7 +1859,7 @@
           ]
         },
         {
-          "name": "promoted_catalog_product_group_id_idx",
+          "name": "promoted_catalog_product_group_id_vdx",
           "columns": [
             "id"
           ]
@@ -1881,7 +1881,7 @@
           ]
         },
         {
-          "name": "ad_group_id_idx",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1899,7 +1899,7 @@
           ]
         },
         {
-          "name": "campaign_id_idx",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -1911,7 +1911,7 @@
           ]
         },
         {
-          "name": "promoted_catalog_product_group_id_idx",
+          "name": "promoted_catalog_product_group_id_vdx",
           "columns": [
             "promoted_catalog_product_group_id"
           ]
@@ -1923,7 +1923,7 @@
           ]
         },
         {
-          "name": "promoted_catalog_product_groups_history_id_idx",
+          "name": "promoted_catalog_product_groups_history_id_vdx",
           "columns": [
             "id"
           ]
@@ -1951,7 +1951,7 @@
           ]
         },
         {
-          "name": "rule_subscription_id_idx",
+          "name": "rule_subscription_id_vdx",
           "columns": [
             "id"
           ]
@@ -2011,7 +2011,7 @@
           ]
         },
         {
-          "name": "targeting_attribute_history_id_idx",
+          "name": "targeting_attribute_history_id_vdx",
           "columns": [
             "id"
           ]
@@ -2023,7 +2023,7 @@
           ]
         },
         {
-          "name": "targeting_attribute_id_idx",
+          "name": "targeting_attribute_id_vdx",
           "columns": [
             "targeting_attribute_id"
           ]
@@ -2051,7 +2051,7 @@
           ]
         },
         {
-          "name": "targeting_attribute_id_idx",
+          "name": "targeting_attribute_id_vdx",
           "columns": [
             "id"
           ]
@@ -2079,7 +2079,7 @@
           ]
         },
         {
-          "name": "targeting_spec_id_idx",
+          "name": "targeting_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -2107,7 +2107,7 @@
           ]
         },
         {
-          "name": "user_preference_id_idx",
+          "name": "user_preference_id_vdx",
           "columns": [
             "id"
           ]

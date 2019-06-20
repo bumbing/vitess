@@ -22,6 +22,7 @@ import (
 // gids exist, but until we implement that we'll have both
 // floating around.
 const advertiserGIDOffset = "549755813888"
+const vindexSuffix = "_vdx"
 
 func init() {
 	commands["create-vschema"] = createVSchema
@@ -176,7 +177,7 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 
 			vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
 
-			lookupVindexName := vindexName + vindexTableSuffix
+			lookupVindexName := vindexName + vindexSuffix
 			if vb.shouldUseLookupVindex(tableName, colName, lookupVindexName) {
 				vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
 			}
@@ -278,8 +279,9 @@ func (vb *vschemaBuilder) createScatterCache(tableName string) {
 }
 
 func (vb *vschemaBuilder) createPinLookupVindex(tableName string) {
+	vindexName := tableNameToColName(tableName) + vindexSuffix
 	indexTableName := tableNameToColName(tableName) + vindexTableSuffix
-	vb.vindexes[indexTableName] = &vschemapb.Vindex{
+	vb.vindexes[vindexName] = &vschemapb.Vindex{
 		Type:  "pin_lookup_hash_unique",
 		Owner: tableName,
 		Params: map[string]string{
