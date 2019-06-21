@@ -31,7 +31,8 @@ args=(
   # The default is to avoid replicas with >2h of lag if at least two other
   # replicas have less lag.
   -discovery_high_replication_lag_minimum_serving 10m
-  -enable_buffer_dry_run
+  -enable_buffer
+  -buffer_size 100
   -min_number_serving_vttablets 1
   -service_map 'grpc-vtgateservice'
   "-merge_keyspace_joins_to_single_shard=${TELETRAAN_MERGE_JOIN_SHARDS:-true}"
