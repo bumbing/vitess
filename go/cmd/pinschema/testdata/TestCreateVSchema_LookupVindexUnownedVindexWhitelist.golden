@@ -23,7 +23,7 @@
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
-        "table": "ad_group_id_idx",
+        "table": "patiogeneral.ad_group_id_idx",
         "to": "g_advertiser_id",
         "write_only": "true"
       },
@@ -42,7 +42,7 @@
       "type": "pin_lookup_hash_unique",
       "params": {
         "from": "id",
-        "table": "ad_group_spec_id_idx",
+        "table": "patiogeneral.ad_group_spec_id_idx",
         "to": "g_advertiser_id",
         "write_only": "true"
       },
