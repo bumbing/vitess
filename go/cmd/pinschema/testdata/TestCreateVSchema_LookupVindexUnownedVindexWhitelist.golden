@@ -381,6 +381,12 @@
           ]
         },
         {
+          "name": "ad_group_id_vdx",
+          "columns": [
+            "ad_group_id"
+          ]
+        },
+        {
           "name": "ad_group_spec_id",
           "columns": [
             "id"
