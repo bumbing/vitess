@@ -98,7 +98,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
           "spiffe://pin220.com/teletraan/pepsi/latest",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
           "spiffe://pin220.com/teletraan/pepsi/cron_latest",
-          "spiffe://pin220.com/devapp/*/dev",
+          "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
         ]
       },
@@ -107,7 +107,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
           "spiffe://pin220.com/teletraan/pepsi/latest",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
           "spiffe://pin220.com/teletraan/pepsi/cron_latest",
-          "spiffe://pin220.com/devapp/*/dev",
+          "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
         ]
       },
@@ -116,7 +116,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
           "spiffe://pin220.com/teletraan/pepsi/latest",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
           "spiffe://pin220.com/teletraan/pepsi/cron_latest",
-          "spiffe://pin220.com/devapp/*/dev",
+          "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
         ],
         "knox_roles": [
