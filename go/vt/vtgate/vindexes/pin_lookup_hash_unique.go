@@ -1,10 +1,12 @@
 package vindexes
 
 import (
+	"flag"
 	"fmt"
 	"vitess.io/vitess/go/sqltypes"
 )
 
+var usePinLookupVindex = flag.Bool("use_pin_lookup_vindex", false, "Use PinLookupVindex instead of ScatterCache")
 var (
 	_ Vindex = (*PinLookupHashUnique)(nil)
 	_ Lookup = (*PinLookupHashUnique)(nil)
@@ -80,7 +82,7 @@ func getThingsToVerify(ids []sqltypes.Value, ksids [][]byte) ([]sqltypes.Value, 
 
 func fillInResult(ids []sqltypes.Value, verifiedResults []bool) ([]bool, error) {
 	out := make([]bool, len(ids))
-	var idx= 0
+	var idx = 0
 	for i, id := range ids {
 		if id.IsNull() {
 			out[i] = true
@@ -92,7 +94,11 @@ func fillInResult(ids []sqltypes.Value, verifiedResults []bool) ([]bool, error) 
 	return out, nil
 }
 
-// Cost returns the cost of this vindex as 20.
+// Cost returns the cost of this vindex. It is controlled by a FLAG, 40 for fallback to ScatterCache.
 func (plhu *PinLookupHashUnique) Cost() int {
-	return 40
+	if *usePinLookupVindex {
+		return 10
+	} else {
+		return 40
+	}
 }
