@@ -148,6 +148,10 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 
 		tbl := &vschemapb.Table{}
 
+		if strings.HasSuffix(tableName, "_seq") {
+			tbl.Type = "sequence"
+		}
+
 		tblVindexes := make([]*vschemapb.ColumnVindex, 0)
 
 		if vb.config.includeCols && vb.config.colsAuthoritative {

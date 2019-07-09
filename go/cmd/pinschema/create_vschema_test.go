@@ -7,34 +7,36 @@ import (
 func TestCreateVSchema(t *testing.T) {
 	type Tests struct {
 		name   string
+		ddls   string
 		config pinschemaConfig
 	}
 
 	tests := []Tests{
-		{"Unsharded", pinschemaConfig{}},
-		{"Authoritative",
+		{"Unsharded", "testdata/patio.sql", pinschemaConfig{}},
+		{"UnshardedGeneral", "testdata/patiogeneral.sql", pinschemaConfig{}},
+		{"Authoritative", "testdata/patio.sql",
 			pinschemaConfig{
 				colsAuthoritative: true,
 				includeCols:       true,
 			},
 		},
-		{"Seqs",
+		{"Seqs", "testdata/patio.sql",
 			pinschemaConfig{
 				createSeq: true,
 			},
 		},
-		{"SeqsWhitelist",
+		{"SeqsWhitelist", "testdata/patio.sql",
 			pinschemaConfig{
 				createSeq:              true,
 				sequenceTableWhitelist: []string{"campaigns", "accepted_tos"},
 			},
 		},
-		{"Primary",
+		{"Primary", "testdata/patio.sql",
 			pinschemaConfig{
 				createPrimary: true,
 			},
 		},
-		{"PrimaryAndSecondary",
+		{"PrimaryAndSecondary", "testdata/patio.sql",
 			pinschemaConfig{
 				createPrimary:               true,
 				createSecondary:             true,
@@ -44,7 +46,7 @@ func TestCreateVSchema(t *testing.T) {
 				},
 			},
 		},
-		{"LookupVindexUnownedVindexWhitelist",
+		{"LookupVindexUnownedVindexWhitelist", "testdata/patio.sql",
 			pinschemaConfig{
 				createPrimary:               true,
 				createSecondary:             true,
@@ -58,7 +60,7 @@ func TestCreateVSchema(t *testing.T) {
 				createLookupVindexTables:     true,
 			},
 		},
-		{"LookupVindexWhitelist",
+		{"LookupVindexWhitelist", "testdata/patio.sql",
 			pinschemaConfig{
 				createPrimary:               true,
 				createSecondary:             true,
@@ -71,7 +73,7 @@ func TestCreateVSchema(t *testing.T) {
 				createLookupVindexTables: true,
 			},
 		},
-		{"LookupVindex",
+		{"LookupVindex", "testdata/patio.sql",
 			pinschemaConfig{
 				createPrimary:               true,
 				createSecondary:             true,
@@ -89,7 +91,7 @@ func TestCreateVSchema(t *testing.T) {
 		goldenTest(
 			t,
 			t.Name()+"_"+test.name,
-			"testdata/ddls.sql",
+			test.ddls,
 			"create-vschema",
 			test.config,
 		)

@@ -8,7 +8,7 @@ func TestPinschemaRemoveAutoinc(t *testing.T) {
 	goldenTest(
 		t,
 		t.Name(),
-		"testdata/ddls.sql",
+		"testdata/patio.sql",
 		"remove-autoinc",
 		pinschemaConfig{},
 	)

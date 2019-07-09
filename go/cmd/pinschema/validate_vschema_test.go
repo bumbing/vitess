@@ -8,12 +8,12 @@ import (
 
 func TestValidateVschema(t *testing.T) {
 
-	ddls, err := readAndParseSchema("testdata/ddls.sql")
+	ddls, err := readAndParseSchema("testdata/patio.sql")
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}
 
-	moreddls, err := readAndParseSchema("testdata/more_ddls.sql")
+	moreddls, err := readAndParseSchema("testdata/patiogeneral.sql")
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}

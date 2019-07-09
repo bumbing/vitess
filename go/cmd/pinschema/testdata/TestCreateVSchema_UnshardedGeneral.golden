@@ -1,0 +1,10 @@
+{
+  "tables": {
+    "accepted_tos_id_idx": {
+
+    },
+    "accepted_tos_seq": {
+      "type": "sequence"
+    }
+  }
+}

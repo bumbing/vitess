@@ -27,7 +27,7 @@ func TestShardingIntegrity(t *testing.T) {
 		goldenTest(
 			t,
 			t.Name()+"_"+test.name,
-			"testdata/ddls.sql",
+			"testdata/patio.sql",
 			"check-sharding-integrity",
 			test.config,
 		)
