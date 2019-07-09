@@ -98,27 +98,21 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
     "group_authz": {
       "admin": {
         "tls_subjects": [
-          "spiffe://pin220.com/teletraan/pepsi/latest",
-          "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
-          "spiffe://pin220.com/teletraan/pepsi/cron_latest",
+          "spiffe://pin220.com/teletraan/pepsi/*",
           "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
         ]
       },
       "writer": {
         "tls_subjects": [
-          "spiffe://pin220.com/teletraan/pepsi/latest",
-          "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
-          "spiffe://pin220.com/teletraan/pepsi/cron_latest",
+          "spiffe://pin220.com/teletraan/pepsi/*",
           "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
         ]
       },
       "reader": {
         "tls_subjects": [
-          "spiffe://pin220.com/teletraan/pepsi/latest",
-          "spiffe://pin220.com/teletraan/pepsi/long_jobs_latest",
-          "spiffe://pin220.com/teletraan/pepsi/cron_latest",
+          "spiffe://pin220.com/teletraan/pepsi/*",
           "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
         ],

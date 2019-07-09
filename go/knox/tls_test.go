@@ -52,7 +52,7 @@ func TestVerifyTLS(t *testing.T) {
 			},
 			"reader": subjectList{
 				TLSSubjects: []string{
-					"spiffe://pin220.com/teletraan/pepsi/latest",
+					"spiffe://pin220.com/teletraan/pepsi/*",
 					"foo-*.ec2.pin220.com",
 				},
 				KnoxRoles: []string{"scriptro"},
@@ -79,7 +79,7 @@ func TestVerifyTLS(t *testing.T) {
 			desc:     "no TLS, no knox",
 			username: "scriptro",
 			config:   typicalConfig,
-			wantErr:  "VerifyTLS: user scriptro in group [reader] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] [scriptro]} but only found []string{} (knox auth? false)",
+			wantErr:  "VerifyTLS: user scriptro in group [reader] requires auth {[spiffe://pin220.com/teletraan/pepsi/* foo-*.ec2.pin220.com] [scriptro]} but only found []string{} (knox auth? false)",
 		},
 		{
 			desc:       "no TLS, no required TLS for that user",
@@ -93,14 +93,14 @@ func TestVerifyTLS(t *testing.T) {
 			desc:     "user with no TLS but requires TLS",
 			username: "scriptrw",
 			config:   typicalConfig,
-			wantErr:  `VerifyTLS: user scriptrw in group [reader writer admin] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] [scriptro]} but only found []string{} (knox auth? false)`,
+			wantErr:  `VerifyTLS: user scriptrw in group [reader writer admin] requires auth {[spiffe://pin220.com/teletraan/pepsi/* foo-*.ec2.pin220.com] [scriptro]} but only found []string{} (knox auth? false)`,
 		},
 		{
 			desc:            "TLS but no valid CN or SPIFFE",
 			username:        "scriptrw",
 			connectionState: makeCert(t, "random-cn", []string{"spiffe://pin220.com/teletraan/pepsi/wrong"}),
 			config:          typicalConfig,
-			wantErr:         `VerifyTLS: user scriptrw in group [reader writer admin] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] [scriptro]} but only found []string{"random-cn", "spiffe://pin220.com/teletraan/pepsi/wrong"} (knox auth? false)`,
+			wantErr:         `VerifyTLS: user scriptrw in group [reader writer admin] requires auth {[spiffe://pin220.com/teletraan/pepsi/latest foo-*.ec2.pin220.com] []} but only found []string{"random-cn", "spiffe://pin220.com/teletraan/pepsi/wrong"} (knox auth? false)`,
 		},
 		{
 			desc:            "TLS with valid CN",
@@ -108,6 +108,14 @@ func TestVerifyTLS(t *testing.T) {
 			connectionState: makeCert(t, "foo-1234.ec2.pin220.com", nil),
 			config:          typicalConfig,
 			wantGroups:      []string{"reader", "writer", "admin"},
+			wantErr:         "",
+		},
+		{
+			desc:            "TLS with valid SPIFFE, glob",
+			username:        "scriptro",
+			connectionState: makeCert(t, "random-cn", []string{"spiffe://pin220.com/teletraan/pepsi/test"}),
+			config:          typicalConfig,
+			wantGroups:      []string{"reader"},
 			wantErr:         "",
 		},
 		{
