@@ -181,6 +181,89 @@ func TestScatterCacheMap(t *testing.T) {
 	}
 }
 
+func TestScatterCacheMapWithDarkRead(t *testing.T) {
+	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
+	// Always do darkread
+	scatterCache.darkReadProbability = 100
+	scatterCache.syncDarkRead = true
+
+	// Setup Internal Lookup Vindex
+	lookupConfigs := map[string]string{
+		"table": "vindex",
+		"from":  "fromc",
+		"to":    "toc",
+	}
+	lookupVindex, _ := NewLookupHashUnique("lookup vindex", lookupConfigs)
+	scatterCache.lookupVindex = lookupVindex
+
+	svc := &scatterVcursor{}
+
+	svc.result = &sqltypes.Result{
+		Fields:       sqltypes.MakeTestFields("fromCol|toCol", "int32|int32"),
+		RowsAffected: 0,
+		Rows: [][]sqltypes.Value{
+			{
+				sqltypes.NewInt64(int64(1)),
+				sqltypes.NewInt64(int64(1)),
+			},
+			{
+				sqltypes.NewInt64(int64(2)),
+				sqltypes.NewInt64(int64(1)),
+			},
+		},
+	}
+
+	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
+	if err != nil {
+		t.Error(err)
+	}
+	want := []key.Destination{
+		key.DestinationKeyspaceID(vhash(1)),
+		key.DestinationKeyspaceID(vhash(1)),
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Map(): %#v, want %+v", got, want)
+	}
+
+	wantqueries := []*querypb.BoundQuery{{
+		Sql: "select /*vt+ FORCE_SCATTER=1 */ fromc, toc from t where fromc in ::fromc",
+		BindVariables: map[string]*querypb.BindVariable{
+			"fromc": {
+				Type: querypb.Type_TUPLE,
+				Values: []*querypb.Value{
+					{
+						Type:  sqltypes.Int64,
+						Value: []byte("1"),
+					},
+					{
+						Type:  sqltypes.Int64,
+						Value: []byte("2"),
+					},
+				},
+			},
+		},
+	}, {
+		Sql: "select toc from vindex where fromc = :fromc",
+		BindVariables: map[string]*querypb.BindVariable{
+			"fromc": {
+				Type:  sqltypes.Int64,
+				Value: []byte("1"),
+			},
+		},
+	}, {
+		Sql: "select toc from vindex where fromc = :fromc",
+		BindVariables: map[string]*querypb.BindVariable{
+			"fromc": {
+				Type:  sqltypes.Int64,
+				Value: []byte("2"),
+			},
+		},
+	}}
+	if !reflect.DeepEqual(svc.queries, wantqueries) {
+		t.Errorf("lookup.Map queries:\n%v, want\n%v", svc.queries, wantqueries)
+	}
+}
+
 func TestScatterCacheMapNoCapacity(t *testing.T) {
 	scatterCache := createScatterCache(t, "0")
 	svc := &scatterVcursor{}
@@ -395,5 +478,9 @@ func createScatterCache(t *testing.T, capacity string) Vindex {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Forbid dark read in tests
+	l.(*ScatterCache).darkReadProbability = 0
+
 	return l
 }
