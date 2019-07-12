@@ -145,7 +145,7 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
           "spiffe://pin220.com/teletraan/pepsi/prod",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
           "spiffe://pin220.com/teletraan/pepsi/cron",
-          "cloudeng-mysql-open-access-bastion-prod-*"
+          "cloudeng-sox-mysql-open-access-bastion-prod-*"
         ]
       },
       "writer": {
@@ -153,7 +153,7 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
           "spiffe://pin220.com/teletraan/pepsi/prod",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
           "spiffe://pin220.com/teletraan/pepsi/cron",
-          "cloudeng-mysql-open-access-bastion-prod-*"
+          "cloudeng-sox-mysql-open-access-bastion-prod-*"
         ]
       },
       "reader": {
