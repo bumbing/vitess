@@ -143,6 +143,7 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
       "admin": {
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/pepsi/prod",
+          "spiffe://pin220.com/teletraan/pepsi/canary",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
           "spiffe://pin220.com/teletraan/pepsi/cron",
           "cloudeng-sox-mysql-open-access-bastion-prod-*"
@@ -151,6 +152,7 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
       "writer": {
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/pepsi/prod",
+          "spiffe://pin220.com/teletraan/pepsi/canary",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
           "spiffe://pin220.com/teletraan/pepsi/cron",
           "cloudeng-sox-mysql-open-access-bastion-prod-*"
@@ -159,6 +161,7 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
       "reader": {
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/pepsi/prod",
+          "spiffe://pin220.com/teletraan/pepsi/canary",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
           "spiffe://pin220.com/teletraan/pepsi/cron",
           "cloudeng-sox-mysql-open-access-bastion-prod-*"
