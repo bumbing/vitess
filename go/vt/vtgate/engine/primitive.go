@@ -45,6 +45,9 @@ type VCursor interface {
 	// Context returns the context of the current request.
 	Context() context.Context
 
+	// MaxMemoryRows returns the maxMemoryRows flag value.
+	MaxMemoryRows() int
+
 	// SetContextTimeout updates the context and sets a timeout.
 	SetContextTimeout(timeout time.Duration) context.CancelFunc
 
@@ -82,15 +85,15 @@ type Plan struct {
 	// Mutex to protect the stats
 	mu sync.Mutex
 	// Count of times this plan was executed
-	ExecCount uint64
+	ExecCount uint64 `json:",omitempty"`
 	// Total execution time
-	ExecTime time.Duration
+	ExecTime time.Duration `json:",omitempty"`
 	// Total number of shard queries
-	ShardQueries uint64
+	ShardQueries uint64 `json:",omitempty"`
 	// Total number of rows
-	Rows uint64
+	Rows uint64 `json:",omitempty"`
 	// Total number of errors
-	Errors uint64
+	Errors uint64 `json:",omitempty"`
 }
 
 // AddStats updates the plan execution statistics

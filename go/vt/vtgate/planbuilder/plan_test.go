@@ -157,6 +157,7 @@ func TestPlan(t *testing.T) {
 	testFile(t, "unsupported_cases.txt", vschema)
 	testFile(t, "vindex_func_cases.txt", vschema)
 	testFile(t, "wireup_cases.txt", vschema)
+	testFile(t, "memory_sort_cases.txt", vschema)
 	{
 		flag.Set("allow_select_unauthoritative_col", "true")
 		testFile(t, "pinterest_cases.txt", vschema)
