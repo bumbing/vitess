@@ -296,6 +296,30 @@
             },
             {
               "column": "id",
+              "name": "adgroup_idx"
+            },
+            {
+              "column": "id",
+              "name": "adgroup_id_idx"
+            }
+          ],
+          "auto_increment": {
+            "column": "id",
+            "sequence": "seq"
+          }
+        },
+        "adgroups2": {
+          "column_vindexes": [
+            {
+              "column": "advertiser_id",
+              "name": "advertiser_idx"
+            },
+            {
+              "column": "adgroup_spec_id",
+              "name": "adgroup_spec_id_idx"
+            },
+            {
+              "column": "id",
               "name": "adgroup_id_idx"
             },
             {

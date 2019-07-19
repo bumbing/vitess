@@ -133,7 +133,12 @@ func (st *symtab) AddVSchemaTable(alias sqlparser.TableName, vschemaTables []*vi
 					if vindexMap == nil {
 						vindexMap = make(map[*column]vindexes.Vindex)
 					}
-					vindexMap[col] = cv.Vindex
+					//TODO(mingjianliu): this should either be in open source by 2019-09 or reverted after the lookup
+					// vindex launch. It fixes and issue where vindex cost isn't being respected for multiple vindexes
+					// on the same column.
+					if vindexMap[col] == nil || vindexMap[col].Cost() > cv.Vindex.Cost() {
+						vindexMap[col] = cv.Vindex
+					}
 				}
 			}
 		}

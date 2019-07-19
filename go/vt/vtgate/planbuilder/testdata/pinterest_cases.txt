@@ -204,3 +204,41 @@
     "Table": "advertisers"
   }
 }
+
+# Test if choose Vindex based on their cost, not the order of them in ColumnVindexes
+"select * from adgroups where id = 7"
+{
+  "Original": "select * from adgroups where id = 7",
+  "Instructions": {
+    "Opcode": "SelectEqualUnique",
+    "Keyspace": {
+      "Name": "user",
+      "Sharded": true
+    },
+    "Query": "select * from adgroups where id = 7",
+    "FieldQuery": "select * from adgroups where 1 != 1",
+    "Vindex": "adgroup_idx",
+    "Values": [
+      7
+    ]
+  }
+}
+
+# Simple select in table with reversed order ColumnVindexes, to make sure it still select the lowest cost one
+"select * from adgroups2 where id = 7"
+{
+  "Original": "select * from adgroups2 where id = 7",
+  "Instructions": {
+    "Opcode": "SelectEqualUnique",
+    "Keyspace": {
+      "Name": "user",
+      "Sharded": true
+    },
+    "Query": "select * from adgroups2 where id = 7",
+    "FieldQuery": "select * from adgroups2 where 1 != 1",
+    "Vindex": "adgroup_idx",
+    "Values": [
+      7
+    ]
+  }
+}
