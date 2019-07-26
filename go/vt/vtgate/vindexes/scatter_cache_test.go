@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"vitess.io/vitess/go/decider"
 
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
@@ -183,8 +184,7 @@ func TestScatterCacheMap(t *testing.T) {
 
 func TestScatterCacheMapWithDarkRead(t *testing.T) {
 	scatterCache := createScatterCache(t, "1000").(*ScatterCache)
-	// Always do darkread
-	scatterCache.darkReadProbability = 100
+	decider.Mock("dark_read_probability", 100)
 	scatterCache.syncDarkRead = true
 
 	// Setup Internal Lookup Vindex
@@ -479,8 +479,8 @@ func createScatterCache(t *testing.T, capacity string) Vindex {
 		t.Fatal(err)
 	}
 
-	// Forbid dark read in tests
-	l.(*ScatterCache).darkReadProbability = 0
+	decider.SetMockMode(true)
+	decider.Mock("dark_read_probability", 0)
 
 	return l
 }

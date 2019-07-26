@@ -39,12 +39,12 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 	"vitess.io/vitess/go/cache"
+	"vitess.io/vitess/go/decider"
 	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
@@ -119,16 +119,15 @@ func init() {
 // in an LRU cache. The table is expected to define the id column as unique. It's
 // Unique and a Lookup.
 type ScatterCache struct {
-	name                string
-	fromCol             string
-	toCol               string
-	table               string
-	keyspaceIDCache     *scatterLRUCache
-	cacheHits           sync2.AtomicInt64
-	cacheMisses         sync2.AtomicInt64
-	lookupVindex        Vindex
-	darkReadProbability int
-	syncDarkRead        bool
+	name            string
+	fromCol         string
+	toCol           string
+	table           string
+	keyspaceIDCache *scatterLRUCache
+	cacheHits       sync2.AtomicInt64
+	cacheMisses     sync2.AtomicInt64
+	lookupVindex    Vindex
+	syncDarkRead    bool
 }
 
 // scatterLRU is a thread-safe object for remembering the keyspace ID of recently-searched
@@ -189,14 +188,13 @@ func NewScatterCache(name string, m map[string]string) (Vindex, error) {
 	lookupVindex := maybeCreateInternalLookupVindex(vindexTableName, m, darkReadTables)
 
 	sc := &ScatterCache{
-		name:                name,
-		fromCol:             m["from"],
-		toCol:               m["to"],
-		table:               m["table"],
-		keyspaceIDCache:     newScatterLRUCache(int64(capacity)),
-		lookupVindex:        lookupVindex,
-		darkReadProbability: 0,
-		syncDarkRead:        false,
+		name:            name,
+		fromCol:         m["from"],
+		toCol:           m["to"],
+		table:           m["table"],
+		keyspaceIDCache: newScatterLRUCache(int64(capacity)),
+		lookupVindex:    lookupVindex,
+		syncDarkRead:    false,
 	}
 
 	return sc, nil
@@ -362,7 +360,7 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 		}
 	}
 
-	if rand.Intn(100) < sc.darkReadProbability && sc.lookupVindex != nil {
+	if (decider.CheckDecider("dark_read_probability", false)) && sc.lookupVindex != nil {
 		if sc.syncDarkRead {
 			sc.checkDarkRead(vcursor, ids, out)
 		} else {

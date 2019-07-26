@@ -53,7 +53,6 @@ args=(
   "-opentsdb_service=${TELETRAAN_TSDB_SERVICE:-}"
   "-discourage-v2-inserts=${TELETRAAN_DISCOURAGE_V2_INSERTS:-false}"
   "-merge_left_join_unique_vindexes=${TELETRAAN_MERGE_LEFT_JOINS:-false}"
-  "-use_pin_lookup_vindex=${TELETRAAN_USE_PIN_LOOKUP_VINDEX:-false}"
   "-dark_read_lookup_vindex_tables=${TELETRAAN_DARK_READ_LOOKUP_VINDEX_TABLES:-}"
 )
 
