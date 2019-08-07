@@ -67,12 +67,13 @@ var (
 		"Vindex timings",
 		[]string{"Name", "Operation"})
 
-	resultSizeMismatch = stats.NewCountersWithMultiLabels(
-		"VindexDarkreadLengthMismatch",
-		"Destination length mismatch between results from LookupVindex and ScatterCache",
-		[]string{"TableName", "ScatterCacheSize", "VindexDestSize"})
+	darkReadResultOutcome = stats.NewCountersWithMultiLabels(
+		"VindexDarkReadResult",
+		"The outcome of Dark read between Scatter and Lookup Vindex per table. There are four conditions:" +
+			"success, length_mismatch, dest_type_mismatch, fail_to_lookup",
+		[]string{"TableName", "Outcome"})
 	destinationMismatch = stats.NewCountersWithMultiLabels(
-		"VindexDarkreadMismatch",
+		"VindexDarkReadMismatch",
 		"Destination mismatch between LookupVindex and ScatterCache",
 		[]string{"TableName", "ScatterCacheDestType", "VindexDestType"})
 )
@@ -376,19 +377,27 @@ func (sc *ScatterCache) checkDarkRead(vcursor VCursor, ids []sqltypes.Value, out
 	defer scatterCacheTimings.Record(statsKey, time.Now())
 	darkReadResult, err := sc.lookupVindex.Map(vcursor, ids)
 	if err != nil {
+		darkReadResultOutcome.Add([]string{sc.name, "fail_to_lookup"}, 1)
 		return
 	}
 
 	if len(darkReadResult) != len(out) {
 		log.Error("ScatterCache and Lookup Vindex result length mismatch: ScatterCache {}, LookupVindex {}", len(out), len(darkReadResult))
-		resultSizeMismatch.Add([]string{sc.name, string(len(out)), string(len(darkReadResult))}, 1)
+		darkReadResultOutcome.Add([]string{sc.name, "length_mismatch"}, 1)
 		return
 	}
 
+	failed := false
 	for i, dest := range out {
 		if dest != darkReadResult[i] {
 			destinationMismatch.Add([]string{sc.name, reflect.TypeOf(dest).String(), reflect.TypeOf(darkReadResult[i]).String()}, 1)
+			failed = true
 		}
+	}
+	if failed {
+		darkReadResultOutcome.Add([]string{sc.name, "dest_type_mismatch"}, 1)
+	} else {
+		darkReadResultOutcome.Add([]string{sc.name, "success"}, 1)
 	}
 }
 
