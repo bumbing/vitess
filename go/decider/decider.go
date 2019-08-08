@@ -26,7 +26,8 @@ func init() {
 }
 
 func getValueOrDefault(data map[string]int, decider string, defaultValue bool) bool {
-	if val, ok := data[decider]; ok && val > 0 {
+	// If the value exists and it's in valid range, we should always prioritize it over using the default one.
+	if val, ok := data[decider]; ok && val >= 0 {
 		return rand.Intn(100) < val
 	}
 	return defaultValue
