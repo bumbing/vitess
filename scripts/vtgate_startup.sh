@@ -113,6 +113,10 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
       },
       "reader": {
         "tls_subjects": [
+          "spiffe://pin220.com/teletraan/argus/*",
+          "spiffe://pin220.com/teletraan/gatewayservice/*",
+          "spiffe://pin220.com/teletraan/m10n-lazarus/*",
+          "spiffe://pin220.com/teletraan/m10n-martha/*",
           "spiffe://pin220.com/teletraan/pepsi/*",
           "spiffe://pin220.com/devapp/*",
           "cloudeng-mysql-open-access-bastion-prod-*"
@@ -160,6 +164,10 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
       },
       "reader": {
         "tls_subjects": [
+          "spiffe://pin220.com/teletraan/argus/*",
+          "spiffe://pin220.com/teletraan/gatewayservice/*",
+          "spiffe://pin220.com/teletraan/m10n-lazarus/*",
+          "spiffe://pin220.com/teletraan/m10n-martha/*",
           "spiffe://pin220.com/teletraan/pepsi/prod",
           "spiffe://pin220.com/teletraan/pepsi/canary",
           "spiffe://pin220.com/teletraan/pepsi/long_jobs_prod",
