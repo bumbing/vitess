@@ -114,6 +114,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
       "reader": {
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/argus/*",
+          "spiffe://pin220.com/teletraan/bethlehem_sharded_test/*",
           "spiffe://pin220.com/teletraan/gatewayservice/*",
           "spiffe://pin220.com/teletraan/m10n-lazarus/*",
           "spiffe://pin220.com/teletraan/m10n-martha/*",
