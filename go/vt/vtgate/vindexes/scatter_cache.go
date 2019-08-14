@@ -219,7 +219,7 @@ func createInternalLookupVindex(name string, m map[string]string) Vindex {
 	lookupConfigs["from"] = m["from"]
 	lookupConfigs["to"] = m["to"]
 	lookupConfigs["table"] = "patiogeneral." + name
-	lookupVindex, err := NewLookupHashUnique(name, lookupConfigs)
+	lookupVindex, err := NewPinLookupUniqueHash(name, lookupConfigs)
 	if err != nil {
 		log.Error("Error creating Internal Lookup Vindex: {}", err)
 		return nil
