@@ -9,6 +9,7 @@
       "Sharded": true
     },
     "Query": "select cpn.id, ad.id from campaigns as cpn join advertisers as ad on cpn.fake_col = ad.fake_col",
-    "FieldQuery": "select cpn.id, ad.id from campaigns as cpn join advertisers as ad on cpn.fake_col = ad.fake_col where 1 != 1"
+    "FieldQuery": "select cpn.id, ad.id from campaigns as cpn join advertisers as ad on cpn.fake_col = ad.fake_col where 1 != 1",
+    "Table": "campaigns"
   }
 }

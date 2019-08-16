@@ -73,6 +73,7 @@ func (th *testHandler) NewConnection(c *Conn) {
 }
 
 func (th *testHandler) ConnectionClosed(c *Conn) {
+
 }
 
 func (th *testHandler) ComQuery(c *Conn, query string, callback func(*sqltypes.Result) error) error {
@@ -166,6 +167,14 @@ func (th *testHandler) ComQuery(c *Conn, query string, callback func(*sqltypes.R
 
 		callback(&sqltypes.Result{})
 	}
+	return nil
+}
+
+func (th *testHandler) ComPrepare(c *Conn, query string) ([]*querypb.Field, error) {
+	return nil, nil
+}
+
+func (th *testHandler) ComStmtExecute(c *Conn, prepare *PrepareData, callback func(*sqltypes.Result) error) error {
 	return nil
 }
 

@@ -82,6 +82,9 @@ func (rs *rowStreamer) Stream() error {
 		return err
 	}
 	defer conn.Close()
+	if _, err := conn.ExecuteFetch("set names binary", 1, false); err != nil {
+		return err
+	}
 	return rs.streamQuery(conn, rs.send)
 }
 
@@ -235,7 +238,7 @@ func (rs *rowStreamer) streamQuery(conn *mysql.Conn, send func(*binlogdatapb.VSt
 			}
 		}
 
-		if byteCount >= *packetSize {
+		if byteCount >= *PacketSize {
 			response.Lastpk = sqltypes.RowToProto3(lastpk)
 			err = send(response)
 			if err != nil {
