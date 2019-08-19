@@ -21,6 +21,7 @@ set properly.
 """
 
 import datetime
+import os
 import socket
 import unittest
 
@@ -84,6 +85,8 @@ json_example = '''{
 
 insert_stmt = '''insert into vt_prepare_stmt_test values(%s,  %s,  %s,  %s,  %s,  %s,  %s,  
   %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s, %s,  %s,  %s,  %s,  %s,  %s, %s, %s, %s)'''
+insert_stmt_no_json = '''insert into vt_prepare_stmt_test values(%s,  %s,  %s,  %s,  %s,  %s,  %s,  
+  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s,  %s, %s,  %s,  %s,  %s,  %s,  %s, %s, %s)'''
 
 def setUpModule():
   try:
@@ -204,7 +207,13 @@ class TestPreparedStatements(unittest.TestCase):
     # setup replication
     utils.run_vtctl(['InitShardMaster', '-force', 'test_keyspace/0',
                      shard_0_master.tablet_alias], auto_log=True)
-    utils.run_vtctl(['ApplySchema', '-sql', create_vt_prepare_test,
+    ddl = create_vt_prepare_test
+    include_json = True
+    if os.environ["MYSQL_FLAVOR"] == "MySQL56":
+       include_json = False
+    if not include_json:
+       ddl = create_vt_prepare_test.replace('json_col JSON,', '')
+    utils.run_vtctl(['ApplySchema', '-sql', ddl,
                      'test_keyspace'])
     for t in [shard_0_master, shard_0_slave]:
       utils.run_vtctl(['RunHealthCheck', t.tablet_alias])
@@ -249,8 +258,14 @@ class TestPreparedStatements(unittest.TestCase):
     for i in range(1, 100):
       insert_values = (i, str(i) + "21", i * 100, 127, 1, 32767, 8388607, 2147483647, 2.55, 64.9,55.5,
       datetime.date(2009, 5, 5), datetime.date(2009, 5, 5), datetime.datetime.now().time(), datetime.date(2009, 5, 5),
-      1,1,1,1,1,1,1,1,1, json_example, text_value, largeComment)
-      cursor.execute(insert_stmt, insert_values)
+      1,1,1,1,1,1,1,1,1)
+      if include_json:
+        insert_values += (json_example,)
+      insert_values += (text_value, largeComment)
+      if include_json:
+        cursor.execute(insert_stmt, insert_values)
+      else:
+        cursor.execute(insert_stmt_no_json, insert_values)
 
     cursor.fetchone()
     cursor.close()
