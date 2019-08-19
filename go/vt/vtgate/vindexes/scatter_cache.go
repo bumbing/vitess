@@ -389,7 +389,7 @@ func (sc *ScatterCache) checkDarkRead(vcursor VCursor, ids []sqltypes.Value, out
 
 	failed := false
 	for i, dest := range out {
-		if dest != darkReadResult[i] {
+		if dest.String() != darkReadResult[i].String() {
 			destinationMismatch.Add([]string{sc.name, reflect.TypeOf(dest).String(), reflect.TypeOf(darkReadResult[i]).String()}, 1)
 			failed = true
 		}
