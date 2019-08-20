@@ -67,7 +67,7 @@ while getopts ":d" opt; do
       # Running in docker
       args+=(
         -log_dir /vt/logs
-        -keep_logs_by_mtime 14d
+        -keep_logs_by_mtime 336h
         -log_queries_to_file /vt/logs/queries.log
         -pid_file /vt/vtdataroot/vtgate.pid
       )
