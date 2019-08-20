@@ -195,7 +195,7 @@ func NewScatterCache(name string, m map[string]string) (Vindex, error) {
 		table:           m["table"],
 		keyspaceIDCache: newScatterLRUCache(int64(capacity)),
 		lookupVindex:    lookupVindex,
-		syncDarkRead:    false,
+		syncDarkRead:    decider.CheckDecider("vindex_sync_dark_read", false),
 	}
 
 	return sc, nil
