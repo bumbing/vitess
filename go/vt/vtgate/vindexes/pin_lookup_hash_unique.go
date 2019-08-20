@@ -96,8 +96,17 @@ func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]k
 		plhu.lkp.FromColumns[0]: bv,
 	}
 
+	// Experiment on autocommit Vindex lookup. The normal commit order results to transaction pool usage full.
+	// TODO(mingjianliu): clean this after trying autocommit.
+	var co vtgatepb.CommitOrder
+	if decider.CheckDecider("vindex_lookup_autocommit", false) {
+		co = vtgatepb.CommitOrder_AUTOCOMMIT
+	} else {
+		co = vtgatepb.CommitOrder_NORMAL
+	}
+
 	queryResult, err := vcursor.Execute(
-		"PinLookupHashUnique.Lookup", sel, bindVars, false /* isDML */, vtgatepb.CommitOrder_NORMAL)
+		"PinLookupHashUnique.Lookup", sel, bindVars, false /* isDML */, co)
 	if err != nil {
 		failToLookupVindex.Add([]string{plhu.lkp.Table, "select_query_failure"}, 1)
 		return nil, fmt.Errorf("PinLookupHashUnique.Map: Select query execution error. %v", err)
