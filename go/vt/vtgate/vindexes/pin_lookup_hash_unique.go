@@ -1,26 +1,79 @@
 package vindexes
 
 import (
+	"flag"
 	"fmt"
+	"strconv"
+	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/decider"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
+	"vitess.io/vitess/go/sync2"
 	"vitess.io/vitess/go/vt/key"
+	"vitess.io/vitess/go/vt/log"
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
 )
 
+const (
+	defaultCapacity = 10000
+)
+
 var (
 	_ Vindex = (*PinLookupHashUnique)(nil)
 	_ Lookup = (*PinLookupHashUnique)(nil)
 
+	VindexLookupTotalSize = stats.NewGaugesWithSingleLabel(
+		"VindexLookupTotalSize",
+		"Number of rows Vindex Lookup need to collect, together from cache and db",
+		"TableName")
+	VindexLookupBatchSize = stats.NewGaugesWithSingleLabel(
+		"VindexLookupBatchSize",
+		"Number of rows each Vindex Lookup query send",
+		"TableName")
+	VindexLookupCachedSize = stats.NewGaugesWithSingleLabel(
+		"VindexLookupCachedSize",
+		"Number of rows Vindex Lookup got from cache",
+		"TableName")
 	failToLookupVindex = stats.NewCountersWithMultiLabels(
 		"VindexLookupFailureCount",
 		"Count of Map func failure, uses destNone or destAll for all result",
 		[]string{"TableName", "FailureReason"})
+	batchSize = flag.Int("vindex_lookup_batch_size", 200, "number of rows for each Vindex Lookup query")
 )
+
+func RegisterPinVindexCacheStats(getVSchema func() *VSchema) {
+	collectStats := func(statFn func(*PinLookupHashUnique) int64) func() map[string]int64 {
+		return func() map[string]int64 {
+			tstats := make(map[string]int64)
+
+			vschema := getVSchema()
+			for name, vindex := range vschema.uniqueVindexes {
+				pinVindex, ok := vindex.(*PinLookupHashUnique)
+				if !ok {
+					continue
+				}
+
+				tstats[name] = statFn(pinVindex)
+			}
+
+			return tstats
+		}
+	}
+
+	_ = stats.NewGaugesFuncWithMultiLabels("PinVindexCacheLength", "PinLookupHashUnique cache length", []string{"Vindex"},
+		collectStats(func(pinVindex *PinLookupHashUnique) int64 { return pinVindex.keyspaceIDCache.Length() }))
+	_ = stats.NewGaugesFuncWithMultiLabels("PinVindexCacheCapacity", "PinLookupHashUnique cache capacity", []string{"Vindex"},
+		collectStats(func(pinVindex *PinLookupHashUnique) int64 { return pinVindex.keyspaceIDCache.Capacity() }))
+	_ = stats.NewCountersFuncWithMultiLabels("PinVindexCacheEvictions", "PinLookupHashUnique cache evictions", []string{"Vindex"},
+		collectStats(func(pinVindex *PinLookupHashUnique) int64 { return pinVindex.keyspaceIDCache.Evictions() }))
+	_ = stats.NewCountersFuncWithMultiLabels("PinVindexCacheHits", "PinLookupHashUnique cache hits", []string{"Vindex"},
+		collectStats(func(pinVindex *PinLookupHashUnique) int64 { return pinVindex.cacheHits.Get() }))
+	_ = stats.NewCountersFuncWithMultiLabels("PinVindexCacheMisses", "PinLookupHashUnique cache missses", []string{"Vindex"},
+		collectStats(func(pinVindex *PinLookupHashUnique) int64 { return pinVindex.cacheMisses.Get() }))
+}
 
 func init() {
 	Register("pin_lookup_hash_unique", NewPinLookupUniqueHash)
@@ -33,6 +86,9 @@ func init() {
 // Unique and a Lookup.
 type PinLookupHashUnique struct {
 	*LookupHashUnique
+	keyspaceIDCache *cache.LRUCache
+	cacheHits       sync2.AtomicInt64
+	cacheMisses     sync2.AtomicInt64
 }
 
 // NewPinLookupHashUnique creates a PinLookupHashUnique vindex.
@@ -49,8 +105,16 @@ func NewPinLookupUniqueHash(name string, m map[string]string) (Vindex, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cacheCapacity, err := strconv.ParseUint(m["capacity"], 10, 64)
+	if err != nil {
+		log.Warning("PinLookupUniqueHash: failed to parse capacity: %v, using the default capacity %v", err, defaultCapacity)
+		cacheCapacity = defaultCapacity
+	}
+
 	plhu := &PinLookupHashUnique{
 		LookupHashUnique: lhu.(*LookupHashUnique),
+		keyspaceIDCache:  cache.NewLRUCache(int64(cacheCapacity)),
 	}
 	return plhu, nil
 }
@@ -61,9 +125,54 @@ func NewPinLookupUniqueHash(name string, m map[string]string) (Vindex, error) {
 func (plhu *PinLookupHashUnique) getScatterResultForAll(size int) []key.Destination {
 	out := make([]key.Destination, 0, size)
 	for i := 0; i < size; i++ {
-			out = append(out, key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}})
+		out = append(out, key.DestinationKeyRange{KeyRange: &topodatapb.KeyRange{}})
 	}
 	return out
+}
+
+// scatterKeyspaceID is a cache.Value representing a keyspace ID.
+type lookupVindexKsID uint64
+
+// Size always returns 1 because we use the cache only to track keyspace IDs.
+// This implements the cache.Value interface.
+func (lvk lookupVindexKsID) Size() int {
+	return 1
+}
+
+func (plhu *PinLookupHashUnique) Create(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksids [][]byte, ignoreMode bool) error {
+	for idx := range rowsColValues {
+		colVals := rowsColValues[idx]
+		if len(colVals) != 1 {
+			return fmt.Errorf("PinLookupHashUnique.Create: multi-col keys unsupported")
+		}
+		colVal := colVals[0]
+		if !colVal.IsNull() {
+			val, err := vunhash(ksids[idx])
+			if err != nil {
+				return fmt.Errorf("PinLookupHashUnique.Create: failed to unhash keyspaceID")
+			}
+			plhu.keyspaceIDCache.Set(colVal.ToString(), lookupVindexKsID(val))
+		}
+	}
+
+	return plhu.LookupHashUnique.Create(vcursor, rowsColValues, ksids, ignoreMode)
+}
+
+func (plhu *PinLookupHashUnique) Update(vcursor VCursor, oldValues []sqltypes.Value, ksid []byte, newValues []sqltypes.Value) error {
+	if len(newValues) != 1 {
+		return fmt.Errorf("PinLookupHashUnique.Update: multi-col keys unsupported")
+	}
+
+	// Update should not change the key-value mapping, so this action is effectively making the key most recently used.
+	if !newValues[0].IsNull() {
+		val, err := vunhash(ksid)
+		if err != nil {
+			return fmt.Errorf("PinLookupHashUnique.Update: failed to unhash keyspaceID")
+		}
+		plhu.keyspaceIDCache.Set(newValues[0].ToString(), lookupVindexKsID(val))
+	}
+
+	return plhu.LookupHashUnique.Update(vcursor, oldValues, ksid, newValues)
 }
 
 // This function will get all mapping by sending one query, to avoid using up all connections like LookupHashUnique's
@@ -80,67 +189,85 @@ func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]k
 		"select %s, %s from %s where %s in ::%s",
 		plhu.lkp.FromColumns[0], plhu.lkp.To, plhu.lkp.Table, plhu.lkp.FromColumns[0], plhu.lkp.FromColumns[0])
 
-	bv := &querypb.BindVariable{
-		Type:   querypb.Type_TUPLE,
-		Values: make([]*querypb.Value, len(ids)),
-	}
-	values := make([]querypb.Value, len(ids))
-	for i, id := range ids {
-		temp := sqltypes.ValueBindVariable(id)
-		values[i].Type = temp.Type
-		values[i].Value = temp.Value
-		bv.Values[i] = &values[i]
-	}
-
-	bindVars := map[string]*querypb.BindVariable{
-		plhu.lkp.FromColumns[0]: bv,
-	}
-
-	// Experiment on autocommit Vindex lookup. The normal commit order results to transaction pool usage full.
-	// TODO(mingjianliu): clean this after trying autocommit.
-	var co vtgatepb.CommitOrder
-	if decider.CheckDecider("vindex_lookup_autocommit", false) {
-		co = vtgatepb.CommitOrder_AUTOCOMMIT
-	} else {
-		co = vtgatepb.CommitOrder_NORMAL
-	}
-
-	queryResult, err := vcursor.Execute(
-		"PinLookupHashUnique.Lookup", sel, bindVars, false /* isDML */, co)
-	if err != nil {
-		failToLookupVindex.Add([]string{plhu.lkp.Table, "select_query_failure"}, 1)
-		return nil, fmt.Errorf("PinLookupHashUnique.Map: Select query execution error. %v", err)
-	}
-
 	// HashMap to keep the relationship between Ids and KeyspaceId, in case result is returned in different order.
 	// Choose both uint64 as key and value, since sqlTypes.Value is not comparable. And by parsing result column, we
 	// can also check if data is corrupted.
+	// First get cached keys, then get lookup keys.
 	m := make(map[uint64]uint64, len(ids))
 
-	if len(queryResult.Rows) > len(ids) {
-		failToLookupVindex.Add([]string{plhu.lkp.Table, "result_row_number_mismatch"}, 1)
-		return nil, fmt.Errorf("PinLookupHashUnique.Map: More result than expected. Expected size %v rows. Got %v",
-				len(ids), len(queryResult.Rows))
+	// Temporary placeholder for querypb.Value.
+	values := make([]querypb.Value, 0, len(ids))
+
+	for _, id := range ids {
+		// Directly use cache keys without lookup.
+		val, ok := plhu.keyspaceIDCache.Get(id.ToString())
+		if ok {
+			plhu.cacheHits.Add(1)
+			k, _ := sqltypes.ToUint64(id)
+			m[k] = uint64(val.(lookupVindexKsID))
+			continue
+		}
+		plhu.cacheMisses.Add(1)
+		temp := sqltypes.ValueBindVariable(id)
+		v := querypb.Value{
+			Type:  temp.Type,
+			Value: temp.Value,
+		}
+		values = append(values, v)
 	}
-	for _, row := range queryResult.Rows {
-		if len(row) != 2 {
-			failToLookupVindex.Add([]string{plhu.lkp.Table, "result_column_number_mismatch"}, 1)
-			return nil, fmt.Errorf("PinLookupHashUnique.Map: Internal error. Expected %v columns. Got %v", 2, len(row))
-		}
 
-		fromColKey, err := sqltypes.ToUint64(row[0])
-		if err != nil {
-			failToLookupVindex.Add([]string{plhu.lkp.Table, "key_parsing_error"}, 1)
-			return nil, fmt.Errorf("PinLookupHashUnique.Map: Result key parsing error. %v", err)
-		}
+	bv := &querypb.BindVariable{
+		Type:   querypb.Type_TUPLE,
+		Values: make([]*querypb.Value, 0, *batchSize),
+	}
 
-		toColValue, err := sqltypes.ToUint64(row[1])
-		if err != nil {
-			failToLookupVindex.Add([]string{plhu.lkp.Table, "value_parsing_error"}, 1)
-			return nil, fmt.Errorf("PinLookupHashUnique.Map: Result value parsing error. %v", err)
-		}
+	VindexLookupCachedSize.Add(plhu.lkp.Table, int64(len(m)))
+	VindexLookupTotalSize.Add(plhu.lkp.Table, int64(len(values)))
+	for i := 0; i < len(values); i++ {
+		bv.Values = append(bv.Values, &values[i])
+		// When reached batch limit or is the last value, execute the query
+		if len(bv.Values) == *batchSize || i == len(values)-1 {
+			VindexLookupBatchSize.Add(plhu.lkp.Table, int64(len(bv.Values)))
+			bindVars := map[string]*querypb.BindVariable{
+				plhu.lkp.FromColumns[0]: bv,
+			}
 
-		m[fromColKey] = toColValue
+			// Execution and error handling
+			queryResult, err := vcursor.Execute(
+				"PinLookupHashUnique.Lookup", sel, bindVars, false /* isDML */, vtgatepb.CommitOrder_AUTOCOMMIT)
+			if err != nil {
+				failToLookupVindex.Add([]string{plhu.lkp.Table, "select_query_failure"}, 1)
+				return nil, fmt.Errorf("PinLookupHashUnique.Map: Select query execution error. %v", err)
+			}
+
+			if len(queryResult.Rows) > len(ids) {
+				failToLookupVindex.Add([]string{plhu.lkp.Table, "result_row_number_mismatch"}, 1)
+				return nil, fmt.Errorf("PinLookupHashUnique.Map: More result than expected. Expected size %v rows. Got %v",
+					len(ids), len(queryResult.Rows))
+			}
+			for _, row := range queryResult.Rows {
+				if len(row) != 2 {
+					failToLookupVindex.Add([]string{plhu.lkp.Table, "result_column_number_mismatch"}, 1)
+					return nil, fmt.Errorf("PinLookupHashUnique.Map: Internal error. Expected %v columns. Got %v", 2, len(row))
+				}
+
+				fromColKey, err := sqltypes.ToUint64(row[0])
+				if err != nil {
+					failToLookupVindex.Add([]string{plhu.lkp.Table, "key_parsing_error"}, 1)
+					return nil, fmt.Errorf("PinLookupHashUnique.Map: Result key parsing error. %v", err)
+				}
+
+				toColValue, err := sqltypes.ToUint64(row[1])
+				if err != nil {
+					failToLookupVindex.Add([]string{plhu.lkp.Table, "value_parsing_error"}, 1)
+					return nil, fmt.Errorf("PinLookupHashUnique.Map: Result value parsing error. %v", err)
+				}
+
+				m[fromColKey] = toColValue
+			}
+			// Clean bind variables for reuse
+			bv.Values = bv.Values[:0]
+		}
 	}
 
 	out := make([]key.Destination, 0, len(ids))
@@ -148,7 +275,8 @@ func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]k
 		idToInt, _ := sqltypes.ToUint64(id)
 		val, ok := m[idToInt]
 		if !ok {
-				out = append(out, key.DestinationNone{})
+			log.Error("Found mismatch for id: ", id)
+			out = append(out, key.DestinationNone{})
 		} else {
 			out = append(out, key.DestinationKeyspaceID(vhash(val)))
 		}

@@ -98,18 +98,6 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 		t.Errorf("Map(): %#v, want %+v", got, want)
 	}
 
-	pvc.numRows = 0
-	got, err = plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
-	if err != nil {
-		t.Error(err)
-	}
-	want = []key.Destination{
-		key.DestinationNone{},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("Map(): %#v, want %+v", got, want)
-	}
-
 	pvc.numRows = 2
 	_, err = plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	wantErr := fmt.Sprintf("PinLookupHashUnique.Map: More result than expected. Expected size %v rows. Got %v", 1, pvc.numRows)
@@ -200,5 +188,72 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 	want = []bool{true}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("plhu.Verify(match): %v, want %v", got, want)
+	}
+}
+
+func TestPinLookupHashUniqueCache(t *testing.T) {
+	plhu := createLookup(t, "pin_lookup_hash_unique", false)
+	pvc := &pinVcursor{numRows: 1}
+
+	_ = plhu.(Lookup).Create(pvc, [][]sqltypes.Value{{sqltypes.NewInt64(1)}}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")}, false /* ignoreMode */)
+	wantqueries := []*querypb.BoundQuery{{
+		Sql: "insert into t(fromc, toc) values(:fromc0, :toc0)",
+		BindVariables: map[string]*querypb.BindVariable{
+			"fromc0": sqltypes.Int64BindVariable(1),
+			"toc0":   sqltypes.Uint64BindVariable(1),
+		},
+	}}
+	if !reflect.DeepEqual(pvc.queries, wantqueries) {
+		t.Errorf("lookup.Create queries:\n%v, want\n%v", pvc.queries, wantqueries)
+	}
+
+	// Cached value should not send a query
+	_, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(pvc.queries, wantqueries) {
+		t.Errorf("lookup.Create queries:\n%v, want\n%v", pvc.queries, wantqueries)
+	}
+
+	// Not cached value will have a new query
+	pvc.result = sqltypes.MakeTestResult(
+		sqltypes.MakeTestFields(
+			"fromc|toc",
+			"int64|int64",
+		),
+		"2|1",
+	)
+
+	got, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(2)})
+	if err != nil {
+		t.Error(err)
+	}
+	want := []key.Destination{
+		key.DestinationKeyspaceID([]byte("\x16k@\xb4J\xbaK\xd6")),
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Map(): %#v, want %+v", got, want)
+	}
+	wantqueries = []*querypb.BoundQuery{
+		{
+			Sql: "insert into t(fromc, toc) values(:fromc0, :toc0)",
+			BindVariables: map[string]*querypb.BindVariable{
+				"fromc0": sqltypes.Int64BindVariable(1),
+				"toc0":   sqltypes.Uint64BindVariable(1),
+			},
+		},
+		{
+			Sql: "select fromc, toc from t where fromc in ::fromc",
+			BindVariables: map[string]*querypb.BindVariable{
+				"fromc": {
+					Type: querypb.Type_TUPLE,
+					Values: []*querypb.Value{},
+				},
+			},
+		},
+	}
+	if !reflect.DeepEqual(pvc.queries, wantqueries) {
+		t.Errorf("lookup.Create queries:\n%v, want\n%v", pvc.queries, wantqueries)
 	}
 }

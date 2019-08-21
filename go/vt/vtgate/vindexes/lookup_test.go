@@ -484,7 +484,7 @@ func TestLookupNonUniqueDelete(t *testing.T) {
 	}
 	vc.mustFail = false
 
-	// Test column count fail.
+	// Test column count fail
 	err = lookupNonUnique.(Lookup).Delete(vc, [][]sqltypes.Value{{sqltypes.NewInt64(1), sqltypes.NewInt64(2)}}, []byte("\x16k@\xb4J\xbaK\xd6"))
 	want = "lookup.Delete: column vindex count does not match the columns in the lookup: 2 vs [fromc]"
 	if err == nil || err.Error() != want {
@@ -549,6 +549,7 @@ func createLookup(t *testing.T, name string, writeOnly bool) Vindex {
 		"table":      "t",
 		"from":       "fromc",
 		"to":         "toc",
+		"capacity":   "100",
 		"write_only": write,
 	})
 	if err != nil {

@@ -222,6 +222,9 @@ func Init(ctx context.Context, hc discovery.HealthCheck, serv srvtopo.Server, ce
 	vindexes.RegisterScatterCacheStats(func() *vindexes.VSchema {
 		return rpcVTGate.executor.VSchema()
 	})
+	vindexes.RegisterPinVindexCacheStats(func() *vindexes.VSchema {
+		return rpcVTGate.executor.VSchema()
+	})
 
 	errorCounts = stats.NewCountersWithMultiLabels("VtgateApiErrorCounts", "Vtgate API error counts per error type", []string{"Operation", "Keyspace", "DbType", "Code"})
 

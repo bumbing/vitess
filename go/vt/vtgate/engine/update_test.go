@@ -350,7 +350,7 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 						Type: "pin_lookup_hash_unique",
 						Params: map[string]string{
 							"table": "lkp2",
-							"from":  "from1,from2",
+							"from":  "from1",
 							"to":    "toc",
 						},
 						Owner: "t1",
@@ -372,10 +372,10 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 							Columns: []string{"id"},
 						}, {
 							Name:    "ownvindex",
-							Columns: []string{"c1", "c2"},
+							Columns: []string{"c1"},
 						}, {
 							Name:    "unownvindex",
-							Columns: []string{"c3"},
+							Columns: []string{"c2"},
 						}},
 					},
 				},
@@ -396,11 +396,9 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 		ChangedVindexValues: map[string][]sqltypes.PlanValue{
 			"ownvindex": {{
 				Value: sqltypes.NewInt64(1),
-			}, {
-				Value: sqltypes.NewInt64(2),
 			}},
 			"unownvindex": {{
-				Value: sqltypes.NewInt64(3),
+				Value: sqltypes.NewInt64(2),
 			}},
 		},
 		Table:            ks.Tables["t1"],
@@ -409,10 +407,10 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 
 	results := []*sqltypes.Result{sqltypes.MakeTestResult(
 		sqltypes.MakeTestFields(
-			"c1|c2|c3",
-			"int64|int64|int64",
+			"c1|c2",
+			"int64|int64",
 		),
-		"4|5|6",
+		"4|5",
 	)}
 	vc := &loggingVCursor{
 		shards:  []string{"-20", "20-"},
@@ -430,8 +428,8 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 		`ExecuteMultiShard sharded.-20: dummy_subquery {} false false`,
 		// Those values are returned as 4,5 for ownvindex and 6 for unownvindex.
 		// 4,5 have to be replaced by 1,2 (the new values).
-		`Execute delete from lkp2 where from1 = :from1 and from2 = :from2 and toc = :toc from1: type:INT64 value:"4" from2: type:INT64 value:"5" toc: type:UINT64 value:"1"  true`,
-		`Execute insert into lkp2(from1, from2, toc) values(:from10, :from20, :toc0) from10: type:INT64 value:"1" from20: type:INT64 value:"2" toc0: type:UINT64 value:"1"  true`,
+		`Execute delete from lkp2 where from1 = :from1 and toc = :toc from1: type:INT64 value:"4" toc: type:UINT64 value:"1"  true`,
+		`Execute insert into lkp2(from1, toc) values(:from10, :toc0) from10: type:INT64 value:"1" toc0: type:UINT64 value:"1"  true`,
 		// Finally, the actual update, which is also sent to -20, same route as the subquery.
 		`ExecuteMultiShard sharded.-20: dummy_update /* vtgate:: keyspace_id:166b40b44aba4bd6 */ {} true true`,
 	})
