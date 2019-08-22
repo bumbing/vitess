@@ -15,7 +15,8 @@ PATIO_ARGS=""
 PATIOGENERAL_ARGS=""
 UPDATE_GENERAL=true
 SKIP_VALIDATE="${SKIP_VALIDATE:-false}"
-LOOKUP_VINDEX_WHITELIST='-lookup-vindex-whitelist goals '
+LOOKUP_VINDEX_WHITELIST='-lookup-vindex-whitelist accepted_tos,ad_groups,ad_group_specs,app_event_tracking_configs,bill_details,bills,billing_actions,billing_contacts,billing_profiles,bulk_v2_jobs,business_profiles,campaigns,campaign_specs,carousel_slot_promotions,conversion_tags,goals,notifications,order_lines,order_line_specs,pin_promotions,pin_promotion_specs,pinner_lists,pinner_list_specs,product_groups,product_group_specs,promoted_catalog_product_groups,promoted_catalog_product_groups_history,rule_subscriptions,targeting_attribute_history,targeting_attributes,targeting_specs,user_preferences,pin_promotions_history,advertiser_labeling_results,ad_groups_history,pin_promotion_labels,campaigns_history,advertiser_conversion_events,advertiser_discounts'
+UNOWNED_LOOKUP_VINDEX_WHITELIST='-unowned-lookup-vindex-whitelist foo'
 
 VSCHEMA_ROLLBACK=""
 if [[ $# -gt 1 ]]; then
@@ -30,6 +31,7 @@ if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
               -validate-keyspace patio -validate-shards 2
               -create-lookup-vindex-tables
               $LOOKUP_VINDEX_WHITELIST
+              $UNOWNED_LOOKUP_VINDEX_WHITELIST
               )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
 
@@ -44,6 +46,7 @@ elif [[ "$VTENV" == "shadow" ]]; then
               -validate-keyspace patio -validate-shards 2
               -create-lookup-vindex-tables
               $LOOKUP_VINDEX_WHITELIST
+              $UNOWNED_LOOKUP_VINDEX_WHITELIST
              )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
   UPDATE_GENERAL=false
@@ -56,6 +59,7 @@ elif [[ "$VTENV" == "prod" ]]; then
     -validate-keyspace patio -validate-shards 2
     -create-lookup-vindex-tables
     $LOOKUP_VINDEX_WHITELIST
+    $UNOWNED_LOOKUP_VINDEX_WHITELIST
   )
   PATIOGENERAL_ARGS=(-include-cols)
 else
