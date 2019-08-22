@@ -22,6 +22,7 @@
     "ad_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.ad_group_id_idx",
         "to": "g_advertiser_id",
@@ -41,6 +42,7 @@
     "ad_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.ad_group_spec_id_idx",
         "to": "g_advertiser_id",

@@ -290,6 +290,7 @@ func (vb *vschemaBuilder) createPinLookupVindex(tableName string) {
 		Owner: tableName,
 		Params: map[string]string{
 			"table":      indexTableName,
+			"capacity":   strconv.FormatUint(vb.scatterCacheCapacity(tableName), 10),
 			"from":       "id",
 			"to":         "g_advertiser_id",
 			"write_only": strconv.FormatBool(vb.config.lookupVindexWriteOnly),

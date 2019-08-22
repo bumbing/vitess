@@ -13,6 +13,7 @@
     "accepted_tos_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.accepted_tos_id_idx",
         "to": "g_advertiser_id",
@@ -32,6 +33,7 @@
     "ad_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.ad_group_id_idx",
         "to": "g_advertiser_id",
@@ -51,6 +53,7 @@
     "ad_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.ad_group_spec_id_idx",
         "to": "g_advertiser_id",
@@ -76,6 +79,7 @@
     "app_event_tracking_config_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.app_event_tracking_config_id_idx",
         "to": "g_advertiser_id",
@@ -95,6 +99,7 @@
     "bill_detail_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.bill_detail_id_idx",
         "to": "g_advertiser_id",
@@ -114,6 +119,7 @@
     "bill_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.bill_id_idx",
         "to": "g_advertiser_id",
@@ -133,6 +139,7 @@
     "billing_action_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.billing_action_id_idx",
         "to": "g_advertiser_id",
@@ -152,6 +159,7 @@
     "billing_contact_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.billing_contact_id_idx",
         "to": "g_advertiser_id",
@@ -171,6 +179,7 @@
     "billing_profile_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.billing_profile_id_idx",
         "to": "g_advertiser_id",
@@ -190,6 +199,7 @@
     "bulk_v2_job_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.bulk_v2_job_id_idx",
         "to": "g_advertiser_id",
@@ -209,6 +219,7 @@
     "business_profile_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.business_profile_id_idx",
         "to": "g_advertiser_id",
@@ -228,6 +239,7 @@
     "campaign_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "20000",
         "from": "id",
         "table": "patiogeneral.campaign_id_idx",
         "to": "g_advertiser_id",
@@ -247,6 +259,7 @@
     "campaign_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.campaign_spec_id_idx",
         "to": "g_advertiser_id",
@@ -266,6 +279,7 @@
     "carousel_slot_promotion_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.carousel_slot_promotion_id_idx",
         "to": "g_advertiser_id",
@@ -285,6 +299,7 @@
     "conversion_tag_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.conversion_tag_id_idx",
         "to": "g_advertiser_id",
@@ -313,6 +328,7 @@
     "goal_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.goal_id_idx",
         "to": "g_advertiser_id",
@@ -332,6 +348,7 @@
     "notification_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.notification_id_idx",
         "to": "g_advertiser_id",
@@ -351,6 +368,7 @@
     "order_line_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.order_line_id_idx",
         "to": "g_advertiser_id",
@@ -370,6 +388,7 @@
     "order_line_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.order_line_spec_id_idx",
         "to": "g_advertiser_id",
@@ -389,6 +408,7 @@
     "pin_promotion_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotion_id_idx",
         "to": "g_advertiser_id",
@@ -408,6 +428,7 @@
     "pin_promotion_label_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotion_label_id_idx",
         "to": "g_advertiser_id",
@@ -427,6 +448,7 @@
     "pin_promotion_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotion_spec_id_idx",
         "to": "g_advertiser_id",
@@ -446,6 +468,7 @@
     "pin_promotions_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotions_history_id_idx",
         "to": "g_advertiser_id",
@@ -465,6 +488,7 @@
     "pinner_list_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pinner_list_id_idx",
         "to": "g_advertiser_id",
@@ -484,6 +508,7 @@
     "pinner_list_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pinner_list_spec_id_idx",
         "to": "g_advertiser_id",
@@ -503,6 +528,7 @@
     "product_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.product_group_id_idx",
         "to": "g_advertiser_id",
@@ -522,6 +548,7 @@
     "product_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.product_group_spec_id_idx",
         "to": "g_advertiser_id",
@@ -541,6 +568,7 @@
     "promoted_catalog_product_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.promoted_catalog_product_group_id_idx",
         "to": "g_advertiser_id",
@@ -560,6 +588,7 @@
     "promoted_catalog_product_groups_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.promoted_catalog_product_groups_history_id_idx",
         "to": "g_advertiser_id",
@@ -579,6 +608,7 @@
     "rule_subscription_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.rule_subscription_id_idx",
         "to": "g_advertiser_id",
@@ -598,6 +628,7 @@
     "targeting_attribute_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.targeting_attribute_history_id_idx",
         "to": "g_advertiser_id",
@@ -617,6 +648,7 @@
     "targeting_attribute_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.targeting_attribute_id_idx",
         "to": "g_advertiser_id",
@@ -636,6 +668,7 @@
     "targeting_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.targeting_spec_id_idx",
         "to": "g_advertiser_id",
@@ -655,6 +688,7 @@
     "user_preference_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.user_preference_id_idx",
         "to": "g_advertiser_id",
