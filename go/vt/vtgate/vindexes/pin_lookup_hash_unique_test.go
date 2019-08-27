@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"vitess.io/vitess/go/sqltypes"
@@ -72,7 +73,7 @@ func (pvc *pinVcursor) execute(method string, query string, bindvars map[string]
 }
 
 func TestPinLookupHashUniqueMap(t *testing.T) {
-	plhu := createLookup(t, "pin_lookup_hash_unique", false)
+	plhu := createPinLookup(t, "pin_lookup_hash_unique", false, 0)
 	pvc := &pinVcursor{numRows: 1}
 
 	got, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
@@ -133,7 +134,7 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 }
 
 func TestPinLookupHashUniqueMapWriteOnly(t *testing.T) {
-	plhu := createLookup(t, "pin_lookup_hash_unique", true)
+	plhu := createPinLookup(t, "pin_lookup_hash_unique", true, 0)
 	pvc := &pinVcursor{numRows: 0}
 
 	got, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
@@ -149,7 +150,7 @@ func TestPinLookupHashUniqueMapWriteOnly(t *testing.T) {
 }
 
 func TestPinLookupHashUniqueVerify(t *testing.T) {
-	plhu := createLookup(t, "pin_lookup_hash_unique", false)
+	plhu := createPinLookup(t, "pin_lookup_hash_unique", false, 0)
 	pvc := &pinVcursor{numRows: 1}
 
 	// regular test copied from lookup_hash_unique_test.go
@@ -192,7 +193,7 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 }
 
 func TestPinLookupHashUniqueCache(t *testing.T) {
-	plhu := createLookup(t, "pin_lookup_hash_unique", false)
+	plhu := createPinLookup(t, "pin_lookup_hash_unique", false, 100)
 	pvc := &pinVcursor{numRows: 1}
 
 	_ = plhu.(Lookup).Create(pvc, [][]sqltypes.Value{{sqltypes.NewInt64(1)}}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")}, false /* ignoreMode */)
@@ -256,4 +257,23 @@ func TestPinLookupHashUniqueCache(t *testing.T) {
 	if !reflect.DeepEqual(pvc.queries, wantqueries) {
 		t.Errorf("lookup.Create queries:\n%v, want\n%v", pvc.queries, wantqueries)
 	}
+}
+
+func createPinLookup(t *testing.T, name string, writeOnly bool, cacheCapacity int) Vindex {
+	t.Helper()
+	write := "false"
+	if writeOnly {
+		write = "true"
+	}
+	l, err := CreateVindex(name, name, map[string]string{
+		"table":      "t",
+		"from":       "fromc",
+		"to":         "toc",
+		"capacity":   strconv.Itoa(cacheCapacity),
+		"write_only": write,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
 }

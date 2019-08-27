@@ -219,6 +219,7 @@ func createInternalLookupVindex(name string, m map[string]string) Vindex {
 	lookupConfigs["from"] = m["from"]
 	lookupConfigs["to"] = m["to"]
 	lookupConfigs["table"] = "patiogeneral." + name
+	lookupConfigs["autocommit"] = "true"
 	lookupVindex, err := NewPinLookupUniqueHash(name, lookupConfigs)
 	if err != nil {
 		log.Error("Error creating Internal Lookup Vindex: {}", err)
@@ -377,6 +378,7 @@ func (sc *ScatterCache) checkDarkRead(vcursor VCursor, ids []sqltypes.Value, out
 	defer scatterCacheTimings.Record(statsKey, time.Now())
 	darkReadResult, err := sc.lookupVindex.Map(vcursor, ids)
 	if err != nil {
+		log.Error("checkDarkRead: %v", err)
 		darkReadResultOutcome.Add([]string{sc.name, "fail_to_lookup"}, 1)
 		return
 	}
@@ -443,7 +445,6 @@ func (sc *ScatterCache) Create(vcursor VCursor, rowsColValues [][]sqltypes.Value
 			sc.keyspaceIDCache.Set(colVal.ToString(), scatterKeyspaceID(ksids[idx]))
 		}
 	}
-
 	return nil
 }
 

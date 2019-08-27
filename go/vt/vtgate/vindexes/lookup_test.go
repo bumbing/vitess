@@ -549,7 +549,6 @@ func createLookup(t *testing.T, name string, writeOnly bool) Vindex {
 		"table":      "t",
 		"from":       "fromc",
 		"to":         "toc",
-		"capacity":   "100",
 		"write_only": write,
 	})
 	if err != nil {

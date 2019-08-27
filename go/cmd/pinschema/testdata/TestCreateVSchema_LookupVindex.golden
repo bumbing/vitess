@@ -13,6 +13,7 @@
     "accepted_tos_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.accepted_tos_id_idx",
@@ -33,6 +34,7 @@
     "ad_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.ad_group_id_idx",
@@ -53,6 +55,7 @@
     "ad_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.ad_group_spec_id_idx",
@@ -79,6 +82,7 @@
     "app_event_tracking_config_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.app_event_tracking_config_id_idx",
@@ -99,6 +103,7 @@
     "bill_detail_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.bill_detail_id_idx",
@@ -119,6 +124,7 @@
     "bill_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.bill_id_idx",
@@ -139,6 +145,7 @@
     "billing_action_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.billing_action_id_idx",
@@ -159,6 +166,7 @@
     "billing_contact_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.billing_contact_id_idx",
@@ -179,6 +187,7 @@
     "billing_profile_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.billing_profile_id_idx",
@@ -199,6 +208,7 @@
     "bulk_v2_job_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.bulk_v2_job_id_idx",
@@ -219,6 +229,7 @@
     "business_profile_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.business_profile_id_idx",
@@ -239,6 +250,7 @@
     "campaign_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "20000",
         "from": "id",
         "table": "patiogeneral.campaign_id_idx",
@@ -259,6 +271,7 @@
     "campaign_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.campaign_spec_id_idx",
@@ -279,6 +292,7 @@
     "carousel_slot_promotion_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.carousel_slot_promotion_id_idx",
@@ -299,6 +313,7 @@
     "conversion_tag_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.conversion_tag_id_idx",
@@ -328,6 +343,7 @@
     "goal_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.goal_id_idx",
@@ -348,6 +364,7 @@
     "notification_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.notification_id_idx",
@@ -368,6 +385,7 @@
     "order_line_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.order_line_id_idx",
@@ -388,6 +406,7 @@
     "order_line_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.order_line_spec_id_idx",
@@ -408,6 +427,7 @@
     "pin_promotion_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotion_id_idx",
@@ -428,6 +448,7 @@
     "pin_promotion_label_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotion_label_id_idx",
@@ -448,6 +469,7 @@
     "pin_promotion_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotion_spec_id_idx",
@@ -468,6 +490,7 @@
     "pin_promotions_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pin_promotions_history_id_idx",
@@ -488,6 +511,7 @@
     "pinner_list_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pinner_list_id_idx",
@@ -508,6 +532,7 @@
     "pinner_list_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.pinner_list_spec_id_idx",
@@ -528,6 +553,7 @@
     "product_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.product_group_id_idx",
@@ -548,6 +574,7 @@
     "product_group_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.product_group_spec_id_idx",
@@ -568,6 +595,7 @@
     "promoted_catalog_product_group_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.promoted_catalog_product_group_id_idx",
@@ -588,6 +616,7 @@
     "promoted_catalog_product_groups_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.promoted_catalog_product_groups_history_id_idx",
@@ -608,6 +637,7 @@
     "rule_subscription_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.rule_subscription_id_idx",
@@ -628,6 +658,7 @@
     "targeting_attribute_history_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.targeting_attribute_history_id_idx",
@@ -648,6 +679,7 @@
     "targeting_attribute_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.targeting_attribute_id_idx",
@@ -668,6 +700,7 @@
     "targeting_spec_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.targeting_spec_id_idx",
@@ -688,6 +721,7 @@
     "user_preference_id_vdx": {
       "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
         "table": "patiogeneral.user_preference_id_idx",

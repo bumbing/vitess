@@ -293,6 +293,7 @@ func (vb *vschemaBuilder) createPinLookupVindex(tableName string) {
 			"capacity":   strconv.FormatUint(vb.scatterCacheCapacity(tableName), 10),
 			"from":       "id",
 			"to":         "g_advertiser_id",
+			"autocommit": "true",
 			"write_only": strconv.FormatBool(vb.config.lookupVindexWriteOnly),
 		},
 	}

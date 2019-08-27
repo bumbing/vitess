@@ -25,13 +25,9 @@ var (
 	_ Vindex = (*PinLookupHashUnique)(nil)
 	_ Lookup = (*PinLookupHashUnique)(nil)
 
-	VindexLookupTotalSize = stats.NewGaugesWithSingleLabel(
-		"VindexLookupTotalSize",
+	VindexLookupQuerySize = stats.NewGaugesWithSingleLabel(
+		"VindexLookupQuerySize",
 		"Number of rows Vindex Lookup need to collect, together from cache and db",
-		"TableName")
-	VindexLookupBatchSize = stats.NewGaugesWithSingleLabel(
-		"VindexLookupBatchSize",
-		"Number of rows each Vindex Lookup query send",
 		"TableName")
 	VindexLookupCachedSize = stats.NewGaugesWithSingleLabel(
 		"VindexLookupCachedSize",
@@ -131,7 +127,7 @@ func (plhu *PinLookupHashUnique) getScatterResultForAll(size int) []key.Destinat
 }
 
 // scatterKeyspaceID is a cache.Value representing a keyspace ID.
-type lookupVindexKsID uint64
+type lookupVindexKsID []byte
 
 // Size always returns 1 because we use the cache only to track keyspace IDs.
 // This implements the cache.Value interface.
@@ -147,11 +143,7 @@ func (plhu *PinLookupHashUnique) Create(vcursor VCursor, rowsColValues [][]sqlty
 		}
 		colVal := colVals[0]
 		if !colVal.IsNull() {
-			val, err := vunhash(ksids[idx])
-			if err != nil {
-				return fmt.Errorf("PinLookupHashUnique.Create: failed to unhash keyspaceID")
-			}
-			plhu.keyspaceIDCache.Set(colVal.ToString(), lookupVindexKsID(val))
+			plhu.keyspaceIDCache.Set(colVal.ToString(), lookupVindexKsID(ksids[idx]))
 		}
 	}
 
@@ -162,17 +154,13 @@ func (plhu *PinLookupHashUnique) Update(vcursor VCursor, oldValues []sqltypes.Va
 	if len(newValues) != 1 {
 		return fmt.Errorf("PinLookupHashUnique.Update: multi-col keys unsupported")
 	}
-
-	// Update should not change the key-value mapping, so this action is effectively making the key most recently used.
-	if !newValues[0].IsNull() {
-		val, err := vunhash(ksid)
-		if err != nil {
-			return fmt.Errorf("PinLookupHashUnique.Update: failed to unhash keyspaceID")
-		}
-		plhu.keyspaceIDCache.Set(newValues[0].ToString(), lookupVindexKsID(val))
-	}
-
+	// We skip update cache since in most time, UPDATE DDL are as follow up of an INSERT to update the gid.
 	return plhu.LookupHashUnique.Update(vcursor, oldValues, ksid, newValues)
+}
+
+// At Pinterest we don't delete data in Patio so far. We will rely on Pepsi script to sync data and Lookup Vindex.
+func (plhu *PinLookupHashUnique) Delete(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksid []byte) error {
+	return nil
 }
 
 // This function will get all mapping by sending one query, to avoid using up all connections like LookupHashUnique's
@@ -180,7 +168,7 @@ func (plhu *PinLookupHashUnique) Update(vcursor VCursor, oldValues []sqltypes.Va
 // If failed to lookup Vindex, it could possible return destAll, which will not work for DMLs.
 // For DMLs, only INSERT could possible use Map, but that's for primary vindex, not for secondary vindex.
 // The fallback destAll is a protection for SELECTIN and SELECTEQUAL query.
-func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
+func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]key.Destination, error) {
 	if plhu.writeOnly {
 		return plhu.getScatterResultForAll(len(ids)), nil
 	}
@@ -203,8 +191,15 @@ func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]k
 		val, ok := plhu.keyspaceIDCache.Get(id.ToString())
 		if ok {
 			plhu.cacheHits.Add(1)
-			k, _ := sqltypes.ToUint64(id)
-			m[k] = uint64(val.(lookupVindexKsID))
+			k, err := sqltypes.ToUint64(id)
+			if err != nil {
+				return nil, fmt.Errorf("PinLookupHashUnique.Map: failed to convert key %v", id.ToString())
+			}
+			v, err := vunhash(val.(lookupVindexKsID))
+			if err != nil {
+				return nil, fmt.Errorf("PinLookupHashUnique.Map: failed to unhash keyspaceID %v", err)
+			}
+			m[k] = v
 			continue
 		}
 		plhu.cacheMisses.Add(1)
@@ -222,18 +217,17 @@ func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]k
 	}
 
 	VindexLookupCachedSize.Add(plhu.lkp.Table, int64(len(m)))
-	VindexLookupTotalSize.Add(plhu.lkp.Table, int64(len(values)))
+	VindexLookupQuerySize.Add(plhu.lkp.Table, int64(len(values)))
 	for i := 0; i < len(values); i++ {
 		bv.Values = append(bv.Values, &values[i])
 		// When reached batch limit or is the last value, execute the query
 		if len(bv.Values) == *batchSize || i == len(values)-1 {
-			VindexLookupBatchSize.Add(plhu.lkp.Table, int64(len(bv.Values)))
 			bindVars := map[string]*querypb.BindVariable{
 				plhu.lkp.FromColumns[0]: bv,
 			}
 
 			// Execution and error handling
-			queryResult, err := vcursor.Execute(
+			queryResult, err := cursor.Execute(
 				"PinLookupHashUnique.Lookup", sel, bindVars, false /* isDML */, vtgatepb.CommitOrder_AUTOCOMMIT)
 			if err != nil {
 				failToLookupVindex.Add([]string{plhu.lkp.Table, "select_query_failure"}, 1)
@@ -264,6 +258,7 @@ func (plhu *PinLookupHashUnique) Map(vcursor VCursor, ids []sqltypes.Value) ([]k
 				}
 
 				m[fromColKey] = toColValue
+				plhu.keyspaceIDCache.Set(row[0].ToString(), lookupVindexKsID(vhash(toColValue)))
 			}
 			// Clean bind variables for reuse
 			bv.Values = bv.Values[:0]
