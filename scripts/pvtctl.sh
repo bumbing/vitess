@@ -16,6 +16,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     # Proxy through vtctld from a mac
     if [[ "$ENV_NAME" == "prod" ]]; then
         HOST_TYPE="vtctld-prod"
+    elif [[ "$ENV_NAME" == "postsubmit" ]]; then
+        HOST_TYPE="vtctld-postsubmit"
     elif [[ "$ENV_NAME" == "shadow" ]]; then
         HOST_TYPE="vtctld-shadow"
     elif [[ "$ENV_NAME" == "latest" ]]; then
