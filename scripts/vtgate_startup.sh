@@ -120,6 +120,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
           "spiffe://pin220.com/teletraan/argus/*",
           "spiffe://pin220.com/teletraan/bethlehem_sharded_test/*",
           "spiffe://pin220.com/teletraan/gatewayservice/*",
+          "spiffe://pin220.com/teletraan/m10n-adsindexupdater/*",
           "spiffe://pin220.com/teletraan/m10n-lazarus/*",
           "spiffe://pin220.com/teletraan/m10n-martha/*",
           "spiffe://pin220.com/teletraan/pepsi/*",
@@ -172,6 +173,7 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/argus/*",
           "spiffe://pin220.com/teletraan/gatewayservice/*",
+          "spiffe://pin220.com/teletraan/m10n-adsindexupdater/*",
           "spiffe://pin220.com/teletraan/m10n-lazarus/*",
           "spiffe://pin220.com/teletraan/m10n-martha/*",
           "spiffe://pin220.com/teletraan/pepsi/prod",
