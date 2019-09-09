@@ -20,7 +20,7 @@ env_name="${1}"
 role="${2:-scriptro}"
 
 env_config_file="/var/config/config.services.vitess_environments_config"
-env_exists=$(jq -r ".${env_name} | select (.!=null)"  $env_config_file)
+env_exists=$(jq -r ".[\"${env_name}\"] | select (.!=null)"  $env_config_file)
 
 if [[ "$env_exists" == "" ]]; then
    echo "Looks like an invalid env name. Valid names tend to look like prod, latest, test, etc."
@@ -28,7 +28,7 @@ if [[ "$env_exists" == "" ]]; then
    exit 1
 fi
 
-host=$(jq -r ".${env_name}.gates.master.host" $env_config_file)
+host=$(jq -r ".[\"${env_name}\"].gates.master.host" $env_config_file)
 
 # TODO(dweitzman): Set username to role and omit password. Soon passwords will no longer be
 # needed as long as TLS is in use.

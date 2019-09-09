@@ -5,13 +5,9 @@ set -o nounset
 set -o pipefail
 
 export VT_ARTIFACTS=${VT_ARTIFACTS:-'vitess,vtgate,vtworker,vtctld'}
-export BUILD_DIR="${WORKSPACE}"/BUILD_DIR
-
-if [[ -d $BUILD_DIR ]]; then 
-    rm -rf "${BUILD_DIR:?}"/*
-else
-    mkdir -p "${BUILD_DIR}"
-fi
+BUILD_DIR=$(mktemp -d -t "vitess-build-{$BUILD_NUMBER:-0}-XXXXXXXXXX")
+export BUILD_DIR
+echo "use temporary directory: ${BUILD_DIR} for this build: {$BUILD_NUMBER}"
 
 source "${HOME}"/.aws/iam_keys
 
