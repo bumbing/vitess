@@ -5,14 +5,15 @@ set -o nounset
 set -o pipefail
 
 export VT_ARTIFACTS=${VT_ARTIFACTS:-'vitess,vtgate,vtworker,vtctld'}
-BUILD_DIR=$(mktemp -d -t "vitess-build-${BUILD_NUMBER:-0}-XXXXXXXXXX")
-export BUILD_DIR
-echo "use temporary directory: ${BUILD_DIR} for this build: ${BUILD_NUMBER}"
-
-source "${HOME}"/.aws/iam_keys
 
 # Create a build artifact and docker image based on the //:full_dist bazel target.
 cd "${WORKSPACE}"
+BUILD_DIR=$(mktemp -d -t "vitess-build-${BUILD_NUMBER:-0}-XXXXXXXXXX" --tmpdir=.)
+BUILD_DIR=${BUILD_DIR:2} # that's for stripping `./` prefix
+export BUILD_DIR
+echo "use temporary directory: ${BUILD_DIR} for this build: ${BUILD_NUMBER:-0}"
+
+source "${HOME}"/.aws/iam_keys
 
 export PACKAGE_DEB=${PACKAGE_DEB:-false}
 export SKIP_BUILD=false
