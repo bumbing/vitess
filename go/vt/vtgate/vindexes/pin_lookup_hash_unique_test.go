@@ -176,13 +176,22 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 	}
 
 	_, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(1)}, [][]byte{[]byte("bogus")})
-	wantErr := "lookup.Verify.vunhash: invalid keyspace id: 626f677573"
+	wantErr := "PinLookup.Verify: lookup.Verify.vunhash: invalid keyspace id: 626f677573"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("plhu.Verify(bogus) err: %v, want %s", err, wantErr)
 	}
 
 	// Null value id Verify should pass Verify
 	got, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NULL}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
+	if err != nil {
+		t.Error(err)
+	}
+	want = []bool{true}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("plhu.Verify(match): %v, want %v", got, want)
+	}
+
+	got, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(0)}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
 	if err != nil {
 		t.Error(err)
 	}

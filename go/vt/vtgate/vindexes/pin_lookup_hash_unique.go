@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"time"
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/decider"
 	"vitess.io/vitess/go/sqltypes"
@@ -173,6 +174,9 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 		return plhu.getScatterResultForAll(len(ids)), nil
 	}
 
+	statsKey := []string{plhu.name, "map"}
+	defer scatterCacheTimings.Record(statsKey, time.Now())
+
 	sel := fmt.Sprintf(
 		"select %s, %s from %s where %s in ::%s",
 		plhu.lkp.FromColumns[0], plhu.lkp.To, plhu.lkp.Table, plhu.lkp.FromColumns[0], plhu.lkp.FromColumns[0])
@@ -281,53 +285,61 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 
 // Verify returns true if ids maps to ksids.
 func (plhu *PinLookupHashUnique) Verify(vcursor VCursor, ids []sqltypes.Value, ksids [][]byte) ([]bool, error) {
-	if hasNullValue(ids) {
-		idsToVerify, ksidsToVerify, _ := getThingsToVerify(ids, ksids)
-		results, err := plhu.LookupHashUnique.Verify(vcursor, idsToVerify, ksidsToVerify)
+	idsToVerify, ksidsToVerify, preVerifyResults, _ := getThingsToVerify(ids, ksids)
+	results, err := plhu.LookupHashUnique.Verify(vcursor, idsToVerify, ksidsToVerify)
 
-		if err != nil {
-			return nil, fmt.Errorf("PinLookup.Verify: %v", err)
-		}
-		return fillInResult(ids, results)
-	} else {
-		return plhu.LookupHashUnique.Verify(vcursor, ids, ksids)
+	if err != nil {
+		return nil, fmt.Errorf("PinLookup.Verify: %v", err)
 	}
+	return fillInResult(results, preVerifyResults)
 }
 
-func hasNullValue(ids []sqltypes.Value) bool {
-	for _, id := range ids {
-		if id.IsNull() {
-			return true
-		}
-	}
-	return false
-}
-
-func getThingsToVerify(ids []sqltypes.Value, ksids [][]byte) ([]sqltypes.Value, [][]byte, error) {
+func getThingsToVerify(ids []sqltypes.Value, ksids [][]byte) ([]sqltypes.Value, [][]byte, []bool, error) {
 	idsToVerify := make([]sqltypes.Value, 0, len(ids))
 	valuesToVerify := make([][]byte, 0, len(ksids))
-	for i, id := range ids {
-		if !id.IsNull() {
-			idsToVerify = append(idsToVerify, id)
-			valuesToVerify = append(valuesToVerify, ksids[i])
-		}
-	}
-
-	return idsToVerify, valuesToVerify, nil
-}
-
-func fillInResult(ids []sqltypes.Value, verifiedResults []bool) ([]bool, error) {
-	out := make([]bool, len(ids))
-	var idx = 0
+	preVerifyResults := make([]bool, len(ids))
 	for i, id := range ids {
 		if id.IsNull() {
-			out[i] = true
-		} else {
-			out[i] = verifiedResults[idx]
+			preVerifyResults[i] = true
+			continue
+		}
+
+		val, err := sqltypes.ToUint64(id)
+		// This failure should most like due to Patio-latest DML query pass in negative value for unowned Vindex.
+		// We bypass the verification for to not abort the DML and print a warning instead.
+		if err != nil {
+			log.Warningf("PinLookupHashUnique.Verify: Failed to parse Id %v, error: %v", id, err)
+			preVerifyResults[i] = true
+			continue
+		}
+
+		// ID should be value bigger than 0, but it is not the case when some patio-latest DML query does not populate
+		// their foreign id field, or some potential corrupted data written to Patio-prod (we have not seen it so far).
+		// PinVindex.Verify will bypass the abnormal rows. It is only responsible for making sure the correct Id
+		// can get correct routing information correspondingly.
+		// The data correctness should be taken care of on application side.
+		if val == 0 {
+			preVerifyResults[i] = true
+			continue
+		}
+
+		preVerifyResults[i] = false
+		idsToVerify = append(idsToVerify, id)
+		valuesToVerify = append(valuesToVerify, ksids[i])
+	}
+
+	return idsToVerify, valuesToVerify, preVerifyResults, nil
+}
+
+func fillInResult(verifiedResults []bool, preVerifyResults []bool) ([]bool, error) {
+	var idx = 0
+	for i, verified := range preVerifyResults {
+		if verified != true {
+			preVerifyResults[i] = verifiedResults[idx]
 			idx++
 		}
 	}
-	return out, nil
+	return preVerifyResults, nil
 }
 
 // Cost returns the cost of this vindex. It is controlled by a FLAG, 40 for fallback to ScatterCache.
