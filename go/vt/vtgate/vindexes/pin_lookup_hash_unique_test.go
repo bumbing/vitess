@@ -257,7 +257,7 @@ func TestPinLookupHashUniqueCache(t *testing.T) {
 			Sql: "select fromc, toc from t where fromc in ::fromc",
 			BindVariables: map[string]*querypb.BindVariable{
 				"fromc": {
-					Type: querypb.Type_TUPLE,
+					Type:   querypb.Type_TUPLE,
 					Values: []*querypb.Value{},
 				},
 			},
@@ -265,6 +265,75 @@ func TestPinLookupHashUniqueCache(t *testing.T) {
 	}
 	if !reflect.DeepEqual(pvc.queries, wantqueries) {
 		t.Errorf("lookup.Create queries:\n%v, want\n%v", pvc.queries, wantqueries)
+	}
+}
+
+func TestCheckSample(t *testing.T) {
+	plhu := createPinLookup(t, "pin_lookup_hash_unique", false, 100)
+	pvc := &pinVcursor{numRows: 1}
+	input := []sqltypes.Value{sqltypes.NewInt64(1)}
+	correctResult := []key.Destination{key.DestinationKeyspaceID([]byte("\x16k@\xb4J\xbaK\xd6"))}
+	wrongResult := []key.Destination{key.DestinationKeyspaceID([]byte("\x16k@\xb4J"))}
+
+	plhu.(*PinLookupHashUnique).checkSample(pvc, input, correctResult)
+	if vindexServingVerification.Counts()["pin_lookup_hash_unique.result_match"] != 1 {
+		t.Errorf("PinLookupHashUnique.checkSample result wrong")
+	}
+
+	vindexServingVerification.ResetAll()
+	plhu.(*PinLookupHashUnique).checkSample(pvc, input, wrongResult)
+	if vindexServingVerification.Counts()["pin_lookup_hash_unique.result_mismatch"] != 1 {
+		t.Errorf("PinLookupHashUnique.checkSample result wrong")
+	}
+}
+
+func TestGetSourceTable(t *testing.T) {
+	data := map[string]string{
+		"accepted_tos_id_idx":                            "accepted_tos",
+		"ad_group_id_idx":                                "ad_groups",
+		"ad_group_spec_id_idx":                           "ad_group_specs",
+		"ad_groups_history_id_idx":                       "ad_groups_history",
+		"advertiser_conversion_event_id_idx":             "advertiser_conversion_events",
+		"advertiser_discount_id_idx":                     "advertiser_discounts",
+		"advertiser_labeling_result_id_idx":              "advertiser_labeling_results",
+		"app_event_tracking_config_id_idx":               "app_event_tracking_configs",
+		"bill_detail_id_idx":                             "bill_details",
+		"bill_id_idx":                                    "bills",
+		"billing_action_id_idx":                          "billing_actions",
+		"billing_contact_id_idx":                         "billing_contacts",
+		"billing_profile_id_idx":                         "billing_profiles",
+		"bulk_v2_job_id_idx":                             "bulk_v2_jobs",
+		"business_profile_id_idx":                        "business_profiles",
+		"campaign_id_idx":                                "campaigns",
+		"campaign_spec_id_idx":                           "campaign_specs",
+		"campaigns_history_id_idx":                       "campaigns_history",
+		"carousel_slot_promotion_id_idx":                 "carousel_slot_promotions",
+		"conversion_tag_id_idx":                          "conversion_tags",
+		"goal_id_idx":                                    "goals",
+		"notification_id_idx":                            "notifications",
+		"order_line_id_idx":                              "order_lines",
+		"order_line_spec_id_idx":                         "order_line_specs",
+		"pin_promotion_id_idx":                           "pin_promotions",
+		"pin_promotion_label_id_idx":                     "pin_promotion_labels",
+		"pin_promotion_spec_id_idx":                      "pin_promotion_specs",
+		"pin_promotions_history_id_idx":                  "pin_promotions_history",
+		"pinner_list_id_idx":                             "pinner_lists",
+		"pinner_list_spec_id_idx":                        "pinner_list_specs",
+		"product_group_id_idx":                           "product_groups",
+		"product_group_spec_id_idx":                      "product_group_specs",
+		"promoted_catalog_product_group_id_idx":          "promoted_catalog_product_groups",
+		"promoted_catalog_product_groups_history_id_idx": "promoted_catalog_product_groups_history",
+		"rule_subscription_id_idx":                       "rule_subscriptions",
+		"targeting_attribute_history_id_idx":             "targeting_attribute_history",
+		"targeting_attribute_id_idx":                     "targeting_attributes",
+		"targeting_spec_id_idx":                          "targeting_specs",
+		"user_preference_id_idx":                         "user_preferences",
+	}
+	for key := range data {
+		result := getSourceTable(key)
+		if strings.Compare(data[key],result)!=0 {
+			t.Errorf("Given table %v, expected %v, got %v", key, data[key], result)
+		}
 	}
 }
 

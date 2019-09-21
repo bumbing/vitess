@@ -55,6 +55,7 @@ args=(
   "-merge_left_join_unique_vindexes=${TELETRAAN_MERGE_LEFT_JOINS:-false}"
   "-dark_read_lookup_vindex_tables=${TELETRAAN_DARK_READ_LOOKUP_VINDEX_TABLES:-}"
   "-vindex_lookup_batch_size=${TELETRAAN_VINDEX_LOOKUP_BATCH_SIZE:-200}"
+  "-vindex_sample_check_size=${TELETRAAN_VINDEX_SAMPLE_CHECK_SIZE:-10}"
 )
 
 if [ "${VTGATE_COMMAND:-}" = "" ]

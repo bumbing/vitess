@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/decider"
@@ -39,7 +40,14 @@ var (
 		"Count of Map func failure, uses destNone or destAll for all result",
 		[]string{"TableName", "FailureReason"})
 	batchSize = flag.Int("vindex_lookup_batch_size", 200, "number of rows for each Vindex Lookup query")
+	vindexServingVerification = stats.NewCountersWithMultiLabels(
+		"VindexServingVerification",
+		"The result comparing sampled PinVindex rows with the actual data",
+		[]string{"TableName", "Outcome"})
+	sampleCheckSize = flag.Int("vindex_sample_check_size", 10, "number of samples to check actual" +
+		" data with PinLookupVindex")
 )
+
 
 func RegisterPinVindexCacheStats(getVSchema func() *VSchema) {
 	collectStats := func(statFn func(*PinLookupHashUnique) int64) func() map[string]int64 {
@@ -280,7 +288,68 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 			out = append(out, key.DestinationKeyspaceID(vhash(val)))
 		}
 	}
+
+	// Set upperbound to 10 for sampling check
+	checkSize := len(ids)
+	if checkSize > *sampleCheckSize {
+		checkSize = *sampleCheckSize
+	}
+	if decider.CheckDecider("pinvindex_sample_check", false) {
+		plhu.checkSample(cursor, ids[:checkSize], out[:checkSize])
+	}
 	return out, nil
+}
+
+func getSourceTable(name string) string {
+	temp := strings.TrimSuffix(name, "_id_idx")
+	if strings.HasSuffix(temp, "s") || strings.HasSuffix(temp, "_history") {
+		return temp
+	} else {
+		return temp+"s"
+	}
+}
+
+func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Value, expected []key.Destination) {
+	sel := fmt.Sprintf(
+		"select /*vt+ FORCE_SCATTER=1 */ %s, %s from %s where %s in ::%s",
+		plhu.lkp.FromColumns[0], plhu.lkp.To, getSourceTable(plhu.lkp.Table), plhu.lkp.FromColumns[0], plhu.lkp.FromColumns[0])
+
+	idsInInterface := make([]interface{}, len(ids))
+	for i, id := range ids {
+		idsInInterface[i] = id
+	}
+	bv, err := sqltypes.BuildBindVariable(idsInInterface)
+	if err != nil {
+		vindexServingVerification.Add([]string{plhu.name, "fail_to_bindvar"}, 1)
+		return
+	}
+	bindVars := map[string]*querypb.BindVariable{
+		plhu.lkp.FromColumns[0]: bv,
+	}
+	queryResult, err := vcursor.Execute("PinLookupHashUniqueCheckSample", sel, bindVars, false /* isDML */, vtgatepb.CommitOrder_NORMAL)
+	if err != nil {
+		vindexServingVerification.Add([]string{plhu.name, "fail_to_lookup"}, 1)
+		return
+	}
+
+	for i, row := range queryResult.Rows {
+		if len(row) != 2 {
+			_ = fmt.Sprintf("PinLookupHashUnique.checkSample: Internal error. Expected %v columns. Got %v", 2, len(row))
+			vindexServingVerification.Add([]string{plhu.name, "result_length_mismatch"}, 1)
+			continue
+		}
+
+		toColValue, err := sqltypes.ToUint64(row[1])
+		if err != nil {
+			vindexServingVerification.Add([]string{plhu.name, "fail_to_parse_result"}, 1)
+			continue
+		}
+		if key.DestinationKeyspaceID(vhash(toColValue)).String() != expected[i].String() {
+			vindexServingVerification.Add([]string{plhu.name, "result_mismatch"}, 1)
+		} else {
+			vindexServingVerification.Add([]string{plhu.name, "result_match"}, 1)
+		}
+	}
 }
 
 // Verify returns true if ids maps to ksids.
