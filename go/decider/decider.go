@@ -13,11 +13,12 @@ import (
 const filePath = "/var/config/config.manageddata.admin.decider"
 
 var (
-	data        map[string]int
-	mu          sync.RWMutex
-	path        = filePath
-	useMockData = false
-	mockData    = map[string]int{}
+	data         map[string]int
+	mu           sync.RWMutex
+	path         = filePath
+	useMockData  = false
+	mockData     = map[string]int{}
+	monitorValue = []string{"use_pin_lookup_vindex", "pinvindex_sample_check", "dark_read_probability"}
 )
 
 func init() {
@@ -84,6 +85,12 @@ func load() {
 	if err != nil {
 		log.Error(err)
 		return
+	}
+
+	for _, key := range monitorValue {
+		if data[key] != temp[key] {
+			log.Info("%v value changed from %d to %d", key, data[key], temp[key])
+		}
 	}
 
 	mu.Lock()
