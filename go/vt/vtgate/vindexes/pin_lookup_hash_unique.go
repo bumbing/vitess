@@ -301,11 +301,12 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 }
 
 func getSourceTable(name string) string {
-	temp := strings.TrimSuffix(name, "_id_idx")
-	if strings.HasSuffix(temp, "s") || strings.HasSuffix(temp, "_history") {
-		return temp
+	trimmedName := strings.TrimPrefix(name, "patiogeneral.")
+	trimmedName = strings.TrimSuffix(name, "_id_idx")
+	if strings.HasSuffix(trimmedName, "s") || strings.HasSuffix(trimmedName, "_history") {
+		return trimmedName
 	} else {
-		return temp+"s"
+		return trimmedName+"s"
 	}
 }
 
