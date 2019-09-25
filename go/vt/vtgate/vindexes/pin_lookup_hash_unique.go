@@ -346,6 +346,8 @@ func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Val
 			continue
 		}
 		if key.DestinationKeyspaceID(vhash(toColValue)).String() != expected[i].String() {
+			log.Info("PinLookupHashUnique.checkSample: mismatch result for id %s, expecting %s, got %s",
+				ids[i].ToString(), expected[i].String(), key.DestinationKeyspaceID(vhash(toColValue)).String())
 			vindexServingVerification.Add([]string{plhu.name, "result_mismatch"}, 1)
 		} else {
 			vindexServingVerification.Add([]string{plhu.name, "result_match"}, 1)
