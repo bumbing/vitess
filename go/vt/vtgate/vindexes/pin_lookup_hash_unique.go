@@ -39,15 +39,14 @@ var (
 		"VindexLookupFailureCount",
 		"Count of Map func failure, uses destNone or destAll for all result",
 		[]string{"TableName", "FailureReason"})
-	batchSize = flag.Int("vindex_lookup_batch_size", 200, "number of rows for each Vindex Lookup query")
+	batchSize                 = flag.Int("vindex_lookup_batch_size", 200, "number of rows for each Vindex Lookup query")
 	vindexServingVerification = stats.NewCountersWithMultiLabels(
 		"VindexServingVerification",
 		"The result comparing sampled PinVindex rows with the actual data",
 		[]string{"TableName", "Outcome"})
-	sampleCheckSize = flag.Int("vindex_sample_check_size", 10, "number of samples to check actual" +
+	sampleCheckSize = flag.Int("vindex_sample_check_size", 10, "number of samples to check actual"+
 		" data with PinLookupVindex")
 )
-
 
 func RegisterPinVindexCacheStats(getVSchema func() *VSchema) {
 	collectStats := func(statFn func(*PinLookupHashUnique) int64) func() map[string]int64 {
@@ -306,11 +305,16 @@ func getSourceTable(name string) string {
 	if strings.HasSuffix(trimmedName, "s") || strings.HasSuffix(trimmedName, "_history") {
 		return trimmedName
 	} else {
-		return trimmedName+"s"
+		return trimmedName + "s"
 	}
 }
 
-func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Value, expected []key.Destination) {
+func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Value, dests []key.Destination) {
+	expected := make(map[uint64]string, len(ids))
+	for i, id := range ids {
+		val, _ := sqltypes.ToUint64(id)
+		expected[val] = dests[i].String()
+	}
 	sel := fmt.Sprintf(
 		"select /*vt+ FORCE_SCATTER=1 */ %s, %s from %s where %s in ::%s",
 		plhu.lkp.FromColumns[0], plhu.lkp.To, getSourceTable(plhu.lkp.Table), plhu.lkp.FromColumns[0], plhu.lkp.FromColumns[0])
@@ -335,9 +339,14 @@ func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Val
 
 	for i, row := range queryResult.Rows {
 		if len(row) != 2 {
-			_ = fmt.Sprintf("PinLookupHashUnique.checkSample: Internal error. Expected %v columns. Got %v", 2, len(row))
+			log.Info(fmt.Sprintf("PinLookupHashUnique.checkSample: Internal error. Expected %v columns. Got %v", 2, len(row)))
 			vindexServingVerification.Add([]string{plhu.name, "result_length_mismatch"}, 1)
 			continue
+		}
+
+		idColValue, err := sqltypes.ToUint64(row[0])
+		if err != nil {
+			vindexServingVerification.Add([]string{plhu.name, "fail_to_parse_id"}, 1)
 		}
 
 		toColValue, err := sqltypes.ToUint64(row[1])
@@ -345,9 +354,10 @@ func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Val
 			vindexServingVerification.Add([]string{plhu.name, "fail_to_parse_result"}, 1)
 			continue
 		}
-		if key.DestinationKeyspaceID(vhash(toColValue)).String() != expected[i].String() {
-			log.Info("PinLookupHashUnique.checkSample: mismatch result for id %s, expecting %s, got %s",
-				ids[i].ToString(), expected[i].String(), key.DestinationKeyspaceID(vhash(toColValue)).String())
+		dest := key.DestinationKeyspaceID(vhash(toColValue)).String()
+		if dest != expected[idColValue] {
+			log.Info(fmt.Sprintf("PinLookupHashUnique.checkSample: mismatch result for id %d, expecting %s, got %s",
+				ids[i], expected[idColValue], dest))
 			vindexServingVerification.Add([]string{plhu.name, "result_mismatch"}, 1)
 		} else {
 			vindexServingVerification.Add([]string{plhu.name, "result_match"}, 1)
