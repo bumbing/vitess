@@ -56,7 +56,7 @@ func TestCreateVSchema(t *testing.T) {
 				},
 				lookupVindexWriteOnly:        true,
 				lookupVindexWhitelist:        []string{"ad_groups", "ad_group_specs"},
-				unownedLookupVindexWhiteList: []string{"ad_group_id_vdx"},
+				unownedLookupVindexWhiteList: []string{"ad_group_id_vdx", "pin_promotion_spec_id_vdx"},
 				createLookupVindexTables:     true,
 			},
 		},

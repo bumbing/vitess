@@ -416,6 +416,22 @@ union
   limit 20)
 union
   (select
+	"pin_promotion_specs.id with pin_promotion_labels.spec_id" as tables,
+	pin_promotion_specs.id as left_id,
+    pin_promotion_labels.id as right_id,
+    pin_promotion_specs.g_advertiser_id as left_advertiser,
+    pin_promotion_labels.g_advertiser_id as right_advertiser
+  from
+    pin_promotion_specs
+  inner join
+    pin_promotion_labels
+  on
+    pin_promotion_specs.id = pin_promotion_labels.spec_id
+  where
+	pin_promotion_specs.g_advertiser_id != pin_promotion_labels.g_advertiser_id
+  limit 20)
+union
+  (select
 	"pin_promotion_specs.id with pin_promotions.spec_id" as tables,
 	pin_promotion_specs.id as left_id,
     pin_promotions.id as right_id,

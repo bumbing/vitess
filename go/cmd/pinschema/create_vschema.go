@@ -233,7 +233,11 @@ func getVindexName(colName, tableName string) string {
 	} else if colName == "gid" {
 		return "g_" + tableNameToColName(tableName)
 	} else if colName == "spec_id" {
-		return singularize(tableName) + "_spec_id"
+		if tableName == "pin_promotion_labels" {
+			return "pin_promotion_spec_id"
+		} else {
+			return singularize(tableName) + "_spec_id"
+		}
 	}
 
 	return colName

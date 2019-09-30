@@ -389,6 +389,21 @@ union
 	db_order_lines.g_advertiser_id != db_order_line_specs.g_advertiser_id
 union
   select
+	"db_pin_promotion_specs.id with db_pin_promotion_labels.spec_id" as tables,
+	db_pin_promotion_specs.id as left_id,
+    db_pin_promotion_labels.id as right_id,
+    db_pin_promotion_specs.g_advertiser_id as left_advertiser,
+    db_pin_promotion_labels.g_advertiser_id as right_advertiser
+  from
+    db_pin_promotion_specs
+  inner join
+    db_pin_promotion_labels
+  on
+    db_pin_promotion_specs.id = db_pin_promotion_labels.spec_id
+  where
+	db_pin_promotion_specs.g_advertiser_id != db_pin_promotion_labels.g_advertiser_id
+union
+  select
 	"db_pin_promotion_specs.id with db_pin_promotions.spec_id" as tables,
 	db_pin_promotion_specs.id as left_id,
     db_pin_promotions.id as right_id,

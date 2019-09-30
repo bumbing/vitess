@@ -879,6 +879,12 @@
           "columns": [
             "id"
           ]
+        },
+        {
+          "name": "pin_promotion_spec_id",
+          "columns": [
+            "spec_id"
+          ]
         }
       ]
     },

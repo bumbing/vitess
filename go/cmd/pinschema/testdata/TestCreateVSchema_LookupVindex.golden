@@ -1515,6 +1515,18 @@
           "columns": [
             "id"
           ]
+        },
+        {
+          "name": "pin_promotion_spec_id",
+          "columns": [
+            "spec_id"
+          ]
+        },
+        {
+          "name": "pin_promotion_spec_id_vdx",
+          "columns": [
+            "spec_id"
+          ]
         }
       ]
     },
