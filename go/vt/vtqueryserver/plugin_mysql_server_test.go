@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"golang.org/x/net/context"
-
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
 	querypb "vitess.io/vitess/go/vt/proto/query"
@@ -44,7 +43,7 @@ func (th *testHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltypes
 	return nil
 }
 
-func (th *testHandler) ComPrepare(c *mysql.Conn, q string) ([]*querypb.Field, error) {
+func (th *testHandler) ComPrepare(c *mysql.Conn, q string, prepare *mysql.PrepareData) ([]*querypb.Field, error) {
 	return nil, nil
 }
 

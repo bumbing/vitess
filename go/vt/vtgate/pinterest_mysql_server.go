@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"strconv"
 
 	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/mysql"
@@ -30,11 +31,44 @@ func init() {
 	flag.Var(&mysqlUserQueryTimeouts, "mysql_user_query_timeouts", "per-user query timeouts. comma separated list of username:duration pairs. Takes precedence over -mysql_server_query_timeout")
 }
 
-func (vh *vtgateHandler) queryTimeout(im *querypb.VTGateCallerID, query string) time.Duration {
-	// The reason for taking a query argument even though it's not used is to remind us that
-	// we might consider supporting SQL comment annotations to set a per-query individual timeout.
-	// sqlparser.ExtractCommentDirectives() could be useful for pulling timeout directives out of
-	// a query.
+const (
+  QueryOptTarget string = "VitessTarget"
+  QueryOptTimeout string = "TimeoutMS"
+)
+
+var pinterestDirectiveComments = regexp.MustCompile(`\b(?P<key>[a-zA-Z0-9]+)=(?P<value>[^,\s]+),?\b`)
+
+func parsePinterestOptionsFromQuery(query string) map[string]string {
+	_, marginComments := sqlparser.SplitMarginComments(query)
+	result := map[string]string{}
+
+	allIndexes := pinterestDirectiveComments.FindAllStringSubmatchIndex(marginComments.Leading, -1)
+	for _, loc := range allIndexes {
+		key := marginComments.Leading[loc[2]:loc[3]]
+		value := marginComments.Leading[loc[4]:loc[5]]
+		result[key] = value
+	}
+
+	allIndexes = pinterestDirectiveComments.FindAllStringSubmatchIndex(marginComments.Trailing, -1)
+	for _, loc := range allIndexes {
+		key := marginComments.Trailing[loc[2]:loc[3]]
+		value := marginComments.Trailing[loc[4]:loc[5]]
+		result[key] = value
+	}
+
+	return result
+}
+
+func queryTimeout(im *querypb.VTGateCallerID, pinterestOpts map[string]string) time.Duration {
+	if timeoutOverride, ok := pinterestOpts[QueryOptTimeout]; ok {
+		millis, err := strconv.ParseUint(timeoutOverride, 10, 32)
+		if err != nil {
+			warnings.Add("IgnoringBadQueryTimeout", 1)
+			log.Infof("Can't parse timeout in query comment: %s, %s", timeoutOverride, err)
+		} else {
+			return time.Duration(millis) * time.Millisecond
+		}
+	}
 
 	if im != nil {
 		if userSpecificTimeout := mysqlUserQueryTimeouts[im.Username]; userSpecificTimeout > 0 {
@@ -45,7 +79,7 @@ func (vh *vtgateHandler) queryTimeout(im *querypb.VTGateCallerID, query string) 
 	return *mysqlQueryTimeout
 }
 
-func getPinterestEffectiveCallerId(c *mysql.Conn) *vtrpcpb.CallerID {
+func getPinterestEffectiveCallerId(c *mysql.Conn, pinterestOpts map[string]string) *vtrpcpb.CallerID {
 	ef := callerid.NewEffectiveCallerID(
 		c.User,                  /* principal: who */
 		c.RemoteAddr().String(), /* component: running client process */
@@ -53,15 +87,13 @@ func getPinterestEffectiveCallerId(c *mysql.Conn) *vtrpcpb.CallerID {
 	return ef
 }
 
-var vitessTargetComment = regexp.MustCompile(`\sVitessTarget=([^,\s]+),?\s`)
-
 // maybeTargetOverrideForQuery is a Pinterest-specific feature that can look in a comment
 // like /* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */
 // and pull out the VitessTarget to use for a single query.
 // The choice to parse this format for leading comments is because the primary user of these comments will be
 // pepsi, which is a Java service using the connector-j jdbc driver for mysql. This is the format of commments
 // adding by that driver when setClientInfo() is called on a connection.
-func maybeTargetOverrideForQuery(query string) string {
+func maybeTargetOverrideForQuery(query string, pinterestOpts map[string]string) string {
 	stmtType := sqlparser.Preview(query)
 
 	removeKeyspaceIdForInserts := func(target string) string {
@@ -90,19 +122,8 @@ func maybeTargetOverrideForQuery(query string) string {
 		return result
 	}
 
-	_, marginComments := sqlparser.SplitMarginComments(query)
-	submatch := vitessTargetComment.FindStringSubmatch(marginComments.Leading)
-	if len(submatch) > 1 {
-		return removeKeyspaceIdForInserts(submatch[1])
-	}
-
-	// NOTE(dweitzman): For the moment we also allow the VitessTarget directive in
-	// trailing comments. Pepsi would never send that, but it's useful for debugging
-	// ad-hoc queries with the auditable-mysql-cli, which currently deletes leading
-	// comments.
-	submatch = vitessTargetComment.FindStringSubmatch(marginComments.Trailing)
-	if len(submatch) > 1 {
-		return removeKeyspaceIdForInserts(submatch[1])
+	if target, ok := pinterestOpts[QueryOptTarget]; ok {
+		return removeKeyspaceIdForInserts(target)
 	}
 	return ""
 }

@@ -173,6 +173,7 @@ type PrepareData struct {
 	ParamsType  []int32
 	ColumnNames []string
 	BindVars    map[string]*querypb.BindVariable
+	PinterestOpts map[string]string
 }
 
 // bufPool is used to allocate and free buffers in an efficient way.
@@ -872,7 +873,7 @@ func (c *Conn) handleNextCommand(handler Handler) error {
 
 		c.PrepareData[c.StatementID] = prepare
 
-		fld, err := handler.ComPrepare(c, queries[0])
+		fld, err := handler.ComPrepare(c, queries[0], prepare)
 
 		if err != nil {
 			if werr := c.writeErrorPacketFromError(err); werr != nil {

@@ -43,7 +43,7 @@ func (th *testHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltypes
 	return nil
 }
 
-func (th *testHandler) ComPrepare(c *mysql.Conn, q string) ([]*querypb.Field, error) {
+func (th *testHandler) ComPrepare(c *mysql.Conn, q string, prepare *mysql.PrepareData) ([]*querypb.Field, error) {
 	return nil, nil
 }
 
@@ -165,62 +165,5 @@ func TestConnectionRespectsExistingUnixSocket(t *testing.T) {
 	want := "listen unix"
 	if err == nil || !strings.HasPrefix(err.Error(), want) {
 		t.Errorf("Error: %v, want prefix %s", err, want)
-	}
-}
-
-func TestParsePinterestTargetOverride(t *testing.T) {
-
-	testcases := []struct {
-		in   string
-		want string
-	}{
-		{
-			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=foo, AdvertiserID=1234 */ select 1",
-			want: "foo",
-		},
-		{
-			in:   "/* ApplicationName=Pepsi.Service.GetPinPromotionsByAdGroupId, VitessTarget=patio[-80]@master */ select 1",
-			want: "patio[-80]@master",
-		},
-		{
-			in:   "/* VitessTarget=patio:80-@rdonly */ select 1",
-			want: "patio:80-@rdonly",
-		},
-		{
-			in:   "/* VitessTarget=patio:80-@rdonly */ set autocommit=1",
-			want: "patio:80-@rdonly",
-		},
-		// Insert statements don't get v2 routing
-		{
-			in:   "/* VitessTarget=patio:80-@rdonly */ insert into foo (a) values (1)",
-			want: "patio@rdonly",
-		},
-		{
-			in:   "/* VitessTarget=patio:80-@master */ insert into foo (a) values (1)",
-			want: "patio",
-		},
-		{
-			in:   "/* VitessTarget=patio[abcd] */ insert into foo (a) values (1)",
-			want: "patio",
-		},
-		{
-			in:   "/* VitessTarget=patio[no_closing_bracket */ insert into foo (a) values (1)",
-			want: "patio[no_closing_bracket",
-		},
-		{
-			in:   "/* VitessTarget= */ select 1",
-			want: "",
-		},
-		{
-			in:   "/* VitessTarget=, Foo=Bar */ select 1",
-			want: "",
-		},
-	}
-
-	for _, c := range testcases {
-		got := maybeTargetOverrideForQuery(c.in)
-		if got != c.want {
-			t.Errorf("maybeTargetOverrideForQuery(%#v). Want: %v. Got: %v", c.in, c.want, got)
-		}
 	}
 }

@@ -105,6 +105,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 	defer span.Finish()
 
 	ctx = callinfo.MysqlCallInfo(ctx, c)
+	pinterestOpts := parsePinterestOptionsFromQuery(query)
 
 	// Fill in the ImmediateCallerID with the UserData returned by
 	// the AuthServer plugin for that user. If nothing was
@@ -112,11 +113,11 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 	// user used for authentication to a Vitess User used for
 	// Table ACLs and Vitess authentication in general.
 	im := c.UserData.Get()
-	ef := getPinterestEffectiveCallerId(c)
+	ef := getPinterestEffectiveCallerId(c, pinterestOpts)
 
 	ctx = context.Background()
 
-	if queryTimeout := vh.queryTimeout(im, query); queryTimeout > 0 {
+	if queryTimeout := queryTimeout(im, pinterestOpts); queryTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, queryTimeout)
 		defer cancel()
 	}
@@ -150,7 +151,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 	}
 
 	// Look for Pinterest-specific comments selecting a keyspace
-	targetOverride := maybeTargetOverrideForQuery(query)
+	targetOverride := maybeTargetOverrideForQuery(query, pinterestOpts)
 	if targetOverride != "" {
 		originalTargetString := session.TargetString
 		session.TargetString = targetOverride
@@ -175,7 +176,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 }
 
 // ComPrepare is the handler for command prepare.
-func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string) ([]*querypb.Field, error) {
+func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string, prepare *mysql.PrepareData) ([]*querypb.Field, error) {
 	var ctx context.Context
 	var cancel context.CancelFunc
 	if *mysqlQueryTimeout != 0 {
@@ -186,6 +187,8 @@ func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string) ([]*querypb.Fie
 	}
 
 	ctx = callinfo.MysqlCallInfo(ctx, c)
+	pinterestOpts := parsePinterestOptionsFromQuery(query)
+	prepare.PinterestOpts = pinterestOpts
 
 	// Fill in the ImmediateCallerID with the UserData returned by
 	// the AuthServer plugin for that user. If nothing was
@@ -193,10 +196,7 @@ func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string) ([]*querypb.Fie
 	// user used for authentication to a Vitess User used for
 	// Table ACLs and Vitess authentication in general.
 	im := c.UserData.Get()
-	ef := callerid.NewEffectiveCallerID(
-		c.User,                  /* principal: who */
-		c.RemoteAddr().String(), /* component: running client process */
-		"VTGate MySQL Connector" /* subcomponent: part of the client */)
+	ef := getPinterestEffectiveCallerId(c, pinterestOpts)
 	ctx = callerid.NewContext(ctx, ef, im)
 
 	session, _ := c.ClientData.(*vtgatepb.Session)
@@ -231,6 +231,7 @@ func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string) ([]*querypb.Fie
 	if err != nil {
 		return nil, err
 	}
+
 	return fld, nil
 }
 
@@ -245,6 +246,7 @@ func (vh *vtgateHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareDat
 	}
 
 	ctx = callinfo.MysqlCallInfo(ctx, c)
+	pinterestOpts := prepare.PinterestOpts
 
 	// Fill in the ImmediateCallerID with the UserData returned by
 	// the AuthServer plugin for that user. If nothing was
@@ -252,10 +254,7 @@ func (vh *vtgateHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareDat
 	// user used for authentication to a Vitess User used for
 	// Table ACLs and Vitess authentication in general.
 	im := c.UserData.Get()
-	ef := callerid.NewEffectiveCallerID(
-		c.User,                  /* principal: who */
-		c.RemoteAddr().String(), /* component: running client process */
-		"VTGate MySQL Connector" /* subcomponent: part of the client */)
+	ef := getPinterestEffectiveCallerId(c, pinterestOpts)
 	ctx = callerid.NewContext(ctx, ef, im)
 
 	session, _ := c.ClientData.(*vtgatepb.Session)
