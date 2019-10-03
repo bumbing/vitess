@@ -29,6 +29,7 @@ import (
 	"vitess.io/vitess/go/streamlog"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/callinfo"
+	"vitess.io/vitess/go/vt/sqlparser"
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
 )
@@ -131,7 +132,7 @@ func (stats *LogStats) Logf(w io.Writer, params url.Values) error {
 		formattedBindVars = sqltypes.FormatBindVariables(
 			stats.BindVariables,
 			fullBindParams,
-			*streamlog.QueryLogFormat == streamlog.QueryLogFormatJSON,
+			*streamlog.QueryLogFormat == streamlog.QueryLogFormatJSON || *streamlog.QueryLogFormat == streamlog.QueryLogFormatCommentSeparatedJSON,
 		)
 	}
 
@@ -144,11 +145,11 @@ func (stats *LogStats) Logf(w io.Writer, params url.Values) error {
 		fmtString = "%v\t%v\t%v\t'%v'\t'%v'\t%v\t%v\t%.6f\t%.6f\t%.6f\t%.6f\t%v\t%q\t%v\t%v\t%v\t%q\t\n"
 	case streamlog.QueryLogFormatJSON:
 		fmtString = "{\"Method\": %q, \"RemoteAddr\": %q, \"Username\": %q, \"ImmediateCaller\": %q, \"Effective Caller\": %q, \"Start\": \"%v\", \"End\": \"%v\", \"TotalTime\": %.6f, \"PlanTime\": %v, \"ExecuteTime\": %v, \"CommitTime\": %v, \"StmtType\": %q, \"SQL\": %q, \"BindVars\": %v, \"ShardQueries\": %v, \"RowsAffected\": %v, \"Error\": %q}\n"
+	case streamlog.QueryLogFormatCommentSeparatedJSON:
+		fmtString = "{\"Method\": %q, \"RemoteAddr\": %q, \"Username\": %q, \"ImmediateCaller\": %q, \"Effective Caller\": %q, \"Start\": \"%v\", \"End\": \"%v\", \"TotalTime\": %.6f, \"PlanTime\": %v, \"ExecuteTime\": %v, \"CommitTime\": %v, \"StmtType\": %q, \"LeadingComment\": %q, \"SQL\": %q, \"TrailingComment\": %q, \"BindVars\": %v, \"ShardQueries\": %v, \"RowsAffected\": %v, \"Error\": %q}\n"
 	}
-
-	_, err := fmt.Fprintf(
-		w,
-		fmtString,
+	fmtArgs := make([]interface{}, 0, 20)
+	fmtArgs = append(fmtArgs,
 		stats.Method,
 		remoteAddr,
 		username,
@@ -161,11 +162,20 @@ func (stats *LogStats) Logf(w io.Writer, params url.Values) error {
 		stats.ExecuteTime.Seconds(),
 		stats.CommitTime.Seconds(),
 		stats.StmtType,
-		stats.SQL,
+	)
+	if *streamlog.QueryLogFormat == streamlog.QueryLogFormatCommentSeparatedJSON {
+		sql, comments := sqlparser.SplitMarginComments(stats.SQL)
+		fmtArgs = append(fmtArgs, comments.Leading, sql, comments.Trailing)
+	} else {
+		fmtArgs = append(fmtArgs, stats.SQL)
+	}
+	fmtArgs = append(fmtArgs,
 		formattedBindVars,
 		stats.ShardQueries,
 		stats.RowsAffected,
 		stats.ErrorStr(),
 	)
+
+	_, err := fmt.Fprintf(w, fmtString, fmtArgs...)
 	return err
 }

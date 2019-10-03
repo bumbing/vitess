@@ -61,6 +61,9 @@ const (
 
 	// QueryLogFormatJSON is the format specifier for json querylog output
 	QueryLogFormatJSON = "json"
+
+	// QueryLogFormatCommentSeparatedJSON is the format specifier for json querylog with redacted query
+	QueryLogFormatCommentSeparatedJSON = "json_comment_separated"
 )
 
 // StreamLogger is a non-blocking broadcaster of messages.

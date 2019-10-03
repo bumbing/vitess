@@ -70,7 +70,7 @@ while getopts ":d" opt; do
       args+=(
         -log_dir /vt/logs
         -keep_logs_by_mtime 336h
-        -querylog-format json
+        -querylog-format json_comment_separated
         -log_queries_to_file /vt/logs/queries.log
         -pid_file /vt/vtdataroot/vtgate.pid
       )
