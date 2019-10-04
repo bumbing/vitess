@@ -167,12 +167,12 @@ type Conn struct {
 
 // PrepareData is a buffer used for store prepare statement meta data
 type PrepareData struct {
-	StatementID uint32
-	PrepareStmt string
-	ParamsCount uint16
-	ParamsType  []int32
-	ColumnNames []string
-	BindVars    map[string]*querypb.BindVariable
+	StatementID   uint32
+	PrepareStmt   string
+	ParamsCount   uint16
+	ParamsType    []int32
+	ColumnNames   []string
+	BindVars      map[string]*querypb.BindVariable
 	PinterestOpts map[string]string
 }
 

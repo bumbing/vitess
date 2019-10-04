@@ -5,20 +5,20 @@ import (
 	"flag"
 	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
-	"strconv"
 
 	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
+	querypb "vitess.io/vitess/go/vt/proto/query"
+	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 	"vitess.io/vitess/go/vt/sqlparser"
 	"vitess.io/vitess/go/vt/topo/topoproto"
 	"vitess.io/vitess/go/vt/vttls"
-	querypb "vitess.io/vitess/go/vt/proto/query"
-	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 )
 
 var (
@@ -32,8 +32,11 @@ func init() {
 }
 
 const (
-  QueryOptTarget string = "VitessTarget"
-  QueryOptTimeout string = "TimeoutMS"
+	QueryOptTarget          string = "VitessTarget"
+	QueryOptTimeout         string = "TimeoutMS"
+	QueryOptAdvertiserID    string = "AdvertiserID"
+	QueryOptUserID          string = "UserID"
+	QueryOptApplicationName string = "ApplicationName"
 )
 
 var pinterestDirectiveComments = regexp.MustCompile(`\b(?P<key>[a-zA-Z0-9]+)=(?P<value>[^,\s]+),?\b`)
@@ -80,11 +83,30 @@ func queryTimeout(im *querypb.VTGateCallerID, pinterestOpts map[string]string) t
 }
 
 func getPinterestEffectiveCallerId(c *mysql.Conn, pinterestOpts map[string]string) *vtrpcpb.CallerID {
-	ef := callerid.NewEffectiveCallerID(
-		c.User,                  /* principal: who */
-		c.RemoteAddr().String(), /* component: running client process */
-		"VTGate MySQL Connector" /* subcomponent: part of the client */)
-	return ef
+	// The effective caller ID is made to give us options for configuring the transaction limiter.
+	// We can default to limiting the number of concurrent transactions by
+	// (service, advertiser ID, endpoint) as a default. If an advertiser is causing issues across
+	// multiple endpoints or an endpoint is causing issue across multiple advertisers, we can
+	// reconfigure the tx limiter for vttablet during an incident.
+
+	// Probably something like pepsirw
+	principle := c.User
+
+	// Advertiser ID if available, User ID otherwise
+	component := "unknown"
+	if advertiser, ok := pinterestOpts[QueryOptAdvertiserID]; ok {
+		component = "advertiser:" + advertiser
+	} else if user, ok := pinterestOpts[QueryOptUserID]; ok {
+		component = "user:" + user
+	}
+
+	// Endpoint
+	subcomponent := "VTGate MySQL Connector"
+	if endpoint, ok := pinterestOpts[QueryOptApplicationName]; ok {
+		subcomponent = endpoint
+	}
+
+	return callerid.NewEffectiveCallerID(principle, component, subcomponent)
 }
 
 // maybeTargetOverrideForQuery is a Pinterest-specific feature that can look in a comment
