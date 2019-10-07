@@ -39,7 +39,7 @@ const (
 	QueryOptApplicationName string = "ApplicationName"
 )
 
-var pinterestDirectiveComments = regexp.MustCompile(`\b(?P<key>[a-zA-Z0-9]+)=(?P<value>[^,\s]+),?\b`)
+var pinterestDirectiveComments = regexp.MustCompile(`\b(?P<key>[a-zA-Z0-9]+)=(?P<value>[^,\s]+),?\s`)
 
 func parsePinterestOptionsFromQuery(query string) map[string]string {
 	_, marginComments := sqlparser.SplitMarginComments(query)

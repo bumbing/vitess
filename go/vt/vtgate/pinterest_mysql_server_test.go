@@ -27,6 +27,12 @@ func TestParsePinterestComments(t *testing.T) {
 			},
 		},
 		{
+			in: "/* VitessTarget=foo[bar] */ select 1",
+			want: map[string]string{
+				"VitessTarget": "foo[bar]",
+			},
+		},
+		{
 			in:   "/* VitessTarget= */ select 1",
 			want: map[string]string{},
 		},
