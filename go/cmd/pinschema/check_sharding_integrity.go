@@ -71,9 +71,12 @@ func checkShardingIntegrity(ddls []*sqlparser.DDL, config pinschemaConfig) (stri
 		for _, col := range tableCreate.TableSpec.Columns {
 			colName := col.Name.String()
 
-			vindexName := getVindexName(colName, tableName)
+			vindexName, ok := maybeGetVindexName(colName, tableName)
+			if !ok {
+				continue
+			}
 
-			_, ok := allTableNames[vindexName]
+			_, ok = allTableNames[vindexName]
 			if !ok {
 				continue
 			}

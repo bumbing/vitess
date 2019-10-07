@@ -176,22 +176,24 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 				continue
 			}
 
-			vindexName := getVindexName(colName, tableName)
-			isPrimaryVindex := isPrimaryVindex(vindexName, tableName, colName)
+			vindexName, ok := maybeGetVindexName(colName, tableName)
+			if ok {
+				isPrimaryVindex := isPrimaryVindex(vindexName, tableName, colName)
 
-			vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
+				vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
 
-			lookupVindexName := vindexName + vindexSuffix
-			if vb.shouldUseLookupVindex(tableName, colName, lookupVindexName) {
-				vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
-			}
+				lookupVindexName := vindexName + vindexSuffix
+				if vb.shouldUseLookupVindex(tableName, colName, lookupVindexName) {
+					vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
+				}
 
-			// Sort secondary indexes alphabetically by name to simplify unit testing.
-			if len(tblVindexes) > 1 {
-				secondaryVindexes := tblVindexes[1:]
-				sort.Slice(secondaryVindexes, func(i, j int) bool {
-					return secondaryVindexes[i].Name < secondaryVindexes[j].Name
-				})
+				// Sort secondary indexes alphabetically by name to simplify unit testing.
+				if len(tblVindexes) > 1 {
+					secondaryVindexes := tblVindexes[1:]
+					sort.Slice(secondaryVindexes, func(i, j int) bool {
+						return secondaryVindexes[i].Name < secondaryVindexes[j].Name
+					})
+				}
 			}
 
 			// A column named "id" which has a primary key will be assigned a sequence.
@@ -225,22 +227,26 @@ func tableNameToColName(tableName string) string {
 	return singularize(tableName) + "_id"
 }
 
-func getVindexName(colName, tableName string) string {
+func maybeGetVindexName(colName, tableName string) (string, bool) {
 	if colName == "advertiser_gid" {
-		return "g_advertiser_id"
+		return "g_advertiser_id", true
 	} else if colName == "id" {
-		return tableNameToColName(tableName)
+		return tableNameToColName(tableName), true
 	} else if colName == "gid" {
-		return "g_" + tableNameToColName(tableName)
+		return "g_" + tableNameToColName(tableName), true
 	} else if colName == "spec_id" {
 		if tableName == "pin_promotion_labels" {
-			return "pin_promotion_spec_id"
+			return "pin_promotion_spec_id", true
 		} else {
-			return singularize(tableName) + "_spec_id"
+			return singularize(tableName) + "_spec_id", true
 		}
+	} else if colName == "conversion_tag_id" {
+		// Some talbes reference conversion_tag_id to conversion_tag_v3 table, which is not possible to be used as
+		// unowned Vindex since the table is in PatioGeneral keyspace. To totally deprecate ScatterCache, skipping it.
+		return "", false
 	}
 
-	return colName
+	return colName, true
 }
 
 func (vb *vschemaBuilder) createPrimaryVindexes() {
