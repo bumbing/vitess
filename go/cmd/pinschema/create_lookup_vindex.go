@@ -36,12 +36,8 @@ func buildVindexDDLs(ddls []*sqlparser.DDL, config pinschemaConfig) (string, err
 	var b bytes.Buffer
 
 	for _, tableCreate := range ddls {
-		if !tableInVindexWhitelist(config, tableCreate) {
-			continue
-		}
-
 		if !tableContainsIdColumn(tableCreate) {
-			log.Warning("Table %s does not contain id column, skip lookup vindex table creation on: ", tableCreate.Table.Name.String())
+			log.Warning("Table does not contain id column, skip lookup vindex table creation on: ", tableCreate.Table.Name.String())
 			continue
 		}
 

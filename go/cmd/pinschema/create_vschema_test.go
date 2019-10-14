@@ -46,45 +46,6 @@ func TestCreateVSchema(t *testing.T) {
 				},
 			},
 		},
-		{"LookupVindexUnownedVindexWhitelist", "testdata/patio.sql",
-			pinschemaConfig{
-				createPrimary:               true,
-				createSecondary:             true,
-				defaultScatterCacheCapacity: 10000,
-				tableScatterCacheCapacity: map[string]uint64{
-					"campaigns": 20000,
-				},
-				lookupVindexWriteOnly:        true,
-				lookupVindexWhitelist:        []string{"ad_groups", "ad_group_specs"},
-				unownedLookupVindexWhiteList: []string{"ad_group_id_vdx", "pin_promotion_spec_id_vdx"},
-				createLookupVindexTables:     true,
-			},
-		},
-		{"LookupVindexWhitelist", "testdata/patio.sql",
-			pinschemaConfig{
-				createPrimary:               true,
-				createSecondary:             true,
-				defaultScatterCacheCapacity: 10000,
-				tableScatterCacheCapacity: map[string]uint64{
-					"campaigns": 20000,
-				},
-				lookupVindexWriteOnly:    true,
-				lookupVindexWhitelist:    []string{"ad_groups", "ad_group_specs"},
-				createLookupVindexTables: true,
-			},
-		},
-		{"LookupVindex", "testdata/patio.sql",
-			pinschemaConfig{
-				createPrimary:               true,
-				createSecondary:             true,
-				defaultScatterCacheCapacity: 10000,
-				tableScatterCacheCapacity: map[string]uint64{
-					"campaigns": 20000,
-				},
-				lookupVindexWriteOnly:    true,
-				createLookupVindexTables: true,
-			},
-		},
 	}
 
 	for _, test := range tests {

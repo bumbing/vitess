@@ -94,46 +94,6 @@ func (vb *vschemaBuilder) addColumnVindex(vindexName string, colName string, isP
 	}
 }
 
-func (vb *vschemaBuilder) shouldUseLookupVindex(tableName string, colName string, vindexName string) bool {
-	if !vb.shouldCreateLookupVindex(tableName) {
-		return false
-	}
-
-	// Vindex table from Id column is owned by this table. The owner should always has it in ColumnVindex.
-	if "id" == colName {
-		return true
-	}
-
-	// Unowned vindex depends whether they are in the whitelist.
-	if 0 == len(vb.config.unownedLookupVindexWhiteList) {
-		return true
-	}
-
-	for _, unownedLookupVindexWhiteList := range vb.config.unownedLookupVindexWhiteList {
-		if unownedLookupVindexWhiteList == vindexName {
-			return true
-		}
-	}
-	return false
-}
-
-func (vb *vschemaBuilder) shouldCreateLookupVindex(tableName string) bool {
-	if !vb.config.createLookupVindexTables {
-		return false
-	}
-
-	// No white listed table meaning all tables are included.
-	if 0 == len(vb.config.lookupVindexWhitelist) {
-		return true
-	}
-	for _, whitelistVindexTable := range vb.config.lookupVindexWhitelist {
-		if whitelistVindexTable == tableName {
-			return true
-		}
-	}
-	return false
-}
-
 func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 	if vb.config.createPrimary {
 		vb.createPrimaryVindexes()
@@ -179,13 +139,18 @@ func (vb *vschemaBuilder) ddlsToVSchema() (*vschemapb.Keyspace, error) {
 			vindexName, ok := maybeGetVindexName(colName, tableName)
 			if ok {
 				isPrimaryVindex := isPrimaryVindex(vindexName, tableName, colName)
+				isFunctionalVindex := vindexName == "g_advertiser_id" || vindexName == "advertiser_id"
+				if isFunctionalVindex {
+					vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
+				}
 
-				vb.addColumnVindex(vindexName, colName, isPrimaryVindex, &tblVindexes)
+				addScatterCache := !isFunctionalVindex && *fallbackToScatterCache
+				if addScatterCache {
+					vb.addColumnVindex(vindexName, colName, false, &tblVindexes)
+				}
 
 				lookupVindexName := vindexName + vindexSuffix
-				if vb.shouldUseLookupVindex(tableName, colName, lookupVindexName) {
-					vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
-				}
+				vb.addColumnVindex(lookupVindexName, colName, false, &tblVindexes)
 
 				// Sort secondary indexes alphabetically by name to simplify unit testing.
 				if len(tblVindexes) > 1 {
@@ -241,7 +206,7 @@ func maybeGetVindexName(colName, tableName string) (string, bool) {
 			return singularize(tableName) + "_spec_id", true
 		}
 	} else if colName == "conversion_tag_id" {
-		// Some talbes reference conversion_tag_id to conversion_tag_v3 table, which is not possible to be used as
+		// Some tables reference conversion_tag_id to conversion_tag_v3 table, which is not possible to be used as
 		// unowned Vindex since the table is in PatioGeneral keyspace. To totally deprecate ScatterCache, skipping it.
 		return "", false
 	}
@@ -304,7 +269,6 @@ func (vb *vschemaBuilder) createPinLookupVindex(tableName string) {
 			"from":       "id",
 			"to":         "g_advertiser_id",
 			"autocommit": "true",
-			"write_only": strconv.FormatBool(vb.config.lookupVindexWriteOnly),
 		},
 	}
 }
@@ -326,11 +290,14 @@ func (vb *vschemaBuilder) createSecondaryVindexes() {
 			continue //bypass this table, as neither scatter cache or lookup vindex would be needed.
 		}
 		// create scatter cache
-		vb.createScatterCache(tableName)
+		if *fallbackToScatterCache {
+			vb.createScatterCache(tableName)
+		}
 		// create lookup vindex if needed
-		shouldCreateLookupVindex := vb.hasColumn(tableCreate, "g_advertiser_id") && vb.shouldCreateLookupVindex(tableName)
-		if shouldCreateLookupVindex {
-			vb.createPinLookupVindex(tableName)
+		if vb.hasColumn(tableCreate, "g_advertiser_id") {
+			if !*fallbackToScatterCache {
+				vb.createPinLookupVindex(tableName)
+			}
 		}
 	}
 }

@@ -23,8 +23,6 @@ import (
 var (
 	createPrimaryVindexes        = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
 	createSecondaryVindexes      = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
-	createLookupVindexTables     = flag.Bool("create-lookup-vindex-tables", false, "Whether to create vindex tables")
-	lookupVindexWriteOnly        = flag.Bool("lookup-vindex-write-only", true, "Whether vindex tables are in write-only mode")
 	createSequences              = flag.Bool("create-sequences", false, "Whether to make sequences")
 	includeCols                  = flag.Bool("include-cols", false, "Whether to include a column list for each table")
 	queryTablePrefix             = flag.String("query-table-prefix", "", "A prefix to add to tables for generated queries. Used to support hive with the sharding integrity check")
@@ -35,18 +33,15 @@ var (
 	tableScatterCacheCapacity    flagutil.StringMapValue
 	ignoredTables                flagutil.StringListValue
 	sequenceTables               flagutil.StringListValue
-	lookupVindexWhitelist        flagutil.StringListValue
-	unownedLookupVindexWhiteList flagutil.StringListValue
 	validateKeyspace             = flag.String("validate-keyspace", "patio", "Which keyspace needs to validate the vschema correctness")
 	validateShards               = flag.Int("validate-shards", 2, "How many shards is actively serving master for the validate keyspace")
 	validateVschemaFile          = flag.String("validate-vschema-file", "", "Where the vschema file is for validation")
+	fallbackToScatterCache       = flag.Bool("fall-back-to-scatter-cache", false, "If Lookup Vindex serving wrong data or patiogeneral is not available, VSchema can fall back to ScatterCache is this equals to true.")
 )
 
 type pinschemaConfig struct {
 	createPrimary                bool
 	createSecondary              bool
-	createLookupVindexTables     bool
-	lookupVindexWriteOnly        bool
 	createSeq                    bool
 	defaultScatterCacheCapacity  uint64
 	tableScatterCacheCapacity    map[string]uint64
@@ -56,8 +51,6 @@ type pinschemaConfig struct {
 	tableResultLimit             int
 	summarize                    bool
 	sequenceTableWhitelist       []string
-	lookupVindexWhitelist        []string
-	unownedLookupVindexWhiteList []string
 	validateVschema              string
 	validateKeyspace             string
 	validateShards               int
@@ -77,14 +70,6 @@ func init() {
 	flag.Var(&sequenceTables,
 		"seq-table-whitelist",
 		"comma separated whitelist of tables that should use sequences, for incrementally rolling out sequences to a keyspace table by table")
-
-	flag.Var(&lookupVindexWhitelist,
-		"lookup-vindex-whitelist",
-		"comma separated whitelist of tables that should use lookup vindex, for incrementally rolling out sequences to a keyspace table by table")
-
-	flag.Var(&unownedLookupVindexWhiteList,
-		"unowned-lookup-vindex-whitelist",
-		"comma separated whitelist of lookup vindex tables.  should be used as index in tables that not owning the vindex table")
 
 	logger := logutil.NewConsoleLogger()
 	flag.CommandLine.SetOutput(logutil.NewLoggerWriter(logger))
@@ -153,8 +138,6 @@ func parseAndRun(command string, args []string) error {
 	config := pinschemaConfig{
 		createPrimary:                *createPrimaryVindexes,
 		createSecondary:              *createSecondaryVindexes,
-		createLookupVindexTables:     *createLookupVindexTables,
-		lookupVindexWriteOnly:        *lookupVindexWriteOnly,
 		createSeq:                    *createSequences,
 		includeCols:                  *includeCols,
 		colsAuthoritative:            *colsAuthoritative,
@@ -164,8 +147,6 @@ func parseAndRun(command string, args []string) error {
 		tableResultLimit:             *tableResultLimit,
 		summarize:                    *summarize,
 		sequenceTableWhitelist:       sequenceTables,
-		lookupVindexWhitelist:        lookupVindexWhitelist,
-		unownedLookupVindexWhiteList: unownedLookupVindexWhiteList,
 		validateKeyspace:             *validateKeyspace,
 		validateShards:               *validateShards,
 	}

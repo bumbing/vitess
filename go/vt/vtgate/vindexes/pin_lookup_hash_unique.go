@@ -112,7 +112,7 @@ func NewPinLookupUniqueHash(name string, m map[string]string) (Vindex, error) {
 
 	cacheCapacity, err := strconv.ParseUint(m["capacity"], 10, 64)
 	if err != nil {
-		log.Warning("PinLookupUniqueHash: failed to parse capacity: %v, using the default capacity %v", err, defaultCapacity)
+		log.Warningf("PinLookupUniqueHash: failed to parse capacity. Error: %v, using the default capacity %d", err, defaultCapacity)
 		cacheCapacity = defaultCapacity
 	}
 
@@ -390,7 +390,7 @@ func getThingsToVerify(ids []sqltypes.Value, ksids [][]byte) ([]sqltypes.Value, 
 		// This failure should most like due to Patio-latest DML query pass in negative value for unowned Vindex.
 		// We bypass the verification for to not abort the DML and print a warning instead.
 		if err != nil {
-			log.Warningf("PinLookupHashUnique.Verify: Failed to parse Id %v, error: %v", id, err)
+			log.Warningf("PinLookupHashUnique.Verify: Failed to parse Id %v, error: ", id, err)
 			preVerifyResults[i] = true
 			continue
 		}

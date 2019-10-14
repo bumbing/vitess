@@ -27,11 +27,9 @@ func TestValidateVschema(t *testing.T) {
 	}
 
 	config := pinschemaConfig{
-		createLookupVindexTables: true,
 		validateKeyspace:         "patio",
 		validateShards:           2,
 		validateVschema:          string(vschema),
-		lookupVindexWhitelist:    []string{"accepted_tos"},
 	}
 
 	md5, err := validateVschema(ddls, config)
@@ -58,11 +56,9 @@ func TestValidateVschemaVSchemaNegatives(t *testing.T) {
 	for vschemaPath, errExpected := range vschemas {
 		vschema, err := ioutil.ReadFile(vschemaPath)
 		config := pinschemaConfig{
-			createLookupVindexTables: true,
 			validateKeyspace:         "patio",
 			validateShards:           2,
 			validateVschema:          string(vschema),
-			lookupVindexWhitelist:    []string{"accepted_tos"},
 		}
 
 		if err != nil {

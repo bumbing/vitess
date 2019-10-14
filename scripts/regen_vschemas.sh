@@ -32,7 +32,6 @@ VINDEX_ARGS="-create-primary-vindexes \
 -default-scatter-cache-capacity 100000 \
 -table-scatter-cache-capacity campaigns:200000"
 PATIO_SEQUENCE_ARGS="-create-sequences"
-LOOKUP_VINDEX_WHITELIST_ARGS="-lookup-vindex-whitelist advertisers"
 
 mkdir -p $OUTPUT_DIR
 go run vitess.io/vitess/go/cmd/pinschema create-vschema $INCLUDE_COLS_ARGS $VINDEX_ARGS $PATIO_SEQUENCE_ARGS $PATIO_DDLS > $OUTPUT_DIR/patio.json

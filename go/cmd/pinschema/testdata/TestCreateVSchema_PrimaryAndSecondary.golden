@@ -1,32 +1,38 @@
 {
   "sharded": true,
   "vindexes": {
-    "accepted_tos_id": {
-      "type": "scatter_cache",
+    "accepted_tos_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "accepted_tos",
+        "table": "patiogeneral.accepted_tos_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "accepted_tos"
     },
-    "ad_group_id": {
-      "type": "scatter_cache",
+    "ad_group_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "ad_groups",
+        "table": "patiogeneral.ad_group_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "ad_groups"
     },
-    "ad_group_spec_id": {
-      "type": "scatter_cache",
+    "ad_group_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "ad_group_specs",
+        "table": "patiogeneral.ad_group_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "ad_group_specs"
     },
     "advertiser_id": {
       "type": "hash_offset",
@@ -34,113 +40,137 @@
         "offset": "549755813888"
       }
     },
-    "app_event_tracking_config_id": {
-      "type": "scatter_cache",
+    "app_event_tracking_config_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "app_event_tracking_configs",
+        "table": "patiogeneral.app_event_tracking_config_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "app_event_tracking_configs"
     },
-    "bill_detail_id": {
-      "type": "scatter_cache",
+    "bill_detail_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "bill_details",
+        "table": "patiogeneral.bill_detail_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "bill_details"
     },
-    "bill_id": {
-      "type": "scatter_cache",
+    "bill_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "bills",
+        "table": "patiogeneral.bill_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "bills"
     },
-    "billing_action_id": {
-      "type": "scatter_cache",
+    "billing_action_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "billing_actions",
+        "table": "patiogeneral.billing_action_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "billing_actions"
     },
-    "billing_contact_id": {
-      "type": "scatter_cache",
+    "billing_contact_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "billing_contacts",
+        "table": "patiogeneral.billing_contact_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "billing_contacts"
     },
-    "billing_profile_id": {
-      "type": "scatter_cache",
+    "billing_profile_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "billing_profiles",
+        "table": "patiogeneral.billing_profile_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "billing_profiles"
     },
-    "bulk_v2_job_id": {
-      "type": "scatter_cache",
+    "bulk_v2_job_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "bulk_v2_jobs",
+        "table": "patiogeneral.bulk_v2_job_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "bulk_v2_jobs"
     },
-    "business_profile_id": {
-      "type": "scatter_cache",
+    "business_profile_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "business_profiles",
+        "table": "patiogeneral.business_profile_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "business_profiles"
     },
-    "campaign_id": {
-      "type": "scatter_cache",
+    "campaign_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "20000",
         "from": "id",
-        "table": "campaigns",
+        "table": "patiogeneral.campaign_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "campaigns"
     },
-    "campaign_spec_id": {
-      "type": "scatter_cache",
+    "campaign_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "campaign_specs",
+        "table": "patiogeneral.campaign_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "campaign_specs"
     },
-    "carousel_slot_promotion_id": {
-      "type": "scatter_cache",
+    "carousel_slot_promotion_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "carousel_slot_promotions",
+        "table": "patiogeneral.carousel_slot_promotion_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "carousel_slot_promotions"
     },
-    "conversion_tag_id": {
-      "type": "scatter_cache",
+    "conversion_tag_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "conversion_tags",
+        "table": "patiogeneral.conversion_tag_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "conversion_tags"
     },
     "dark_write_advertiser_id": {
       "type": "hash_offset",
@@ -151,176 +181,214 @@
     "g_advertiser_id": {
       "type": "hash"
     },
-    "goal_id": {
-      "type": "scatter_cache",
+    "goal_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "goals",
+        "table": "patiogeneral.goal_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "goals"
     },
-    "notification_id": {
-      "type": "scatter_cache",
+    "notification_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "notifications",
+        "table": "patiogeneral.notification_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "notifications"
     },
-    "order_line_id": {
-      "type": "scatter_cache",
+    "order_line_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "order_lines",
+        "table": "patiogeneral.order_line_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "order_lines"
     },
-    "order_line_spec_id": {
-      "type": "scatter_cache",
+    "order_line_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "order_line_specs",
+        "table": "patiogeneral.order_line_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "order_line_specs"
     },
-    "pin_promotion_id": {
-      "type": "scatter_cache",
+    "pin_promotion_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "pin_promotions",
+        "table": "patiogeneral.pin_promotion_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "pin_promotions"
     },
-    "pin_promotion_label_id": {
-      "type": "scatter_cache",
+    "pin_promotion_label_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "pin_promotion_labels",
+        "table": "patiogeneral.pin_promotion_label_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "pin_promotion_labels"
     },
-    "pin_promotion_spec_id": {
-      "type": "scatter_cache",
+    "pin_promotion_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "pin_promotion_specs",
+        "table": "patiogeneral.pin_promotion_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "pin_promotion_specs"
     },
-    "pin_promotions_history_id": {
-      "type": "scatter_cache",
+    "pin_promotions_history_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "pin_promotions_history",
+        "table": "patiogeneral.pin_promotions_history_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "pin_promotions_history"
     },
-    "pinner_list_id": {
-      "type": "scatter_cache",
+    "pinner_list_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "pinner_lists",
+        "table": "patiogeneral.pinner_list_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "pinner_lists"
     },
-    "pinner_list_spec_id": {
-      "type": "scatter_cache",
+    "pinner_list_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "pinner_list_specs",
+        "table": "patiogeneral.pinner_list_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "pinner_list_specs"
     },
-    "product_group_id": {
-      "type": "scatter_cache",
+    "product_group_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "product_groups",
+        "table": "patiogeneral.product_group_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "product_groups"
     },
-    "product_group_spec_id": {
-      "type": "scatter_cache",
+    "product_group_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "product_group_specs",
+        "table": "patiogeneral.product_group_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "product_group_specs"
     },
-    "promoted_catalog_product_group_id": {
-      "type": "scatter_cache",
+    "promoted_catalog_product_group_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "promoted_catalog_product_groups",
+        "table": "patiogeneral.promoted_catalog_product_group_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "promoted_catalog_product_groups"
     },
-    "promoted_catalog_product_groups_history_id": {
-      "type": "scatter_cache",
+    "promoted_catalog_product_groups_history_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "promoted_catalog_product_groups_history",
+        "table": "patiogeneral.promoted_catalog_product_groups_history_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "promoted_catalog_product_groups_history"
     },
-    "rule_subscription_id": {
-      "type": "scatter_cache",
+    "rule_subscription_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "rule_subscriptions",
+        "table": "patiogeneral.rule_subscription_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "rule_subscriptions"
     },
-    "targeting_attribute_history_id": {
-      "type": "scatter_cache",
+    "targeting_attribute_history_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "targeting_attribute_history",
+        "table": "patiogeneral.targeting_attribute_history_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "targeting_attribute_history"
     },
-    "targeting_attribute_id": {
-      "type": "scatter_cache",
+    "targeting_attribute_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "targeting_attributes",
+        "table": "patiogeneral.targeting_attribute_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "targeting_attributes"
     },
-    "targeting_spec_id": {
-      "type": "scatter_cache",
+    "targeting_spec_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "targeting_specs",
+        "table": "patiogeneral.targeting_spec_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "targeting_specs"
     },
-    "user_preference_id": {
-      "type": "scatter_cache",
+    "user_preference_id_vdx": {
+      "type": "pin_lookup_hash_unique",
       "params": {
+        "autocommit": "true",
         "capacity": "10000",
         "from": "id",
-        "table": "user_preferences",
+        "table": "patiogeneral.user_preference_id_idx",
         "to": "g_advertiser_id"
-      }
+      },
+      "owner": "user_preferences"
     }
   },
   "tables": {
@@ -333,7 +401,7 @@
           ]
         },
         {
-          "name": "accepted_tos_id",
+          "name": "accepted_tos_id_vdx",
           "columns": [
             "id"
           ]
@@ -355,13 +423,13 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
         },
         {
-          "name": "ad_group_spec_id",
+          "name": "ad_group_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -373,7 +441,7 @@
           ]
         },
         {
-          "name": "targeting_spec_id",
+          "name": "targeting_spec_id_vdx",
           "columns": [
             "targeting_spec_id"
           ]
@@ -389,13 +457,13 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "ad_group_spec_id",
+          "name": "ad_group_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -407,7 +475,7 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -423,13 +491,13 @@
           ]
         },
         {
-          "name": "billing_profile_id",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "billing_profile_id"
           ]
         },
         {
-          "name": "business_profile_id",
+          "name": "business_profile_id_vdx",
           "columns": [
             "business_profile_id"
           ]
@@ -451,7 +519,7 @@
           ]
         },
         {
-          "name": "app_event_tracking_config_id",
+          "name": "app_event_tracking_config_id_vdx",
           "columns": [
             "id"
           ]
@@ -473,19 +541,19 @@
           ]
         },
         {
-          "name": "bill_detail_id",
+          "name": "bill_detail_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "bill_id",
+          "name": "bill_id_vdx",
           "columns": [
             "bill_id"
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
@@ -507,13 +575,13 @@
           ]
         },
         {
-          "name": "bill_id",
+          "name": "bill_id_vdx",
           "columns": [
             "bill_id"
           ]
         },
         {
-          "name": "billing_action_id",
+          "name": "billing_action_id_vdx",
           "columns": [
             "id"
           ]
@@ -535,7 +603,7 @@
           ]
         },
         {
-          "name": "billing_contact_id",
+          "name": "billing_contact_id_vdx",
           "columns": [
             "id"
           ]
@@ -557,7 +625,7 @@
           ]
         },
         {
-          "name": "billing_profile_id",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "id"
           ]
@@ -579,19 +647,19 @@
           ]
         },
         {
-          "name": "bill_id",
+          "name": "bill_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "billing_profile_id",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "billing_profile_id"
           ]
         },
         {
-          "name": "business_profile_id",
+          "name": "business_profile_id_vdx",
           "columns": [
             "business_profile_id"
           ]
@@ -613,7 +681,7 @@
           ]
         },
         {
-          "name": "bulk_v2_job_id",
+          "name": "bulk_v2_job_id_vdx",
           "columns": [
             "id"
           ]
@@ -635,7 +703,7 @@
           ]
         },
         {
-          "name": "business_profile_id",
+          "name": "business_profile_id_vdx",
           "columns": [
             "id"
           ]
@@ -657,19 +725,19 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
         },
         {
-          "name": "campaign_spec_id",
+          "name": "campaign_spec_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "order_line_id",
+          "name": "order_line_id_vdx",
           "columns": [
             "order_line_id"
           ]
@@ -691,13 +759,13 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "campaign_spec_id",
+          "name": "campaign_spec_id_vdx",
           "columns": [
             "campaign_spec_id"
           ]
@@ -719,13 +787,13 @@
           ]
         },
         {
-          "name": "carousel_slot_promotion_id",
+          "name": "carousel_slot_promotion_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "pin_promotion_id",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "pin_promotion_id"
           ]
@@ -747,7 +815,7 @@
           ]
         },
         {
-          "name": "conversion_tag_id",
+          "name": "conversion_tag_id_vdx",
           "columns": [
             "id"
           ]
@@ -769,7 +837,7 @@
           ]
         },
         {
-          "name": "goal_id",
+          "name": "goal_id_vdx",
           "columns": [
             "id"
           ]
@@ -791,7 +859,7 @@
           ]
         },
         {
-          "name": "notification_id",
+          "name": "notification_id_vdx",
           "columns": [
             "id"
           ]
@@ -813,13 +881,13 @@
           ]
         },
         {
-          "name": "order_line_id",
+          "name": "order_line_id_vdx",
           "columns": [
             "order_line_id"
           ]
         },
         {
-          "name": "order_line_spec_id",
+          "name": "order_line_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -841,19 +909,19 @@
           ]
         },
         {
-          "name": "billing_profile_id",
+          "name": "billing_profile_id_vdx",
           "columns": [
             "billing_profile_id"
           ]
         },
         {
-          "name": "order_line_id",
+          "name": "order_line_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "order_line_spec_id",
+          "name": "order_line_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -875,13 +943,13 @@
           ]
         },
         {
-          "name": "pin_promotion_label_id",
+          "name": "pin_promotion_label_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "pin_promotion_spec_id",
+          "name": "pin_promotion_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -903,25 +971,25 @@
           ]
         },
         {
-          "name": "campaign_spec_id",
+          "name": "campaign_spec_id_vdx",
           "columns": [
             "campaign_spec_id"
           ]
         },
         {
-          "name": "pin_promotion_id",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "pin_promotion_id"
           ]
         },
         {
-          "name": "pin_promotion_spec_id",
+          "name": "pin_promotion_spec_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "targeting_spec_id",
+          "name": "targeting_spec_id_vdx",
           "columns": [
             "targeting_spec_id"
           ]
@@ -937,7 +1005,7 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -949,19 +1017,19 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
         },
         {
-          "name": "pin_promotion_id",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "pin_promotion_spec_id",
+          "name": "pin_promotion_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -977,7 +1045,7 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -989,19 +1057,19 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
         },
         {
-          "name": "pin_promotion_id",
+          "name": "pin_promotion_id_vdx",
           "columns": [
             "pin_promotion_id"
           ]
         },
         {
-          "name": "pin_promotions_history_id",
+          "name": "pin_promotions_history_id_vdx",
           "columns": [
             "id"
           ]
@@ -1023,13 +1091,13 @@
           ]
         },
         {
-          "name": "pinner_list_id",
+          "name": "pinner_list_id_vdx",
           "columns": [
             "pinner_list_id"
           ]
         },
         {
-          "name": "pinner_list_spec_id",
+          "name": "pinner_list_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1051,13 +1119,13 @@
           ]
         },
         {
-          "name": "pinner_list_id",
+          "name": "pinner_list_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "pinner_list_spec_id",
+          "name": "pinner_list_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -1079,13 +1147,13 @@
           ]
         },
         {
-          "name": "product_group_id",
+          "name": "product_group_id_vdx",
           "columns": [
             "product_group_id"
           ]
         },
         {
-          "name": "product_group_spec_id",
+          "name": "product_group_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1101,7 +1169,7 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1113,13 +1181,13 @@
           ]
         },
         {
-          "name": "product_group_id",
+          "name": "product_group_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "product_group_spec_id",
+          "name": "product_group_spec_id_vdx",
           "columns": [
             "spec_id"
           ]
@@ -1135,7 +1203,7 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1147,13 +1215,13 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
         },
         {
-          "name": "promoted_catalog_product_group_id",
+          "name": "promoted_catalog_product_group_id_vdx",
           "columns": [
             "id"
           ]
@@ -1169,7 +1237,7 @@
           ]
         },
         {
-          "name": "ad_group_id",
+          "name": "ad_group_id_vdx",
           "columns": [
             "ad_group_id"
           ]
@@ -1181,19 +1249,19 @@
           ]
         },
         {
-          "name": "campaign_id",
+          "name": "campaign_id_vdx",
           "columns": [
             "campaign_id"
           ]
         },
         {
-          "name": "promoted_catalog_product_group_id",
+          "name": "promoted_catalog_product_group_id_vdx",
           "columns": [
             "promoted_catalog_product_group_id"
           ]
         },
         {
-          "name": "promoted_catalog_product_groups_history_id",
+          "name": "promoted_catalog_product_groups_history_id_vdx",
           "columns": [
             "id"
           ]
@@ -1215,7 +1283,7 @@
           ]
         },
         {
-          "name": "rule_subscription_id",
+          "name": "rule_subscription_id_vdx",
           "columns": [
             "id"
           ]
@@ -1269,13 +1337,13 @@
           ]
         },
         {
-          "name": "targeting_attribute_history_id",
+          "name": "targeting_attribute_history_id_vdx",
           "columns": [
             "id"
           ]
         },
         {
-          "name": "targeting_attribute_id",
+          "name": "targeting_attribute_id_vdx",
           "columns": [
             "targeting_attribute_id"
           ]
@@ -1297,7 +1365,7 @@
           ]
         },
         {
-          "name": "targeting_attribute_id",
+          "name": "targeting_attribute_id_vdx",
           "columns": [
             "id"
           ]
@@ -1319,7 +1387,7 @@
           ]
         },
         {
-          "name": "targeting_spec_id",
+          "name": "targeting_spec_id_vdx",
           "columns": [
             "id"
           ]
@@ -1341,7 +1409,7 @@
           ]
         },
         {
-          "name": "user_preference_id",
+          "name": "user_preference_id_vdx",
           "columns": [
             "id"
           ]
