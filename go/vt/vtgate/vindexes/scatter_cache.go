@@ -37,20 +37,15 @@ package vindexes
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 	"vitess.io/vitess/go/cache"
-	"vitess.io/vitess/go/decider"
-	"vitess.io/vitess/go/flagutil"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/sync2"
 	"vitess.io/vitess/go/vt/key"
-	"vitess.io/vitess/go/vt/log"
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	vtgatepb "vitess.io/vitess/go/vt/proto/vtgate"
@@ -60,22 +55,10 @@ var (
 	_ Vindex = (*ScatterCache)(nil)
 	_ Lookup = (*ScatterCache)(nil)
 
-	darkReadTables flagutil.StringListValue
-
 	scatterCacheTimings = stats.NewMultiTimings(
 		"VindexTimings",
 		"Vindex timings",
 		[]string{"Name", "Operation"})
-
-	darkReadResultOutcome = stats.NewCountersWithMultiLabels(
-		"VindexDarkReadResult",
-		"The outcome of Dark read between Scatter and Lookup Vindex per table. There are four conditions:" +
-			"success, length_mismatch, dest_type_mismatch, fail_to_lookup",
-		[]string{"TableName", "Outcome"})
-	destinationMismatch = stats.NewCountersWithMultiLabels(
-		"VindexDarkReadMismatch",
-		"Destination mismatch between LookupVindex and ScatterCache",
-		[]string{"TableName", "ScatterCacheDestType", "VindexDestType"})
 )
 
 // RegisterScatterCacheStats arranges for scatter cache stats to be available given a way to fetch the
@@ -113,7 +96,6 @@ func RegisterScatterCacheStats(getVSchema func() *VSchema) {
 
 func init() {
 	Register("scatter_cache", NewScatterCache)
-	flag.Var(&darkReadTables, "dark_read_lookup_vindex_tables", "CSV of tables can be used for dark read after backfill")
 }
 
 // ScatterCache defines a vindex that does scatter queries and saves the result
@@ -127,8 +109,6 @@ type ScatterCache struct {
 	keyspaceIDCache *scatterLRUCache
 	cacheHits       sync2.AtomicInt64
 	cacheMisses     sync2.AtomicInt64
-	lookupVindex    Vindex
-	syncDarkRead    bool
 }
 
 // scatterLRU is a thread-safe object for remembering the keyspace ID of recently-searched
@@ -185,47 +165,15 @@ func NewScatterCache(name string, m map[string]string) (Vindex, error) {
 		return nil, fmt.Errorf("scatter_cache: failed to parse capacity: %v", err)
 	}
 
-	vindexTableName := getLookupVindexName(m["table"])
-	lookupVindex := maybeCreateInternalLookupVindex(vindexTableName, m, darkReadTables)
-
 	sc := &ScatterCache{
 		name:            name,
 		fromCol:         m["from"],
 		toCol:           m["to"],
 		table:           m["table"],
 		keyspaceIDCache: newScatterLRUCache(int64(capacity)),
-		lookupVindex:    lookupVindex,
-		syncDarkRead:    decider.CheckDecider("vindex_sync_dark_read", false),
 	}
 
 	return sc, nil
-}
-
-func getLookupVindexName(from string) string {
-	return singularize(from) + "_id_idx"
-}
-
-func maybeCreateInternalLookupVindex(name string, m map[string]string, darkReadTables []string) Vindex {
-	for _, table := range darkReadTables {
-		if strings.EqualFold(table, m["table"]) {
-			return createInternalLookupVindex(name, m)
-		}
-	}
-	return nil
-}
-
-func createInternalLookupVindex(name string, m map[string]string) Vindex {
-	lookupConfigs := make(map[string]string, 3)
-	lookupConfigs["from"] = m["from"]
-	lookupConfigs["to"] = m["to"]
-	lookupConfigs["table"] = "patiogeneral." + name
-	lookupConfigs["autocommit"] = "true"
-	lookupVindex, err := NewPinLookupUniqueHash(name, lookupConfigs)
-	if err != nil {
-		log.Error("Error creating Internal Lookup Vindex: {}", err)
-		return nil
-	}
-	return lookupVindex
 }
 
 // String returns the name of the vindex.
@@ -362,52 +310,7 @@ func (sc *ScatterCache) Map(vcursor VCursor, ids []sqltypes.Value) ([]key.Destin
 		}
 	}
 
-	if (decider.CheckDecider("dark_read_probability", false)) && sc.lookupVindex != nil {
-		if sc.syncDarkRead {
-			sc.checkDarkRead(vcursor, ids, out)
-		} else {
-			go sc.checkDarkRead(vcursor, ids, out)
-		}
-	}
-
 	return out, nil
-}
-
-func (sc *ScatterCache) checkDarkRead(vcursor VCursor, ids []sqltypes.Value, out []key.Destination) {
-	statsKey := []string{sc.lookupVindex.String(), "map"}
-	defer scatterCacheTimings.Record(statsKey, time.Now())
-	darkReadResult, err := sc.lookupVindex.Map(vcursor, ids)
-	if err != nil {
-		log.Error("checkDarkRead: %v", err)
-		darkReadResultOutcome.Add([]string{sc.name, "fail_to_lookup"}, 1)
-		return
-	}
-
-	if len(darkReadResult) != len(out) {
-		log.Error("ScatterCache and Lookup Vindex result length mismatch: ScatterCache {}, LookupVindex {}", len(out), len(darkReadResult))
-		darkReadResultOutcome.Add([]string{sc.name, "length_mismatch"}, 1)
-		return
-	}
-
-	failed := false
-	for i, dest := range out {
-		if dest.String() != darkReadResult[i].String() {
-			destinationMismatch.Add([]string{sc.name, reflect.TypeOf(dest).String(), reflect.TypeOf(darkReadResult[i]).String()}, 1)
-			failed = true
-		}
-	}
-	if failed {
-		darkReadResultOutcome.Add([]string{sc.name, "dest_type_mismatch"}, 1)
-	} else {
-		darkReadResultOutcome.Add([]string{sc.name, "success"}, 1)
-	}
-}
-
-func singularize(tableName string) string {
-	if strings.HasSuffix(tableName, "s") && tableName != "accepted_tos" {
-		return tableName[0 : len(tableName)-1]
-	}
-	return tableName
 }
 
 // Verify always returns true for scatter-cache.
