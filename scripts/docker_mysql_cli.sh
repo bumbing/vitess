@@ -45,4 +45,4 @@ cmd="mysql -c -A -h $host -P 3306 --user=$username --password=$password \
    --ssl-key /var/lib/normandie/fuse/key/generic"
 echo "\$ ${cmd/password=$password/password=REDACTED}"
 # When testing with 127.0.0.1, you'll need to set "--network host"
-docker run -v /var/lib/normandie/fuse/:/var/lib/normandie/fuse/:ro -it mysql:8 sh -c "exec $cmd"
+docker run --network=host -v /var/lib/normandie/fuse/:/var/lib/normandie/fuse/:ro -it mysql:8 sh -c "exec $cmd"
