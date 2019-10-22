@@ -18,6 +18,7 @@ fi
 
 env_name="${1}"
 role="${2:-scriptro}"
+commands="${*:3}"
 
 env_config_file="/var/config/config.services.vitess_environments_config"
 env_exists=$(jq -r ".[\"${env_name}\"] | select (.!=null)"  $env_config_file)
@@ -42,7 +43,8 @@ cmd="mysql -c -A -h $host -P 3306 --user=$username --password=$password \
    --prompt=\"$prompt\" --ssl-mode=REQUIRED \
    --ssl-ca /var/lib/normandie/fuse/ca/generic \
    --ssl-cert /var/lib/normandie/fuse/cert/generic \
-   --ssl-key /var/lib/normandie/fuse/key/generic"
+   --ssl-key /var/lib/normandie/fuse/key/generic $commands"
+
 echo "\$ ${cmd/password=$password/password=REDACTED}"
 # When testing with 127.0.0.1, you'll need to set "--network host"
 docker run --network=host -v /var/lib/normandie/fuse/:/var/lib/normandie/fuse/:ro -it mysql:8 sh -c "exec $cmd"
