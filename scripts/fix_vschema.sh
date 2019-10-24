@@ -34,12 +34,8 @@ if [[ "$VTENV" == "test" || "$VTENV" == "latest" ]]; then
               $UNOWNED_LOOKUP_VINDEX_WHITELIST
               )
   PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
-
-  # TODO(dweitzman): Remove this after turning down the old shard that still has
-  # autoincrement.
-  SKIP_VALIDATE="true"
-elif [[ "$VTENV" == "shadow" ]]; then
-  PATIO_ARGS=(-include-cols -cols-authoritative
+elif [[ "$VTENV" == "postsubmit" ]]; then
+  PATIO_ARGS=(-create-sequences -include-cols -cols-authoritative
               -create-primary-vindexes -create-secondary-vindexes
               -default-scatter-cache-capacity 100000
               -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
@@ -47,9 +43,8 @@ elif [[ "$VTENV" == "shadow" ]]; then
               -create-lookup-vindex-tables
               $LOOKUP_VINDEX_WHITELIST
               $UNOWNED_LOOKUP_VINDEX_WHITELIST
-             )
-  PATIOGENERAL_ARGS=(-include-cols -cols-authoritative)
-  UPDATE_GENERAL=false
+              )
+  PATIOGENERAL_ARGS=(-include-cols)
 elif [[ "$VTENV" == "prod" ]]; then
   PATIO_ARGS=(
     -include-cols -cols-authoritative -create-sequences
@@ -72,7 +67,9 @@ echo Operating on environment "$VTENV". For ads-latest, run "$0" latest
 PVCTL_CMD="/vt/scripts/pvtctl.sh"
 PINSCHEMA_CMD="/vt/bin/pinschema"
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  if command -v pinschema && command -v pvtctl.sh; then
+  # NOTE(dweitzman): homebrew-installed pvtctl is no longer supported.
+  # Updating the versions was problematic
+  if false && command -v pinschema && command -v pvtctl.sh; then
     # This person probably installed https://phabricator.pinadmin.com/diffusion/BREW/
     PVCTL_CMD="pvtctl.sh"
     PINSCHEMA_CMD="pinschema"
@@ -117,7 +114,7 @@ if [[ "$SKIP_VALIDATE" != "true" ]]; then
 fi
 
 echo Finding tablets to pull schemas from...
-PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patio -80 " | grep " master " | cut -d' ' -f 1)
+PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patio " | grep " master " | head -n 1 | cut -d' ' -f 1)
 if $UPDATE_GENERAL; then
   PATIOGENERAL_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patiogeneral 0 " | grep " master " | cut -d' ' -f 1)
 fi
