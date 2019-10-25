@@ -114,7 +114,7 @@ if [[ "$SKIP_VALIDATE" != "true" ]]; then
 fi
 
 echo Finding tablets to pull schemas from...
-PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patio " | grep " master " | head -n 1 | cut -d' ' -f 1)
+PATIO_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep -m1 " patio .* master " | cut -d' ' -f 1)
 if $UPDATE_GENERAL; then
   PATIOGENERAL_MASTER=$($PVCTL_CMD "$VTENV" ListAllTablets | grep " patiogeneral 0 " | grep " master " | cut -d' ' -f 1)
 fi

@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 	"time"
+
 	"vitess.io/vitess/go/vt/log"
 )
 
@@ -22,7 +23,7 @@ var (
 )
 
 func init() {
-	load()
+	load(true)
 	go loop(30 * time.Second)
 }
 
@@ -73,7 +74,7 @@ func Mock(name string, value int) func() {
 	}
 }
 
-func load() {
+func load(firstLoad bool) {
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Error(err)
@@ -88,8 +89,8 @@ func load() {
 	}
 
 	for _, key := range monitorValue {
-		if data[key] != temp[key] {
-			log.Info("%v value changed from %d to %d", key, data[key], temp[key])
+		if !firstLoad && data[key] != temp[key] {
+			log.Infof("%v value changed from %d to %d", key, data[key], temp[key])
 		}
 	}
 
@@ -109,7 +110,7 @@ func loop(interval time.Duration) {
 		}
 		if stat.ModTime().After(lastModTime) {
 			lastModTime = stat.ModTime()
-			load()
+			load(false)
 		}
 	}
 }
