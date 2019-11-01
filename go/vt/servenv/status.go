@@ -105,6 +105,7 @@ Started: {{.StartTime}}<br>
 Running on {{.Hostname}}<br>
 View <a href=/debug/vars>variables</a>,
      <a href=/debug/opentsdb>tsdb stats</a>,
+     <a href=/debug/deciders>decider values</a>,
      <a href=/debug/pprof>debugging profiles</a>,
 </div>
 </div>`

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -25,6 +26,23 @@ var (
 func init() {
 	load(true)
 	go loop(30 * time.Second)
+
+	http.HandleFunc("/debug/deciders", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+		mu.RLock()
+
+		var output []byte
+		if b, err := json.MarshalIndent(data, "", "  "); err != nil {
+			output = []byte(err.Error())
+		} else {
+			output = b
+		}
+
+		mu.RUnlock()
+
+		w.Write(output)
+	})
 }
 
 func getValueOrDefault(data map[string]int, decider string, defaultValue bool) bool {

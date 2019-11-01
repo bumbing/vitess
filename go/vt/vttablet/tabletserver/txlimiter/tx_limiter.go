@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 
+	"vitess.io/vitess/go/decider"
 	"vitess.io/vitess/go/stats"
 	"vitess.io/vitess/go/vt/callerid"
 	"vitess.io/vitess/go/vt/log"
@@ -117,6 +118,12 @@ func (txl *Impl) Get(immediate *querypb.VTGateCallerID, effective *vtrpcpb.Calle
 
 	if txl.dryRun {
 		log.Infof("TxLimiter: DRY RUN: user over limit: %s", key)
+		rejectionsDryRun.Add(key, 1)
+		return true
+	}
+
+	if decider.CheckDecider("vitess_emergency_tx_limiter_disable", false) {
+		log.Infof("TxLimiter: DRY RUN (vitess_emergency_tx_limiter_disable set): user over limit: %s", key)
 		rejectionsDryRun.Add(key, 1)
 		return true
 	}
