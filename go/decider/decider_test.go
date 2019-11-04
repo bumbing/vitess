@@ -6,7 +6,7 @@ import (
 
 func TestLoad(t *testing.T) {
 	path = "testdata/config.txt"
-	load()
+	load(true)
 	if CheckDecider("decider", false) != true {
 		t.Fatal("Get wrong value for decider.")
 	}
@@ -14,7 +14,7 @@ func TestLoad(t *testing.T) {
 
 func TestLoadNonexist(t *testing.T) {
 	path = "testdata/config.txt"
-	load()
+	load(true)
 	if CheckDecider("non_exist_decider", false) != false {
 		t.Fatal("Get wrong value for non-exist decider.")
 	}
