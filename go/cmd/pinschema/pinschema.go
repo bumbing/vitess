@@ -21,39 +21,39 @@ import (
 )
 
 var (
-	createPrimaryVindexes        = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
-	createSecondaryVindexes      = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
-	createSequences              = flag.Bool("create-sequences", false, "Whether to make sequences")
-	includeCols                  = flag.Bool("include-cols", false, "Whether to include a column list for each table")
-	queryTablePrefix             = flag.String("query-table-prefix", "", "A prefix to add to tables for generated queries. Used to support hive with the sharding integrity check")
-	tableResultLimit             = flag.Int("table-result-limit", 0, "max results to show per table when with sharding integrity check. 0 for unlimited")
-	summarize                    = flag.Bool("summarize", false, "whether to summarize results")
-	colsAuthoritative            = flag.Bool("cols-authoritative", false, "Whether to mark the column list as authoriative")
-	defaultScatterCacheCapacity  = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
-	tableScatterCacheCapacity    flagutil.StringMapValue
-	ignoredTables                flagutil.StringListValue
-	sequenceTables               flagutil.StringListValue
-	validateKeyspace             = flag.String("validate-keyspace", "patio", "Which keyspace needs to validate the vschema correctness")
-	validateShards               = flag.Int("validate-shards", 2, "How many shards is actively serving master for the validate keyspace")
-	validateVschemaFile          = flag.String("validate-vschema-file", "", "Where the vschema file is for validation")
-	fallbackToScatterCache       = flag.Bool("fall-back-to-scatter-cache", false, "If Lookup Vindex serving wrong data or patiogeneral is not available, VSchema can fall back to ScatterCache is this equals to true.")
+	createPrimaryVindexes       = flag.Bool("create-primary-vindexes", false, "Whether to make primary vindexes")
+	createSecondaryVindexes     = flag.Bool("create-secondary-vindexes", false, "Whether to make secondary vindexes")
+	createSequences             = flag.Bool("create-sequences", false, "Whether to make sequences")
+	includeCols                 = flag.Bool("include-cols", false, "Whether to include a column list for each table")
+	queryTablePrefix            = flag.String("query-table-prefix", "", "A prefix to add to tables for generated queries. Used to support hive with the sharding integrity check")
+	tableResultLimit            = flag.Int("table-result-limit", 0, "max results to show per table when with sharding integrity check. 0 for unlimited")
+	summarize                   = flag.Bool("summarize", false, "whether to summarize results")
+	colsAuthoritative           = flag.Bool("cols-authoritative", false, "Whether to mark the column list as authoriative")
+	defaultScatterCacheCapacity = flag.Uint64("default-scatter-cache-capacity", 100000, "default capacity for a scatter cache vindex")
+	tableScatterCacheCapacity   flagutil.StringMapValue
+	ignoredTables               flagutil.StringListValue
+	sequenceTables              flagutil.StringListValue
+	validateKeyspace            = flag.String("validate-keyspace", "patio", "Which keyspace needs to validate the vschema correctness")
+	validateShards              = flag.Int("validate-shards", 2, "How many shards is actively serving master for the validate keyspace")
+	validateVschemaFile         = flag.String("validate-vschema-file", "", "Where the vschema file is for validation")
+	fallbackToScatterCache      = flag.Bool("fall-back-to-scatter-cache", false, "If Lookup Vindex serving wrong data or patiogeneral is not available, VSchema can fall back to ScatterCache is this equals to true.")
 )
 
 type pinschemaConfig struct {
-	createPrimary                bool
-	createSecondary              bool
-	createSeq                    bool
-	defaultScatterCacheCapacity  uint64
-	tableScatterCacheCapacity    map[string]uint64
-	includeCols                  bool
-	colsAuthoritative            bool
-	queryTablePrefix             string
-	tableResultLimit             int
-	summarize                    bool
-	sequenceTableWhitelist       []string
-	validateVschema              string
-	validateKeyspace             string
-	validateShards               int
+	createPrimary               bool
+	createSecondary             bool
+	createSeq                   bool
+	defaultScatterCacheCapacity uint64
+	tableScatterCacheCapacity   map[string]uint64
+	includeCols                 bool
+	colsAuthoritative           bool
+	queryTablePrefix            string
+	tableResultLimit            int
+	summarize                   bool
+	sequenceTableWhitelist      []string
+	validateVschema             string
+	validateKeyspace            string
+	validateShards              int
 }
 
 var commands = make(map[string]func([]*sqlparser.DDL, pinschemaConfig) (string, error))
@@ -136,19 +136,19 @@ func parseAndRun(command string, args []string) error {
 	}
 
 	config := pinschemaConfig{
-		createPrimary:                *createPrimaryVindexes,
-		createSecondary:              *createSecondaryVindexes,
-		createSeq:                    *createSequences,
-		includeCols:                  *includeCols,
-		colsAuthoritative:            *colsAuthoritative,
-		defaultScatterCacheCapacity:  *defaultScatterCacheCapacity,
-		tableScatterCacheCapacity:    tableCacheCapacityOverrides,
-		queryTablePrefix:             *queryTablePrefix,
-		tableResultLimit:             *tableResultLimit,
-		summarize:                    *summarize,
-		sequenceTableWhitelist:       sequenceTables,
-		validateKeyspace:             *validateKeyspace,
-		validateShards:               *validateShards,
+		createPrimary:               *createPrimaryVindexes,
+		createSecondary:             *createSecondaryVindexes,
+		createSeq:                   *createSequences,
+		includeCols:                 *includeCols,
+		colsAuthoritative:           *colsAuthoritative,
+		defaultScatterCacheCapacity: *defaultScatterCacheCapacity,
+		tableScatterCacheCapacity:   tableCacheCapacityOverrides,
+		queryTablePrefix:            *queryTablePrefix,
+		tableResultLimit:            *tableResultLimit,
+		summarize:                   *summarize,
+		sequenceTableWhitelist:      sequenceTables,
+		validateKeyspace:            *validateKeyspace,
+		validateShards:              *validateShards,
 	}
 
 	var ddls []*sqlparser.DDL

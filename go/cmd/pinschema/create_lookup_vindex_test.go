@@ -13,4 +13,3 @@ func TestPinschemaVindexDDLs(t *testing.T) {
 		pinschemaConfig{},
 	)
 }
-

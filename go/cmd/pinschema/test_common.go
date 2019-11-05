@@ -34,7 +34,7 @@ func goldenTest(t *testing.T, testName string, ddlsFile string, command string, 
 		}
 
 		goldenString := string(goldenOutput)
-		if strings.Compare(goldenString, output) != 0 {
+		if strings.Compare(strings.TrimSpace(goldenString), strings.TrimSpace(output)) != 0 {
 			t.Errorf("Found differences.\nGot: %v\nWant: %v", output, goldenString)
 		}
 	}

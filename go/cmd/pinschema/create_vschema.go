@@ -202,6 +202,8 @@ func maybeGetVindexName(colName, tableName string) (string, bool) {
 	} else if colName == "spec_id" {
 		if tableName == "pin_promotion_labels" {
 			return "pin_promotion_spec_id", true
+		} else if tableName == "pin_promotions" {
+			return "", false
 		} else {
 			return singularize(tableName) + "_spec_id", true
 		}

@@ -324,18 +324,6 @@ union
 	pin_promotion_specs.g_advertiser_id != pin_promotion_labels.g_advertiser_id
 union
   select
-	"pin_promotion_specs.id with pin_promotions.spec_id" as tables,
-	count(*)
-  from
-    pin_promotion_specs
-  inner join
-    pin_promotions
-  on
-    pin_promotion_specs.id = pin_promotions.spec_id
-  where
-	pin_promotion_specs.g_advertiser_id != pin_promotions.g_advertiser_id
-union
-  select
 	"pin_promotions.id with carousel_slot_promotions.pin_promotion_id" as tables,
 	count(*)
   from
