@@ -45,7 +45,7 @@ elif [[ "$VTENV" == "prod" ]]; then
     -include-cols -cols-authoritative -create-sequences
     -create-primary-vindexes -create-secondary-vindexes
     -default-scatter-cache-capacity 100000
-    -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
+    -table-scatter-cache-capacity "campaigns:1000000,product_groups:1000000,ad_groups:1000000,pin_promotions:1000000,pinner_lists:1000000"
     -validate-keyspace patio -validate-shards 2
     $FALLBACK_TO_SCATTERCACHE
   )
