@@ -22,7 +22,7 @@ if [[ ${TELETRAAN_ENV_TYPE:-test} == "prod" ]]; then
         -include-cols -cols-authoritative -create-sequences
         -create-primary-vindexes -create-secondary-vindexes
         -default-scatter-cache-capacity 100000
-        -table-scatter-cache-capacity "campaigns:200000,product_groups:1000000"
+        -table-scatter-cache-capacity "campaigns:1000000,product_groups:1000000,ad_groups:1000000,pin_promotions:1000000,pinner_lists:1000000"
     )
 else
     KEYSPACE_ARGS=(
