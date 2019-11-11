@@ -71,8 +71,16 @@ func validateVschema(ddls []*sqlparser.DDL, config pinschemaConfig) (string, err
 		if err = validateColumns(keyspace, ks, ddl); err != nil {
 			return "", err
 		}
+		// then validate the sequence table def is present
+		if err = validateSequence(keyspace, ks, ddl, ddls); err != nil {
+			return "", err
+		}
 		// then we check the correctness of vindex columns, each column should be found in the table schema
 		if err = validateVindexColumns(keyspace, ks, ddl); err != nil {
+			return "", err
+		}
+		// then validate lookup vindex table def is present
+		if err = validatePinLookupVindexes(keyspace, ks, ddls); err != nil {
 			return "", err
 		}
 		// then generates a list of validation SQLs each validates the use of a functional unique vindex
@@ -118,6 +126,24 @@ func validateColumns(keyspace string, ks *vschemapb.Keyspace, ddl *sqlparser.DDL
 	return
 }
 
+func validateSequence(keyspace string, ks *vschemapb.Keyspace, ddl *sqlparser.DDL, ddls []*sqlparser.DDL) (err error) {
+	table, ok := ks.Tables[strings.ToLower(ddl.Table.Name.String())]
+	if !ok {
+		return fmt.Errorf("table %s not found in %s", ddl.Table.Name, keyspace)
+	}
+	if table.AutoIncrement != nil {
+		if seq := strings.ToLower(table.AutoIncrement.GetSequence()); seq != "" {
+			for _, seqDDL := range ddls {
+				if strings.ToLower(seqDDL.Table.Name.String()) == seq {
+					return nil
+				}
+			}
+			return fmt.Errorf("table %s has sequence, but sequence table is not found", ddl.Table.Name)
+		}
+	}
+	return nil
+}
+
 func validateVindexColumns(keyspace string, ks *vschemapb.Keyspace, ddl *sqlparser.DDL) (err error) {
 	columns := make(map[string]sqlparser.ColumnType, len(ddl.TableSpec.Columns))
 	for _, c := range ddl.TableSpec.Columns {
@@ -132,6 +158,25 @@ func validateVindexColumns(keyspace string, ks *vschemapb.Keyspace, ddl *sqlpars
 			if _, ok := columns[strings.ToLower(vic)]; !ok {
 				return fmt.Errorf("table %s has vindex:%s column: %s not found in schema", ddl.Table.Name, vi.Name, vic)
 			}
+		}
+	}
+	return nil
+}
+
+func validatePinLookupVindexes(keyspace string, ks *vschemapb.Keyspace, ddls []*sqlparser.DDL) (err error) {
+VINDEX:
+	for _, vi := range ks.Vindexes {
+		if vi.Type == "pin_lookup_hash_unique" {
+			lookupTable := vi.GetParams()["table"]
+			if offset := strings.IndexByte(lookupTable, '.'); offset > 0 {
+				lookupTable = lookupTable[offset+1:]
+			}
+			for _, lookupTableDDL := range ddls {
+				if strings.EqualFold(lookupTableDDL.Table.Name.String(), lookupTable) {
+					continue VINDEX
+				}
+			}
+			return fmt.Errorf("table %s has lookup vindex, but the lookup table is not found", lookupTable)
 		}
 	}
 	return nil
@@ -153,7 +198,7 @@ func generateSQLs(keyspace string, ks *vschemapb.Keyspace, ddl *sqlparser.DDL) (
 		}
 
 		buf := sqlparser.NewTrackedBuffer(nil)
-		buf.Myprintf("delete from %v where %v=%v", table, vc.Name, vv)
+		buf.Myprintf("delete from %s.%v where %v=%v", keyspace, table, vc.Name, vv)
 		sqls[i] = buf.String()
 	}
 

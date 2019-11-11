@@ -8,12 +8,12 @@ import (
 
 func TestValidateVschema(t *testing.T) {
 
-	ddls, err := readAndParseSchema("testdata/patio.sql")
+	ddls, err := readAndParseSchema("testdata/patio_validate_vschema.sql")
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}
 
-	moreddls, err := readAndParseSchema("testdata/patiogeneral.sql")
+	moreddls, err := readAndParseSchema("testdata/patiogeneral_validate_vschema.sql")
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}
@@ -27,9 +27,9 @@ func TestValidateVschema(t *testing.T) {
 	}
 
 	config := pinschemaConfig{
-		validateKeyspace:         "patio",
-		validateShards:           2,
-		validateVschema:          string(vschema),
+		validateKeyspace: "patio",
+		validateShards:   2,
+		validateVschema:  string(vschema),
 	}
 
 	md5, err := validateVschema(ddls, config)
@@ -56,9 +56,9 @@ func TestValidateVschemaVSchemaNegatives(t *testing.T) {
 	for vschemaPath, errExpected := range vschemas {
 		vschema, err := ioutil.ReadFile(vschemaPath)
 		config := pinschemaConfig{
-			validateKeyspace:         "patio",
-			validateShards:           2,
-			validateVschema:          string(vschema),
+			validateKeyspace: "patio",
+			validateShards:   2,
+			validateVschema:  string(vschema),
 		}
 
 		if err != nil {
