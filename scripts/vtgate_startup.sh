@@ -150,9 +150,9 @@ elif [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "prod" ]]; then
     "user_groups": {
       "scriptro": ["reader"],
       "longqueryro": ["reader"],
-      "scriptrw": ["reader", "writer", "admin"],
-      "pepsirw": ["reader", "writer", "admin"],
-      "pepsilong": ["reader", "writer", "admin"]
+      "scriptrw": ["reader", "writer"],
+      "pepsirw": ["reader", "writer"],
+      "pepsilong": ["reader", "writer"]
     },
     "group_authz": {
       "admin": {
