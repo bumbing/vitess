@@ -31,6 +31,7 @@ import (
 
 	"golang.org/x/net/context"
 	"vitess.io/vitess/go/acl"
+	"vitess.io/vitess/go/decider"
 	"vitess.io/vitess/go/history"
 	"vitess.io/vitess/go/mysql"
 	"vitess.io/vitess/go/sqltypes"
@@ -1889,11 +1890,15 @@ func (tsv *TabletServer) StreamHealth(ctx context.Context, callback func(*queryp
 	id, ch := tsv.streamHealthRegister()
 	defer tsv.streamHealthUnregister(id)
 
+	var ok bool
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case shr = <-ch:
+		case shr, ok = <-ch:
+			if !ok {
+				return vterrors.Errorf(vtrpcpb.Code_RESOURCE_EXHAUSTED, "stream health buffer full. client should reconnect for recent status")
+			}
 		}
 		if err := callback(shr); err != nil {
 			if err == io.EOF {
@@ -1910,7 +1915,7 @@ func (tsv *TabletServer) streamHealthRegister() (int, chan *querypb.StreamHealth
 
 	id := tsv.streamHealthIndex
 	tsv.streamHealthIndex++
-	ch := make(chan *querypb.StreamHealthResponse, 10)
+	ch := make(chan *querypb.StreamHealthResponse, *streamHealthBufferSize)
 	tsv.streamHealthMap[id] = ch
 	return id, ch
 }
@@ -1936,11 +1941,18 @@ func (tsv *TabletServer) BroadcastHealth(terTimestamp int64, stats *querypb.Real
 
 	tsv.streamHealthMutex.Lock()
 	defer tsv.streamHealthMutex.Unlock()
-	for _, c := range tsv.streamHealthMap {
+	for id, c := range tsv.streamHealthMap {
 		// Do not block on any write.
 		select {
 		case c <- shr:
 		default:
+			if decider.CheckDecider("vttablet_cancel_full_health_buffer", false) {
+				log.Warning("Streaming health buffer full. Canceling RPC")
+				close(c)
+				delete(tsv.streamHealthMap, id)
+			} else {
+				log.Warning("Streaming health buffer full. Health update will be lost")
+			}
 		}
 	}
 	tsv.lastStreamHealthResponse = shr
