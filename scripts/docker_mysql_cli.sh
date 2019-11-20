@@ -23,13 +23,17 @@ commands="${*:3}"
 env_config_file="/var/config/config.services.vitess_environments_config"
 env_exists=$(jq -r ".[\"${env_name}\"] | select (.!=null)"  $env_config_file)
 
-if [[ "$env_exists" == "" ]]; then
-   echo "Looks like an invalid env name. Valid names tend to look like prod, latest, test, etc."
-   echo "Usage: docker_mysql_cli.sh [vitess env] [knox role]"
-   exit 1
-fi
+if [[ "$env_name" == "localhost" ]]; then
+  host="localhost"
+else
+  if [[ "$env_exists" == "" ]]; then
+     echo "Looks like an invalid env name. Valid names tend to look like prod, latest, test, etc."
+     echo "Usage: docker_mysql_cli.sh [vitess env] [knox role]"
+     exit 1
+  fi
 
-host=$(jq -r ".[\"${env_name}\"].gates.master.host" $env_config_file)
+  host=$(jq -r ".[\"${env_name}\"].gates.master.host" $env_config_file)
+fi
 
 # TODO(dweitzman): Set username to role and omit password. Soon passwords will no longer be
 # needed as long as TLS is in use.
@@ -40,7 +44,9 @@ password=$(knox get "mysql:rbac:$role:credentials" | cut -d\| -f2)
 prompt="hostname='$host', port=3306) \d \u($role)> "
 
 cmd="mysql -c -A -h $host -P 3306 --user=$username --password=$password \
-   --prompt=\"$prompt\" --ssl-mode=REQUIRED \
+   --prompt=\"$prompt\" \
+   --protocol=TCP \
+   --ssl-mode=REQUIRED \
    --ssl-ca /var/lib/normandie/fuse/ca/generic \
    --ssl-cert /var/lib/normandie/fuse/cert/generic \
    --ssl-key /var/lib/normandie/fuse/key/generic $commands"
