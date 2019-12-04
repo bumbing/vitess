@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/decider"
 	"vitess.io/vitess/go/sqltypes"
@@ -281,7 +282,11 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 		idToInt, _ := sqltypes.ToUint64(id)
 		val, ok := m[idToInt]
 		if !ok {
-			log.Errorf("Failed to look up id %v from table %v.", id, plhu.lkp.Table)
+			// NOTE: Zeros aren't expected to map to an ID. The query probably shouldn't
+			// have been sent with a zero in the first place.
+			if idToInt != 0 {
+				log.Errorf("Failed to look up id %v from table %v.", id, plhu.lkp.Table)
+			}
 			out = append(out, key.DestinationNone{})
 		} else {
 			out = append(out, key.DestinationKeyspaceID(vhash(val)))
