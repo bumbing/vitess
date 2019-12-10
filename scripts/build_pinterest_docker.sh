@@ -50,6 +50,10 @@ then
   docker push $REGISTRY/vitess/base:"$GIT_COMMIT"
   docker push $REGISTRY/vitess:"$GIT_COMMIT"
   docker push $REGISTRY/vitess/vtctld:"$GIT_COMMIT"
+
+  # Tag $REGISTRY/vitess:latest for easier access
+  docker tag $REGISTRY/vitess:"$GIT_COMMIT" $REGISTRY/vitess:latest
+  docker push $REGISTRY/vitess:latest
 fi
 
 if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]
