@@ -103,6 +103,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
       "admin": {
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/pepsi/*",
+          "spiffe://pin220.com/teletraan/pepsi-integration/*",
           "spiffe://pin220.com/teletraan/sterling-api-pre-submit/latest",
           "spiffe://pin220.com/k8s/pepsi/*",
           "spiffe://pin220.com/devapp/*",
@@ -112,6 +113,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
       "writer": {
         "tls_subjects": [
           "spiffe://pin220.com/teletraan/pepsi/*",
+          "spiffe://pin220.com/teletraan/pepsi-integration/*",
           "spiffe://pin220.com/teletraan/sterling-api-pre-submit/latest",
           "spiffe://pin220.com/k8s/pepsi/*",
           "spiffe://pin220.com/devapp/*",
@@ -127,6 +129,7 @@ if [[ "${TELETRAAN_ENFORCE_TLS_HOST:-}" == "dev" ]]; then
           "spiffe://pin220.com/teletraan/m10n-lazarus/*",
           "spiffe://pin220.com/teletraan/m10n-martha/*",
           "spiffe://pin220.com/teletraan/pepsi/*",
+          "spiffe://pin220.com/teletraan/pepsi-integration/*",
           "spiffe://pin220.com/teletraan/sterling-api-pre-submit/latest",
           "spiffe://pin220.com/k8s/pepsi/*",
           "spiffe://pin220.com/devapp/*",
