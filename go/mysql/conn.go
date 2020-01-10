@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc.
+Copyright 2019 The Vitess Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreedto in writing, software
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -256,7 +256,7 @@ func (c *Conn) readHeaderFrom(r io.Reader) (int, error) {
 	// Note io.ReadFull will return two different types of errors:
 	// 1. if the socket is already closed, and the go runtime knows it,
 	//   then ReadFull will return an error (different than EOF),
-	//   someting like 'read: connection reset by peer'.
+	//   something like 'read: connection reset by peer'.
 	// 2. if the socket is not closed while we start the read,
 	//   but gets closed after the read is started, we'll get io.EOF.
 	if _, err := io.ReadFull(r, header[:]); err != nil {
@@ -1039,6 +1039,18 @@ func (c *Conn) handleNextCommand(handler Handler) error {
 			log.Error("Error writing ComStmtReset OK packet to client %v: %v", c.ConnectionID, err)
 			return err
 		}
+
+	case ComResetConnection:
+		// Clean up and reset the connection
+		c.recycleReadPacket()
+		handler.ComResetConnection(c)
+		// Reset prepared statements
+		c.PrepareData = make(map[uint32]*PrepareData)
+		err = c.writeOKPacket(0, 0, 0, 0)
+		if err != nil {
+			c.writeErrorPacketFromError(err)
+		}
+
 	default:
 		log.Errorf("Got unhandled packet (default) from %s, returning error: %v", c, data)
 		c.recycleReadPacket()

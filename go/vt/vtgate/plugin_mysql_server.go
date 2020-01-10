@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc.
+Copyright 2019 The Vitess Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreedto in writing, software
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -21,9 +21,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"vitess.io/vitess/go/vt/sqlparser"
+	"vitess.io/vitess/go/vt/vterrors"
 
 	"golang.org/x/net/context"
 	"vitess.io/vitess/go/mysql"
@@ -78,6 +82,20 @@ func newVtgateHandler(vtg *VTGate) *vtgateHandler {
 func (vh *vtgateHandler) NewConnection(c *mysql.Conn) {
 }
 
+func (vh *vtgateHandler) ComResetConnection(c *mysql.Conn) {
+	ctx := context.Background()
+	session, _ := c.ClientData.(*vtgatepb.Session)
+	if session != nil {
+		if session.InTransaction {
+			defer atomic.AddInt32(&busyConnections, -1)
+		}
+		_, _, err := vh.vtg.Execute(ctx, session, "rollback", make(map[string]*querypb.BindVariable))
+		if err != nil {
+			log.Errorf("Error happened in transaction rollback: %v", err)
+		}
+	}
+}
+
 func (vh *vtgateHandler) ConnectionClosed(c *mysql.Conn) {
 	// Rollback if there is an ongoing transaction. Ignore error.
 	var ctx context.Context
@@ -97,10 +115,47 @@ func (vh *vtgateHandler) ConnectionClosed(c *mysql.Conn) {
 	}
 }
 
+// Regexp to extract parent span id over the sql query
+var r = regexp.MustCompile(`/\*VT_SPAN_CONTEXT=(.*)\*/`)
+
+// this function is here to make this logic easy to test by decoupling the logic from the `trace.NewSpan` and `trace.NewFromString` functions
+func startSpanTestable(ctx context.Context, query, label string,
+	newSpan func(context.Context, string) (trace.Span, context.Context),
+	newSpanFromString func(context.Context, string, string) (trace.Span, context.Context, error)) (trace.Span, context.Context, error) {
+	_, comments := sqlparser.SplitMarginComments(query)
+	match := r.FindStringSubmatch(comments.Leading)
+	var span trace.Span
+	if len(match) == 0 {
+		span, ctx = newSpan(ctx, label)
+	} else {
+		var err error
+		span, ctx, err = newSpanFromString(ctx, match[1], label)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	trace.AnnotateSQL(span, query)
+
+	return span, ctx, nil
+}
+
+func startSpan(ctx context.Context, query, label string) (trace.Span, context.Context, error) {
+	return startSpanTestable(ctx, query, label, trace.NewSpan, trace.NewFromString)
+}
+
 func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.Result) error) error {
 	ctx := context.Background()
 	var cancel context.CancelFunc
-	span, ctx := trace.NewSpan(ctx, "vtgateHandler.ComQuery")
+	if *mysqlQueryTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, *mysqlQueryTimeout)
+		defer cancel()
+	}
+
+	span, ctx, err := startSpan(ctx, query, "vtgateHandler.ComQuery")
+	if err != nil {
+		return vterrors.Wrap(err, "failed to extract span")
+	}
 	trace.AnnotateSQL(span, query)
 	defer span.Finish()
 
@@ -146,7 +201,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		}
 	}()
 
-	if c.SchemaName != "" {
+	if session.TargetString == "" && c.SchemaName != "" {
 		session.TargetString = c.SchemaName
 	}
 
@@ -221,7 +276,7 @@ func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string, prepare *mysql.
 		}
 	}()
 
-	if c.SchemaName != "" {
+	if session.TargetString == "" && c.SchemaName != "" {
 		session.TargetString = c.SchemaName
 	}
 
@@ -279,7 +334,7 @@ func (vh *vtgateHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareDat
 		}
 	}()
 
-	if c.SchemaName != "" {
+	if session.TargetString == "" && c.SchemaName != "" {
 		session.TargetString = c.SchemaName
 	}
 	if session.Options.Workload == querypb.ExecuteOptions_OLAP {

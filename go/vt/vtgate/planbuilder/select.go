@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc.
+Copyright 2019 The Vitess Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -273,7 +273,7 @@ func (pb *primitiveBuilder) expandStar(inrcs []*resultColumn, expr *sqlparser.St
 			for _, col := range t.columnNames {
 				var expr *sqlparser.AliasedExpr
 				if singleTable {
-					// If there's only one table, we use unqualifed column names.
+					// If there's only one table, we use unqualified column names.
 					expr = &sqlparser.AliasedExpr{
 						Expr: &sqlparser.ColName{
 							Metadata: t.columns[col.Lowered()],

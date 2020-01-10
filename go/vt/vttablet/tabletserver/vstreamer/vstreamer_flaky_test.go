@@ -34,7 +34,7 @@ func TestREKeyRange(t *testing.T) {
 			Filter: "-80",
 		}},
 	}
-	ch := startStream(ctx, t, filter)
+	ch := startStream(ctx, t, filter, "")
 
 	// 1, 2, 3 and 5 are in shard -80.
 	// 4 and 6 are in shard 80-.
