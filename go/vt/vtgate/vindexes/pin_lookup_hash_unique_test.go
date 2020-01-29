@@ -277,13 +277,23 @@ func TestCheckSample(t *testing.T) {
 
 	plhu.(*PinLookupHashUnique).checkSample(pvc, input, correctResult)
 	if vindexServingVerification.Counts()["pin_lookup_hash_unique.result_match"] != 1 {
-		t.Errorf("PinLookupHashUnique.checkSample result wrong")
+		t.Errorf("TestCheckSample correct result test wrong")
 	}
 
 	vindexServingVerification.ResetAll()
 	plhu.(*PinLookupHashUnique).checkSample(pvc, input, wrongResult)
 	if vindexServingVerification.Counts()["pin_lookup_hash_unique.result_mismatch"] != 1 {
-		t.Errorf("PinLookupHashUnique.checkSample result wrong")
+		t.Errorf("TestCheckSample wrong result test wrong")
+	}
+
+	vindexServingVerification.ResetAll()
+	wrongSizePvc := &pinVcursor{numRows: 2}
+	plhu.(*PinLookupHashUnique).checkSample(wrongSizePvc, input, correctResult)
+	if vindexServingVerification.Counts()["pin_lookup_hash_unique.result_match"] != 1 {
+		t.Errorf("TestCheckSample wrong size test result wrong")
+	}
+	if vindexServingVerification.Counts()["pin_lookup_hash_unique.result_mismatch"] != 1 {
+		t.Errorf("TestCheckSample wrong size test result wrong")
 	}
 }
 

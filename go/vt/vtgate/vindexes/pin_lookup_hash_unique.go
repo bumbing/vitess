@@ -342,7 +342,7 @@ func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Val
 		return
 	}
 
-	for i, row := range queryResult.Rows {
+	for _, row := range queryResult.Rows {
 		if len(row) != 2 {
 			log.Infof("PinLookupHashUnique.checkSample: Internal error. Expected %v columns. Got %v", 2, len(row))
 			vindexServingVerification.Add([]string{plhu.name, "result_length_mismatch"}, 1)
@@ -362,7 +362,7 @@ func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Val
 		dest := key.DestinationKeyspaceID(vhash(toColValue)).String()
 		if dest != expected[idColValue] {
 			log.Infof("PinLookupHashUnique.checkSample: mismatch result for id %d, expecting %s, got %s",
-				ids[i], expected[idColValue], dest)
+				idColValue, expected[idColValue], dest)
 			vindexServingVerification.Add([]string{plhu.name, "result_mismatch"}, 1)
 		} else {
 			vindexServingVerification.Add([]string{plhu.name, "result_match"}, 1)
