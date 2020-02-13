@@ -181,6 +181,7 @@ CREATE TABLE `advertisers` (
   `g_business_profile_id` bigint(20) DEFAULT NULL,
   `daily_spend_cap` int(11) DEFAULT NULL,
   `reviewed` tinyint(4) DEFAULT NULL,
+  `holdout_experiment` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `source_integration_platform_type` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `billing_profile_id` (`billing_profile_id`),
@@ -300,6 +301,9 @@ CREATE TABLE `billing_profiles` (
   `gid` bigint(20) DEFAULT NULL,
   `gateway` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `merchant_id` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `payment_method_type` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `payment_method_brand` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `advertiser_id` (`advertiser_id`),
   CONSTRAINT `billing_profiles_ibfk_1` FOREIGN KEY (`advertiser_id`) REFERENCES `advertisers` (`id`)
@@ -415,6 +419,7 @@ CREATE TABLE `campaigns` (
   `updated_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `integration_platform_type` tinyint(1) NOT NULL DEFAULT '0',
   `integration_platform_equivalent_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `holdout_experiment` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ix_campaigns_advertiser_id` (`advertiser_id`),
   KEY `campaign_spec_id` (`campaign_spec_id`),
@@ -911,6 +916,7 @@ CREATE TABLE `scheduled_reports` (
   `months_of_the_year` set('1','2','3','4','5','6','7','8','9','10','11','12') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `created_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `email_list` varchar(2500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `advertiser_id_client_id_idx` (`advertiser_id`,`client_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Holds report schedules';
