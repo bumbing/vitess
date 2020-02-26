@@ -551,12 +551,6 @@
           "columns": [
             "bill_id"
           ]
-        },
-        {
-          "name": "campaign_id_vdx",
-          "columns": [
-            "campaign_id"
-          ]
         }
       ]
     },

@@ -17,9 +17,7 @@ func TestValidateVschema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}
-	for _, more := range moreddls {
-		ddls = append(ddls, more)
-	}
+	ddls = append(ddls, moreddls...)
 
 	vschema, err := ioutil.ReadFile("testdata/TestValidateVSchema_Prod.json")
 	if err != nil {

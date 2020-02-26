@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
@@ -26,7 +27,7 @@ func colShouldBeSequence(config pinschemaConfig, col *sqlparser.ColumnDefinition
 
 	if len(config.sequenceTableWhitelist) > 0 {
 		for _, tblName := range config.sequenceTableWhitelist {
-			if strings.ToLower(tableName) == strings.ToLower(tblName) {
+			if strings.EqualFold(tableName, tblName) {
 				goto WHITELISTED_TABLE
 			}
 		}
@@ -50,4 +51,3 @@ func colShouldBeSequence(config pinschemaConfig, col *sqlparser.ColumnDefinition
 	}
 	return false
 }
-

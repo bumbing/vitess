@@ -82,7 +82,7 @@ func getUsageMsg() error {
 	}
 	sort.Strings(commandsList)
 
-	return fmt.Errorf("Usage: pinschema <%s> <...sql files with CREATE statements...>", strings.Join(commandsList, "|"))
+	return fmt.Errorf("usage: pinschema <%s> <...sql files with CREATE statements...>", strings.Join(commandsList, "|"))
 }
 
 func main() {
@@ -107,7 +107,7 @@ func main() {
 func readAndParseSchema(fname string) ([]*sqlparser.DDL, error) {
 	schemaStr, err := ioutil.ReadFile(fname)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot read file %v: %v", fname, err)
+		return nil, fmt.Errorf("cannot read file %v: %v", fname, err)
 	}
 
 	ddl, err := parseSchema(string(schemaStr))
@@ -180,7 +180,7 @@ func parseAndRun(command string, args []string) error {
 
 	commandImpl, ok := commands[command]
 	if !ok {
-		return fmt.Errorf("Unrecognized command: %v. %v", command, getUsageMsg())
+		return fmt.Errorf("unrecognized command: %v. %v", command, getUsageMsg())
 	}
 
 	output, err := commandImpl(ddls, config)

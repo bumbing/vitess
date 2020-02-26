@@ -50,15 +50,17 @@ require (
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-    github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.0-20160115111002-cca8bbc07984
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pborman/uuid v0.0.0-20160824210600-b984ec7fa9ff
+	github.com/pinterest/knox v0.0.0-20200219192527-d4a4dcee1d1b
 	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4 // indirect
 	github.com/prometheus/common v0.7.0 // indirect
 	github.com/prometheus/procfs v0.0.5 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/satori/go.uuid v0.0.0-20160713180306-0aa62d5ddceb // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/tchap/go-patricia v0.0.0-20160729071656-dd168db6051b
