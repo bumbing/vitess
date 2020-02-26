@@ -203,19 +203,6 @@ union
 	campaigns.g_advertiser_id != ad_groups.g_advertiser_id
 union
   select
-	"campaigns.id with bill_details.campaign_id" as tables,
-	count(*)
-  from
-    campaigns
-  inner join
-    bill_details
-  on
-    campaigns.id = bill_details.campaign_id
-  where
-	campaigns.g_advertiser_id != bill_details.g_advertiser_id
-	AND !(campaigns.g_advertiser_id in (549756295881, 549756295882) and bill_details.g_advertiser_id in (549755848277, 549755917224))
-union
-  select
 	"campaigns.id with campaign_specs.campaign_id" as tables,
 	count(*)
   from

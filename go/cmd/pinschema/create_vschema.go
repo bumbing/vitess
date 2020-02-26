@@ -211,6 +211,9 @@ func maybeGetVindexName(colName, tableName string) (string, bool) {
 		// Some tables reference conversion_tag_id to conversion_tag_v3 table, which is not possible to be used as
 		// unowned Vindex since the table is in PatioGeneral keyspace. To totally deprecate ScatterCache, skipping it.
 		return "", false
+	} else if colName == "campaign_id" && tableName == "bill_details" {
+		// Due to some corrupted data, skip bill_details.campaign_id Vindex. Reference: ADSI-1756
+		return "", false
 	}
 
 	return colName, true

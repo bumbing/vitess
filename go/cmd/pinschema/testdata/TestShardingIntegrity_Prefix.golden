@@ -254,21 +254,6 @@ union
 	db_campaigns.g_advertiser_id != db_ad_groups.g_advertiser_id
 union
   select
-	"db_campaigns.id with db_bill_details.campaign_id" as tables,
-	db_campaigns.id as left_id,
-    db_bill_details.id as right_id,
-    db_campaigns.g_advertiser_id as left_advertiser,
-    db_bill_details.g_advertiser_id as right_advertiser
-  from
-    db_campaigns
-  inner join
-    db_bill_details
-  on
-    db_campaigns.id = db_bill_details.campaign_id
-  where
-	db_campaigns.g_advertiser_id != db_bill_details.g_advertiser_id
-union
-  select
 	"db_campaigns.id with db_campaign_specs.campaign_id" as tables,
 	db_campaigns.id as left_id,
     db_campaign_specs.id as right_id,
