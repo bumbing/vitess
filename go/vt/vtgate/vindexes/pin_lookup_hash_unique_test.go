@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/key"
 	querypb "vitess.io/vitess/go/vt/proto/query"
@@ -76,7 +77,7 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 	plhu := createPinLookup(t, "pin_lookup_hash_unique", false, 0)
 	pvc := &pinVcursor{numRows: 1}
 
-	got, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	got, err := plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	if err != nil {
 		t.Error(err)
 	}
@@ -88,7 +89,7 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 	}
 
 	pvc.numRows = 0
-	got, err = plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	got, err = plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,7 +101,7 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 	}
 
 	pvc.numRows = 2
-	_, err = plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	_, err = plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	wantErr := fmt.Sprintf("PinLookupHashUnique.Map: More result than expected. Expected size %v rows. Got %v", 1, pvc.numRows)
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("plhu(row count mismatch) err: %v, want %s", err, wantErr)
@@ -114,7 +115,7 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 		),
 		"a|1",
 	)
-	got, err = plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	got, err = plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	wantErr = "PinLookupHashUnique.Map: Result key parsing error. Code: INVALID_ARGUMENT\ncould not parse value: 'a'\n"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("plhu(parsing fail) err: %v, want %s", err, wantErr)
@@ -125,7 +126,7 @@ func TestPinLookupHashUniqueMap(t *testing.T) {
 
 	// Test query fail.
 	pvc.mustFail = true
-	_, err = plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	_, err = plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	wantErr = "PinLookupHashUnique.Map: Select query execution error. execute failed"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("plhu(query fail) err: %v, want %s", err, wantErr)
@@ -137,7 +138,7 @@ func TestPinLookupHashUniqueMapWriteOnly(t *testing.T) {
 	plhu := createPinLookup(t, "pin_lookup_hash_unique", true, 0)
 	pvc := &pinVcursor{numRows: 0}
 
-	got, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	got, err := plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	if err != nil {
 		t.Error(err)
 	}
@@ -154,7 +155,7 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 	pvc := &pinVcursor{numRows: 1}
 
 	// regular test copied from lookup_hash_unique_test.go
-	got, err := plhu.Verify(pvc,
+	got, err := plhu.(SingleColumn).Verify(pvc,
 		[]sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)},
 		[][]byte{[]byte("\x16k@\xb4J\xbaK\xd6"), []byte("\x06\xe7\xea\"Βp\x8f")})
 	if err != nil {
@@ -166,7 +167,7 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 	}
 
 	pvc.numRows = 0
-	got, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(1)}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
+	got, err = plhu.(SingleColumn).Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(1)}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
 	if err != nil {
 		t.Error(err)
 	}
@@ -175,14 +176,14 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 		t.Errorf("plhu.Verify(mismatch): %v, want %v", got, want)
 	}
 
-	_, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(1)}, [][]byte{[]byte("bogus")})
+	_, err = plhu.(SingleColumn).Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(1)}, [][]byte{[]byte("bogus")})
 	wantErr := "PinLookup.Verify: lookup.Verify.vunhash: invalid keyspace id: 626f677573"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("plhu.Verify(bogus) err: %v, want %s", err, wantErr)
 	}
 
 	// Null value id Verify should pass Verify
-	got, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NULL}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
+	got, err = plhu.(SingleColumn).Verify(pvc, []sqltypes.Value{sqltypes.NULL}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
 	if err != nil {
 		t.Error(err)
 	}
@@ -191,7 +192,7 @@ func TestPinLookupHashUniqueVerify(t *testing.T) {
 		t.Errorf("plhu.Verify(match): %v, want %v", got, want)
 	}
 
-	got, err = plhu.Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(0)}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
+	got, err = plhu.(SingleColumn).Verify(pvc, []sqltypes.Value{sqltypes.NewInt64(0)}, [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6")})
 	if err != nil {
 		t.Error(err)
 	}
@@ -218,7 +219,7 @@ func TestPinLookupHashUniqueCache(t *testing.T) {
 	}
 
 	// Cached value should not send a query
-	_, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	_, err := plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	if err != nil {
 		t.Error(err)
 	}
@@ -235,7 +236,7 @@ func TestPinLookupHashUniqueCache(t *testing.T) {
 		"2|1",
 	)
 
-	got, err := plhu.Map(pvc, []sqltypes.Value{sqltypes.NewInt64(2)})
+	got, err := plhu.(SingleColumn).Map(pvc, []sqltypes.Value{sqltypes.NewInt64(2)})
 	if err != nil {
 		t.Error(err)
 	}
@@ -341,7 +342,7 @@ func TestGetSourceTable(t *testing.T) {
 	}
 	for key := range data {
 		result := getSourceTable(key)
-		if strings.Compare(data[key],result)!=0 {
+		if strings.Compare(data[key], result) != 0 {
 			t.Errorf("Given table %v, expected %v, got %v", key, data[key], result)
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/key"
@@ -184,7 +185,7 @@ func TestScatterCacheMapNoCapacity(t *testing.T) {
 	scatterCache := createScatterCache(t, "0")
 	svc := &scatterVcursor{}
 
-	got, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
+	got, err := scatterCache.(SingleColumn).Map(svc, []sqltypes.Value{sqltypes.NewInt64(1), sqltypes.NewInt64(2)})
 	if err != nil {
 		t.Error(err)
 	}
@@ -231,35 +232,8 @@ func TestScatterCacheMapQueryFail(t *testing.T) {
 
 	// Test query fail.
 	svc.mustFail = true
-	_, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1)})
+	_, err := scatterCache.(SingleColumn).Map(svc, []sqltypes.Value{sqltypes.NewInt64(1)})
 	wantErr := "ScatterCache.Map: execute failed"
-	if err == nil || err.Error() != wantErr {
-		t.Errorf("scatterCache(query fail) err: %v, want %s", err, wantErr)
-	}
-	svc.mustFail = false
-}
-
-func TestScatterCacheMapTooManyResults(t *testing.T) {
-	scatterCache := createScatterCache(t, "1000")
-	svc := &scatterVcursor{}
-
-	svc.result = &sqltypes.Result{
-		Fields:       sqltypes.MakeTestFields("fromCol|toCol", "int32|int32"),
-		RowsAffected: 0,
-		Rows: [][]sqltypes.Value{
-			{
-				sqltypes.NewInt64(int64(1)),
-				sqltypes.NewInt64(int64(1)),
-			},
-			{
-				sqltypes.NewInt64(int64(1)),
-				sqltypes.NewInt64(int64(2)),
-			},
-		},
-	}
-
-	_, err := scatterCache.Map(svc, []sqltypes.Value{sqltypes.NewInt64(1)})
-	wantErr := "ScatterCache.Map: unexpected multiple results from vindex t, key 1"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("scatterCache(query fail) err: %v, want %s", err, wantErr)
 	}

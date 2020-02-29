@@ -41,6 +41,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"vitess.io/vitess/go/cache"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
@@ -244,7 +245,7 @@ func (sc *ScatterCache) scatterLookupIds(vcursor VCursor, foundIds map[string]sc
 		// the same destination keyspace ID. If not, the mapping from column values
 		// to keyspace IDs is not globally unique and we have a big problem.
 		prevKeyspaceID, ok := foundIds[fromColKey]
-		if ok && bytes.Compare(prevKeyspaceID, destinationKeyspace) != 0 {
+		if ok && bytes.Equal(prevKeyspaceID, destinationKeyspace) {
 			return fmt.Errorf("ScatterCache.Map: unexpected multiple results from vindex %v, key %v", sc.table, fromColKey)
 		}
 
@@ -368,4 +369,9 @@ func (sc *ScatterCache) Delete(vcursor VCursor, rowsColValues [][]sqltypes.Value
 	// See the comment for Update() above.
 
 	return nil
+}
+
+// NeedsVCursor satisfies the Vindex interface.
+func (sc *ScatterCache) NeedsVCursor() bool {
+	return true
 }

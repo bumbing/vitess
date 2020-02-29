@@ -110,10 +110,12 @@ type Conn struct {
 	// It is set during the initial handshake.
 	UserData Getter
 
-	// SchemaName is the default database name to use. It is set
+	// schemaName is the default database name to use. It is set
 	// during handshake, and by ComInitDb packets. Both client and
-	// servers maintain it.
-	SchemaName string
+	// servers maintain it. This member is private because it's
+	// non-authoritative: the client can change the schema name
+	// through the 'USE' statement, which will bypass this variable.
+	schemaName string
 
 	// ServerVersion is set during Connect with the server
 	// version.  It is not changed afterwards. It is unused for
@@ -732,7 +734,8 @@ func (c *Conn) handleNextCommand(handler Handler) error {
 	case ComInitDB:
 		db := c.parseComInitDB(data)
 		c.recycleReadPacket()
-		c.SchemaName = db
+		c.schemaName = db
+		handler.ComInitDB(c, db)
 		if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
 			log.Errorf("Error writing ComInitDB result to %s: %v", c, err)
 			return err
@@ -851,7 +854,12 @@ func (c *Conn) handleNextCommand(handler Handler) error {
 
 		statement, err := sqlparser.ParseStrictDDL(query)
 		if err != nil {
-			return err
+			log.Errorf("Conn %v: Error parsing prepared statement: %v", c, err)
+			if werr := c.writeErrorPacketFromError(err); werr != nil {
+				// If we can't even write the error, we're done.
+				log.Errorf("Conn %v: Error writing prepared statement error: %v", c, werr)
+				return werr
+			}
 		}
 
 		paramsCount := uint16(0)
@@ -895,12 +903,9 @@ func (c *Conn) handleNextCommand(handler Handler) error {
 
 		if stmtID != uint32(0) {
 			defer func() {
+				// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
 				prepare := c.PrepareData[stmtID]
-				if prepare.BindVars != nil {
-					for k := range prepare.BindVars {
-						prepare.BindVars[k] = nil
-					}
-				}
+				prepare.BindVars = make(map[string]*querypb.BindVariable, prepare.ParamsCount)
 			}()
 		}
 

@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	proxyproto "github.com/pires/go-proxyproto"
 	"vitess.io/vitess/go/netutil"
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/stats"
@@ -38,7 +39,7 @@ import (
 const (
 	// DefaultServerVersion is the default server version we're sending to the client.
 	// Can be changed.
-	DefaultServerVersion = "5.5.10-Vitess"
+	DefaultServerVersion = "5.7.9-Vitess"
 
 	// timing metric keys
 	connectTimingKey  = "Connect"
@@ -88,6 +89,10 @@ type Handler interface {
 
 	// ConnectionClosed is called when a connection is closed.
 	ConnectionClosed(c *Conn)
+
+	// InitDB is called once at the beginning to set db name,
+	// and subsequently for every ComInitDB event.
+	ComInitDB(c *Conn, schemaName string)
 
 	// ComQuery is called when a connection receives a query.
 	// Note the contents of the query slice may change after
@@ -141,11 +146,11 @@ type Listener struct {
 	// AllowClearTextWithoutTLS needs to be set for the
 	// mysql_clear_password authentication method to be accepted
 	// by the server when TLS is not in use.
-	AllowClearTextWithoutTLS bool
+	AllowClearTextWithoutTLS sync2.AtomicBool
 
 	// SlowConnectWarnThreshold if non-zero specifies an amount of time
 	// beyond which a warning is logged to identify the slow connection
-	SlowConnectWarnThreshold time.Duration
+	SlowConnectWarnThreshold sync2.AtomicDuration
 
 	// The following parameters are changed by the Accept routine.
 
@@ -181,10 +186,14 @@ func NewFromListener(l net.Listener, authServer AuthServer, handler Handler, con
 }
 
 // NewListener creates a new Listener.
-func NewListener(protocol, address string, authServer AuthServer, handler Handler, connReadTimeout time.Duration, connWriteTimeout time.Duration) (*Listener, error) {
+func NewListener(protocol, address string, authServer AuthServer, handler Handler, connReadTimeout time.Duration, connWriteTimeout time.Duration, proxyProtocol bool) (*Listener, error) {
 	listener, err := net.Listen(protocol, address)
 	if err != nil {
 		return nil, err
+	}
+	if proxyProtocol {
+		proxyListener := &proxyproto.Listener{Listener: listener}
+		return NewFromListener(proxyListener, authServer, handler, connReadTimeout, connWriteTimeout)
 	}
 
 	return NewFromListener(listener, authServer, handler, connReadTimeout, connWriteTimeout)
@@ -350,10 +359,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 	}
 
 	var connState *tls.ConnectionState
-		if con, ok := c.conn.(*tls.Conn); ok {
-			state := con.ConnectionState()
-			connState = &state
-		}
+	if con, ok := c.conn.(*tls.Conn); ok {
+		state := con.ConnectionState()
+		connState = &state
+	}
 
 	// Compare with what the client sent back.
 	switch {
@@ -406,7 +415,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 		// The server wants to use something else, re-negotiate.
 
 		// The negotiation happens in clear text. Let's check we can.
-		if !l.AllowClearTextWithoutTLS && c.Capabilities&CapabilityClientSSL == 0 {
+		if !l.AllowClearTextWithoutTLS.Get() && c.Capabilities&CapabilityClientSSL == 0 {
 			c.writeErrorPacket(CRServerHandshakeErr, SSUnknownSQLState, "Cannot use clear text authentication over non-SSL connections.")
 			return
 		}
@@ -449,10 +458,13 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32, acceptTime time.Ti
 
 	// Log a warning if it took too long to connect
 	connectTime := time.Since(acceptTime)
-	if l.SlowConnectWarnThreshold != 0 && connectTime > l.SlowConnectWarnThreshold {
+	if threshold := l.SlowConnectWarnThreshold.Get(); threshold != 0 && connectTime > threshold {
 		connSlow.Add(1)
 		log.Warningf("Slow connection from %s: %v", c, connectTime)
 	}
+
+	// Set initial db name.
+	l.handler.ComInitDB(c, c.schemaName)
 
 	for {
 		err := c.handleNextCommand(l.handler)
@@ -483,6 +495,7 @@ func (l *Listener) isShutdown() bool {
 // It returns the salt data.
 func (c *Conn) writeHandshakeV10(serverVersion string, authServer AuthServer, enableTLS bool) ([]byte, error) {
 	capabilities := CapabilityClientLongPassword |
+		CapabilityClientFoundRows |
 		CapabilityClientLongFlag |
 		CapabilityClientConnectWithDB |
 		CapabilityClientProtocol41 |
@@ -681,7 +694,7 @@ func (l *Listener) parseClientHandshakePacket(c *Conn, firstTime bool, data []by
 		if !ok {
 			return "", "", nil, vterrors.Errorf(vtrpc.Code_INTERNAL, "parseClientHandshakePacket: can't read dbname")
 		}
-		c.SchemaName = dbname
+		c.schemaName = dbname
 	}
 
 	// authMethod (with default)

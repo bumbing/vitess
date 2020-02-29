@@ -107,6 +107,7 @@ View <a href=/debug/vars>variables</a>,
      <a href=/debug/opentsdb>tsdb stats</a>,
      <a href=/debug/deciders>decider values</a>,
      <a href=/debug/pprof>debugging profiles</a>,
+     <a href=/debug/scatter_stats>scatter query statistics</a>,
 </div>
 </div>`
 

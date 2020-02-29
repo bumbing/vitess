@@ -25,14 +25,14 @@ const (
 )
 
 var (
-	_ Vindex = (*PinLookupHashUnique)(nil)
-	_ Lookup = (*PinLookupHashUnique)(nil)
+	_ SingleColumn = (*PinLookupHashUnique)(nil)
+	_ Lookup       = (*PinLookupHashUnique)(nil)
 
-	VindexLookupQuerySize = stats.NewGaugesWithSingleLabel(
+	vindexLookupQuerySize = stats.NewGaugesWithSingleLabel(
 		"VindexLookupQuerySize",
 		"Number of rows Vindex Lookup need to collect, together from cache and db",
 		"TableName")
-	VindexLookupCachedSize = stats.NewGaugesWithSingleLabel(
+	vindexLookupCachedSize = stats.NewGaugesWithSingleLabel(
 		"VindexLookupCachedSize",
 		"Number of rows Vindex Lookup got from cache",
 		"TableName")
@@ -49,6 +49,8 @@ var (
 		" data with PinLookupVindex")
 )
 
+// RegisterPinVindexCacheStats arranges for lookup Vindex stats to be available given a way to fetch the
+// current vschema.
 func RegisterPinVindexCacheStats(getVSchema func() *VSchema) {
 	collectStats := func(statFn func(*PinLookupHashUnique) int64) func() map[string]int64 {
 		return func() map[string]int64 {
@@ -96,7 +98,7 @@ type PinLookupHashUnique struct {
 	cacheMisses     sync2.AtomicInt64
 }
 
-// NewPinLookupHashUnique creates a PinLookupHashUnique vindex.
+// NewPinLookupUniqueHash creates a PinLookupHashUnique vindex.
 // The supplied map has the following required fields:
 //   table: name of the backing table. It can be qualified by the keyspace.
 //   from: list of columns in the table that have the 'from' values of the lookup vindex.
@@ -144,6 +146,7 @@ func (lvk lookupVindexKsID) Size() int {
 	return 1
 }
 
+// Create will add Vindex to cache and write to Vindex table.
 func (plhu *PinLookupHashUnique) Create(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksids [][]byte, ignoreMode bool) error {
 	for idx := range rowsColValues {
 		colVals := rowsColValues[idx]
@@ -159,6 +162,7 @@ func (plhu *PinLookupHashUnique) Create(vcursor VCursor, rowsColValues [][]sqlty
 	return plhu.LookupHashUnique.Create(vcursor, rowsColValues, ksids, ignoreMode)
 }
 
+// Update will use internal LookupHashUnique.Update directly.
 func (plhu *PinLookupHashUnique) Update(vcursor VCursor, oldValues []sqltypes.Value, ksid []byte, newValues []sqltypes.Value) error {
 	if len(newValues) != 1 {
 		return fmt.Errorf("PinLookupHashUnique.Update: multi-col keys unsupported")
@@ -167,12 +171,12 @@ func (plhu *PinLookupHashUnique) Update(vcursor VCursor, oldValues []sqltypes.Va
 	return plhu.LookupHashUnique.Update(vcursor, oldValues, ksid, newValues)
 }
 
-// At Pinterest we don't delete data in Patio so far. We will rely on Pepsi script to sync data and Lookup Vindex.
+// Delete is not in use. We will rely on Pepsi script to sync data and Lookup Vindex.
 func (plhu *PinLookupHashUnique) Delete(vcursor VCursor, rowsColValues [][]sqltypes.Value, ksid []byte) error {
 	return nil
 }
 
-// This function will get all mapping by sending one query, to avoid using up all connections like LookupHashUnique's
+// Map will get all mapping by sending one query, to avoid using up all connections like LookupHashUnique's
 // implementation.
 // If failed to lookup Vindex, it could possible return destAll, which will not work for DMLs.
 // For DMLs, only INSERT could possible use Map, but that's for primary vindex, not for secondary vindex.
@@ -228,8 +232,8 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 		Values: make([]*querypb.Value, 0, *batchSize),
 	}
 
-	VindexLookupCachedSize.Add(plhu.lkp.Table, int64(len(m)))
-	VindexLookupQuerySize.Add(plhu.lkp.Table, int64(len(values)))
+	vindexLookupCachedSize.Add(plhu.lkp.Table, int64(len(m)))
+	vindexLookupQuerySize.Add(plhu.lkp.Table, int64(len(values)))
 	for i := 0; i < len(values); i++ {
 		bv.Values = append(bv.Values, &values[i])
 		// When reached batch limit or is the last value, execute the query
@@ -309,9 +313,8 @@ func getSourceTable(name string) string {
 	trimmedName = strings.TrimSuffix(trimmedName, "_id_idx")
 	if strings.HasSuffix(trimmedName, "s") || strings.HasSuffix(trimmedName, "_history") {
 		return trimmedName
-	} else {
-		return trimmedName + "s"
 	}
+	return trimmedName + "s"
 }
 
 func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Value, dests []key.Destination) {
@@ -421,7 +424,7 @@ func getThingsToVerify(ids []sqltypes.Value, ksids [][]byte) ([]sqltypes.Value, 
 func fillInResult(verifiedResults []bool, preVerifyResults []bool) ([]bool, error) {
 	var idx = 0
 	for i, verified := range preVerifyResults {
-		if verified != true {
+		if !verified {
 			preVerifyResults[i] = verifiedResults[idx]
 			idx++
 		}
@@ -433,7 +436,6 @@ func fillInResult(verifiedResults []bool, preVerifyResults []bool) ([]bool, erro
 func (plhu *PinLookupHashUnique) Cost() int {
 	if decider.CheckDecider("use_pin_lookup_vindex", false) {
 		return 10
-	} else {
-		return 40
 	}
+	return 40
 }

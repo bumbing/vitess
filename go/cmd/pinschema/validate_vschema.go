@@ -243,8 +243,8 @@ COLUMN_VINDEXES:
 		if err != nil {
 			return nil, err
 		}
-		// primary vindex is also a functional unique vindex
-		if vi.IsFunctional() && vi.IsUnique() {
+		// primary vindex don't need vcursor to look up in storage and should be uniqne
+		if !vi.NeedsVCursor() && vi.IsUnique() {
 			vic := cvi.Columns[0]
 			for _, col := range ddl.TableSpec.Columns {
 				if col.Name.EqualString(vic) {

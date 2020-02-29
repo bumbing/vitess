@@ -21,6 +21,7 @@ set -e
 
 # shellcheck disable=SC2128
 script_root=$(dirname "${BASH_SOURCE}")
+source "${script_root}/env.sh"
 
 # start topo server
 if [ "${TOPO}" = "zk2" ]; then

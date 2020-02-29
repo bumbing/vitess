@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	_ Vindex     = (*HashOffset)(nil)
-	_ Reversible = (*HashOffset)(nil)
+	_ SingleColumn = (*HashOffset)(nil)
+	_ Reversible   = (*HashOffset)(nil)
 )
 
 // HashOffset defines vindex that adds or subtracts a constant to column values
@@ -98,6 +98,11 @@ func (vind *HashOffset) ReverseMap(cursor VCursor, ksids [][]byte) ([]sqltypes.V
 	}
 
 	return applyOffset(-vind.offset, vals), nil
+}
+
+// NeedsVCursor satisfies the Vindex interface.
+func (vind *HashOffset) NeedsVCursor() bool {
+	return false
 }
 
 func init() {

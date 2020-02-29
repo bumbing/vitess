@@ -68,7 +68,7 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 		Opcode:   UpdateEqual,
 		Keyspace: ks.Keyspace,
 		Query:    "dummy_update",
-		Vindex:   ks.Vindexes["hash"],
+		Vindex:   ks.Vindexes["hash"].(vindexes.SingleColumn),
 		Values:   []sqltypes.PlanValue{{Value: sqltypes.NewInt64(1)}},
 		ChangedVindexValues: map[string][]sqltypes.PlanValue{
 			"ownvindex": {{

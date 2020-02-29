@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -50,6 +51,7 @@ var (
 	mysqlAuthServerImpl           = flag.String("mysql_auth_server_impl", "static", "Which auth server implementation to use.")
 	mysqlAllowClearTextWithoutTLS = flag.Bool("mysql_allow_clear_text_without_tls", false, "If set, the server will allow the use of a clear text password over non-SSL connections.")
 	mysqlServerVersion            = flag.String("mysql_server_version", mysql.DefaultServerVersion, "MySQL server version to advertise.")
+	mysqlProxyProtocol            = flag.Bool("proxy_protocol", false, "Enable HAProxy PROXY protocol on MySQL listener socket")
 
 	mysqlServerRequireSecureTransport = flag.Bool("mysql_server_require_secure_transport", false, "Reject insecure connections but only if mysql_server_ssl_cert and mysql_server_ssl_key are provided")
 
@@ -67,37 +69,53 @@ var (
 )
 
 // vtgateHandler implements the Listener interface.
-// It stores the Session in the ClientData of a Connection, if a transaction
-// is in progress.
+// It stores the Session in the ClientData of a Connection.
 type vtgateHandler struct {
-	vtg *VTGate
+	mu sync.Mutex
+
+	vtg         *VTGate
+	connections map[*mysql.Conn]bool
 }
 
 func newVtgateHandler(vtg *VTGate) *vtgateHandler {
 	return &vtgateHandler{
-		vtg: vtg,
+		vtg:         vtg,
+		connections: make(map[*mysql.Conn]bool),
 	}
 }
 
 func (vh *vtgateHandler) NewConnection(c *mysql.Conn) {
+	vh.mu.Lock()
+	defer vh.mu.Unlock()
+	vh.connections[c] = true
+}
+
+func (vh *vtgateHandler) numConnections() int {
+	vh.mu.Lock()
+	defer vh.mu.Unlock()
+	return len(vh.connections)
 }
 
 func (vh *vtgateHandler) ComResetConnection(c *mysql.Conn) {
 	ctx := context.Background()
-	session, _ := c.ClientData.(*vtgatepb.Session)
-	if session != nil {
-		if session.InTransaction {
-			defer atomic.AddInt32(&busyConnections, -1)
-		}
-		_, _, err := vh.vtg.Execute(ctx, session, "rollback", make(map[string]*querypb.BindVariable))
-		if err != nil {
-			log.Errorf("Error happened in transaction rollback: %v", err)
-		}
+	session := vh.session(c)
+	if session.InTransaction {
+		defer atomic.AddInt32(&busyConnections, -1)
+	}
+	_, _, err := vh.vtg.Execute(ctx, session, "rollback", make(map[string]*querypb.BindVariable))
+	if err != nil {
+		log.Errorf("Error happened in transaction rollback: %v", err)
 	}
 }
 
 func (vh *vtgateHandler) ConnectionClosed(c *mysql.Conn) {
 	// Rollback if there is an ongoing transaction. Ignore error.
+	defer func() {
+		vh.mu.Lock()
+		defer vh.mu.Unlock()
+		delete(vh.connections, c)
+	}()
+
 	var ctx context.Context
 	var cancel context.CancelFunc
 	if *mysqlQueryTimeout != 0 {
@@ -106,13 +124,11 @@ func (vh *vtgateHandler) ConnectionClosed(c *mysql.Conn) {
 	} else {
 		ctx = context.Background()
 	}
-	session, _ := c.ClientData.(*vtgatepb.Session)
-	if session != nil {
-		if session.InTransaction {
-			defer atomic.AddInt32(&busyConnections, -1)
-		}
-		_, _, _ = vh.vtg.Execute(ctx, session, "rollback", make(map[string]*querypb.BindVariable))
+	session := vh.session(c)
+	if session.InTransaction {
+		defer atomic.AddInt32(&busyConnections, -1)
 	}
+	_, _, _ = vh.vtg.Execute(ctx, session, "rollback", make(map[string]*querypb.BindVariable))
 }
 
 // Regexp to extract parent span id over the sql query
@@ -142,6 +158,10 @@ func startSpanTestable(ctx context.Context, query, label string,
 
 func startSpan(ctx context.Context, query, label string) (trace.Span, context.Context, error) {
 	return startSpanTestable(ctx, query, label, trace.NewSpan, trace.NewFromString)
+}
+
+func (vh *vtgateHandler) ComInitDB(c *mysql.Conn, schemaName string) {
+	vh.session(c).TargetString = schemaName
 }
 
 func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sqltypes.Result) error) error {
@@ -179,19 +199,7 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 
 	ctx = callerid.NewContext(ctx, ef, im)
 
-	session, _ := c.ClientData.(*vtgatepb.Session)
-	if session == nil {
-		session = &vtgatepb.Session{
-			Options: &querypb.ExecuteOptions{
-				IncludedFields: querypb.ExecuteOptions_ALL,
-			},
-			Autocommit: true,
-		}
-		if c.Capabilities&mysql.CapabilityClientFoundRows != 0 {
-			session.Options.ClientFoundRows = true
-		}
-	}
-
+	session := vh.session(c)
 	if !session.InTransaction {
 		atomic.AddInt32(&busyConnections, 1)
 	}
@@ -200,10 +208,6 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 			atomic.AddInt32(&busyConnections, -1)
 		}
 	}()
-
-	if session.TargetString == "" && c.SchemaName != "" {
-		session.TargetString = c.SchemaName
-	}
 
 	// Look for Pinterest-specific comments selecting a keyspace
 	targetOverride := maybeTargetOverrideForQuery(query, pinterestOpts)
@@ -222,7 +226,6 @@ func (vh *vtgateHandler) ComQuery(c *mysql.Conn, query string, callback func(*sq
 		return mysql.NewSQLErrorFromError(err)
 	}
 	session, result, err := vh.vtg.Execute(ctx, session, query, make(map[string]*querypb.BindVariable))
-	c.ClientData = session
 	err = mysql.NewSQLErrorFromError(err)
 	if err != nil {
 		return err
@@ -254,19 +257,7 @@ func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string, prepare *mysql.
 	ef := getPinterestEffectiveCallerId(c, pinterestOpts)
 	ctx = callerid.NewContext(ctx, ef, im)
 
-	session, _ := c.ClientData.(*vtgatepb.Session)
-	if session == nil {
-		session = &vtgatepb.Session{
-			Options: &querypb.ExecuteOptions{
-				IncludedFields: querypb.ExecuteOptions_ALL,
-			},
-			Autocommit: true,
-		}
-		if c.Capabilities&mysql.CapabilityClientFoundRows != 0 {
-			session.Options.ClientFoundRows = true
-		}
-	}
-
+	session := vh.session(c)
 	if !session.InTransaction {
 		atomic.AddInt32(&busyConnections, 1)
 	}
@@ -276,12 +267,7 @@ func (vh *vtgateHandler) ComPrepare(c *mysql.Conn, query string, prepare *mysql.
 		}
 	}()
 
-	if session.TargetString == "" && c.SchemaName != "" {
-		session.TargetString = c.SchemaName
-	}
-
 	session, fld, err := vh.vtg.Prepare(ctx, session, query, make(map[string]*querypb.BindVariable))
-	c.ClientData = session
 	err = mysql.NewSQLErrorFromError(err)
 	if err != nil {
 		return nil, err
@@ -312,19 +298,7 @@ func (vh *vtgateHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareDat
 	ef := getPinterestEffectiveCallerId(c, pinterestOpts)
 	ctx = callerid.NewContext(ctx, ef, im)
 
-	session, _ := c.ClientData.(*vtgatepb.Session)
-	if session == nil {
-		session = &vtgatepb.Session{
-			Options: &querypb.ExecuteOptions{
-				IncludedFields: querypb.ExecuteOptions_ALL,
-			},
-			Autocommit: true,
-		}
-		if c.Capabilities&mysql.CapabilityClientFoundRows != 0 {
-			session.Options.ClientFoundRows = true
-		}
-	}
-
+	session := vh.session(c)
 	if !session.InTransaction {
 		atomic.AddInt32(&busyConnections, 1)
 	}
@@ -334,9 +308,6 @@ func (vh *vtgateHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareDat
 		}
 	}()
 
-	if session.TargetString == "" && c.SchemaName != "" {
-		session.TargetString = c.SchemaName
-	}
 	if session.Options.Workload == querypb.ExecuteOptions_OLAP {
 		err := vh.vtg.StreamExecute(ctx, session, prepare.PrepareStmt, prepare.BindVars, callback)
 		return mysql.NewSQLErrorFromError(err)
@@ -351,15 +322,30 @@ func (vh *vtgateHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareDat
 }
 
 func (vh *vtgateHandler) WarningCount(c *mysql.Conn) uint16 {
+	return uint16(len(vh.session(c).GetWarnings()))
+}
+
+func (vh *vtgateHandler) session(c *mysql.Conn) *vtgatepb.Session {
 	session, _ := c.ClientData.(*vtgatepb.Session)
-	if session != nil {
-		return uint16(len(session.GetWarnings()))
+	if session == nil {
+		session = &vtgatepb.Session{
+			Options: &querypb.ExecuteOptions{
+				IncludedFields: querypb.ExecuteOptions_ALL,
+			},
+			Autocommit: true,
+		}
+		if c.Capabilities&mysql.CapabilityClientFoundRows != 0 {
+			session.Options.ClientFoundRows = true
+		}
+		c.ClientData = session
 	}
-	return 0
+	return session
 }
 
 var mysqlListener *mysql.Listener
 var mysqlUnixListener *mysql.Listener
+
+var vtgateHandle *vtgateHandler
 
 // initiMySQLProtocol starts the mysql protocol.
 // It should be called only once in a process.
@@ -389,9 +375,9 @@ func initMySQLProtocol() {
 
 	// Create a Listener.
 	var err error
-	vh := newVtgateHandler(rpcVTGate)
+	vtgateHandle = newVtgateHandler(rpcVTGate)
 	if *mysqlServerPort >= 0 {
-		mysqlListener, err = mysql.NewListener(*mysqlTCPVersion, net.JoinHostPort(*mysqlServerBindAddress, fmt.Sprintf("%v", *mysqlServerPort)), authServer, vh, *mysqlConnReadTimeout, *mysqlConnWriteTimeout)
+		mysqlListener, err = mysql.NewListener(*mysqlTCPVersion, net.JoinHostPort(*mysqlServerBindAddress, fmt.Sprintf("%v", *mysqlServerPort)), authServer, vtgateHandle, *mysqlConnReadTimeout, *mysqlConnWriteTimeout, *mysqlProxyProtocol)
 		if err != nil {
 			log.Exitf("mysql.NewListener failed: %v", err)
 		}
@@ -408,11 +394,11 @@ func initMySQLProtocol() {
 			mysqlListener.TLSConfig.Store(originalTLSConfig)
 			periodicallyReloadTLSCertificate(&mysqlListener.TLSConfig)
 		}
-		mysqlListener.AllowClearTextWithoutTLS = *mysqlAllowClearTextWithoutTLS
+		mysqlListener.AllowClearTextWithoutTLS.Set(*mysqlAllowClearTextWithoutTLS)
 		// Check for the connection threshold
 		if *mysqlSlowConnectWarnThreshold != 0 {
 			log.Infof("setting mysql slow connection threshold to %v", mysqlSlowConnectWarnThreshold)
-			mysqlListener.SlowConnectWarnThreshold = *mysqlSlowConnectWarnThreshold
+			mysqlListener.SlowConnectWarnThreshold.Set(*mysqlSlowConnectWarnThreshold)
 		}
 		// Start listening for tcp
 		go mysqlListener.Accept()
@@ -422,7 +408,7 @@ func initMySQLProtocol() {
 		// Let's create this unix socket with permissions to all users. In this way,
 		// clients can connect to vtgate mysql server without being vtgate user
 		oldMask := syscall.Umask(000)
-		mysqlUnixListener, err = newMysqlUnixSocket(*mysqlServerSocketPath, authServer, vh)
+		mysqlUnixListener, err = newMysqlUnixSocket(*mysqlServerSocketPath, authServer, vtgateHandle)
 		_ = syscall.Umask(oldMask)
 		if err != nil {
 			log.Exitf("mysql.NewListener failed: %v", err)
@@ -433,11 +419,10 @@ func initMySQLProtocol() {
 	}
 }
 
-
 // newMysqlUnixSocket creates a new unix socket mysql listener. If a socket file already exists, attempts
 // to clean it up.
 func newMysqlUnixSocket(address string, authServer mysql.AuthServer, handler mysql.Handler) (*mysql.Listener, error) {
-	listener, err := mysql.NewListener("unix", address, authServer, handler, *mysqlConnReadTimeout, *mysqlConnWriteTimeout)
+	listener, err := mysql.NewListener("unix", address, authServer, handler, *mysqlConnReadTimeout, *mysqlConnWriteTimeout, false)
 	switch err := err.(type) {
 	case nil:
 		return listener, nil
@@ -458,7 +443,7 @@ func newMysqlUnixSocket(address string, authServer mysql.AuthServer, handler mys
 			log.Errorf("Couldn't remove existent socket file: %s", address)
 			return nil, err
 		}
-		listener, listenerErr := mysql.NewListener("unix", address, authServer, handler, *mysqlConnReadTimeout, *mysqlConnWriteTimeout)
+		listener, listenerErr := mysql.NewListener("unix", address, authServer, handler, *mysqlConnReadTimeout, *mysqlConnWriteTimeout, false)
 		return listener, listenerErr
 	default:
 		return nil, err
@@ -490,9 +475,36 @@ func shutdownMysqlProtocolAndDrain() {
 	}
 }
 
+func rollbackAtShutdown() {
+	defer log.Flush()
+
+	// Close all open connections. If they're waiting for reads, this will cause
+	// them to error out, which will automatically rollback open transactions.
+	func() {
+		vtgateHandle.mu.Lock()
+		defer vtgateHandle.mu.Unlock()
+		for c := range vtgateHandle.connections {
+			log.Infof("Rolling back transactions associated with connection ID: %v", c.ConnectionID)
+			c.Close()
+		}
+	}()
+
+	// If vtgate is instead busy executing a query, the number of open conns
+	// will be non-zero. Give another second for those queries to finish.
+	for i := 0; i < 100; i++ {
+		if vtgateHandle.numConnections() == 0 {
+			log.Infof("All connections have been rolled back.")
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	log.Errorf("All connections did not go idle. Shutting down anyway.")
+}
+
 func init() {
 	servenv.OnRun(initMySQLProtocol)
 	servenv.OnTermSync(shutdownMysqlProtocolAndDrain)
+	servenv.OnClose(rollbackAtShutdown)
 }
 
 var pluginInitializers []func()

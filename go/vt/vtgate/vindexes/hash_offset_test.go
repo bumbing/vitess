@@ -95,7 +95,7 @@ func TestHashOffsetString(t *testing.T) {
 func TestHashOffsetMap(t *testing.T) {
 	hashOffset := createHashOffset("1")
 
-	got, err := hashOffset.Map(nil, []sqltypes.Value{
+	got, err := hashOffset.(SingleColumn).Map(nil, []sqltypes.Value{
 		sqltypes.NewInt64(0),
 		sqltypes.NewInt64(1),
 		sqltypes.NewInt64(2),
@@ -124,7 +124,7 @@ func TestHashOffsetMap(t *testing.T) {
 func TestHashOffsetMapNegative(t *testing.T) {
 	hashOffset := createHashOffset("-1")
 
-	got, err := hashOffset.Map(nil, []sqltypes.Value{
+	got, err := hashOffset.(SingleColumn).Map(nil, []sqltypes.Value{
 		sqltypes.NewInt64(2),
 		sqltypes.NewInt64(3),
 		sqltypes.NewInt64(4),
@@ -155,7 +155,7 @@ func TestHashOffsetVerify(t *testing.T) {
 
 	ids := []sqltypes.Value{sqltypes.NewInt64(0), sqltypes.NewInt64(1)}
 	ksids := [][]byte{[]byte("\x16k@\xb4J\xbaK\xd6"), []byte("\x16k@\xb4J\xbaK\xd6")}
-	got, err := hashOffset.Verify(nil, ids, ksids)
+	got, err := hashOffset.(SingleColumn).Verify(nil, ids, ksids)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestHashOffsetVerify(t *testing.T) {
 	}
 
 	// Failure test
-	_, err = hashOffset.Verify(nil, []sqltypes.Value{sqltypes.NewVarBinary("aa")}, [][]byte{nil})
+	_, err = hashOffset.(SingleColumn).Verify(nil, []sqltypes.Value{sqltypes.NewVarBinary("aa")}, [][]byte{nil})
 	wantErr := "hash.Verify: could not parse value: 'aa'"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("hashOffset.Verify err: %v, want %s", err, wantErr)

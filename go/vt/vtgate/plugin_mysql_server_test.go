@@ -42,6 +42,9 @@ func (th *testHandler) NewConnection(c *mysql.Conn) {
 func (th *testHandler) ConnectionClosed(c *mysql.Conn) {
 }
 
+func (th *testHandler) ComInitDB(c *mysql.Conn, schemaName string) {
+}
+
 func (th *testHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltypes.Result) error) error {
 	return nil
 }
@@ -51,7 +54,6 @@ func (th *testHandler) ComPrepare(c *mysql.Conn, q string, prepare *mysql.Prepar
 }
 
 func (th *testHandler) ComResetConnection(c *mysql.Conn) {
-
 }
 
 func (th *testHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareData, callback func(*sqltypes.Result) error) error {
@@ -65,15 +67,7 @@ func (th *testHandler) WarningCount(c *mysql.Conn) uint16 {
 func TestConnectionUnixSocket(t *testing.T) {
 	th := &testHandler{}
 
-	authServer := mysql.NewAuthServerStatic()
-
-	authServer.Entries["user1"] = []*mysql.AuthServerStaticEntry{
-		{
-			Password:   "password1",
-			UserData:   "userData1",
-			SourceHost: "localhost",
-		},
-	}
+	authServer := newTestAuthServerStatic()
 
 	// Use tmp file to reserve a path, remove it immediately, we only care about
 	// name in this context
@@ -106,15 +100,7 @@ func TestConnectionUnixSocket(t *testing.T) {
 func TestConnectionStaleUnixSocket(t *testing.T) {
 	th := &testHandler{}
 
-	authServer := mysql.NewAuthServerStatic()
-
-	authServer.Entries["user1"] = []*mysql.AuthServerStaticEntry{
-		{
-			Password:   "password1",
-			UserData:   "userData1",
-			SourceHost: "localhost",
-		},
-	}
+	authServer := newTestAuthServerStatic()
 
 	// First let's create a file. In this way, we simulate
 	// having a stale socket on disk that needs to be cleaned up.
@@ -146,15 +132,7 @@ func TestConnectionStaleUnixSocket(t *testing.T) {
 func TestConnectionRespectsExistingUnixSocket(t *testing.T) {
 	th := &testHandler{}
 
-	authServer := mysql.NewAuthServerStatic()
-
-	authServer.Entries["user1"] = []*mysql.AuthServerStaticEntry{
-		{
-			Password:   "password1",
-			UserData:   "userData1",
-			SourceHost: "localhost",
-		},
-	}
+	authServer := newTestAuthServerStatic()
 
 	unixSocket, err := ioutil.TempFile("", "mysql_vitess_test.sock")
 	if err != nil {
@@ -224,4 +202,9 @@ func TestSpanContextPassedInEvenAroundOtherComments(t *testing.T) {
 		newSpanFail(t),
 		newFromStringExpect(t, "123"))
 	assert.NoError(t, err)
+}
+
+func newTestAuthServerStatic() *mysql.AuthServerStatic {
+	jsonConfig := "{\"user1\":{\"Password\":\"password1\", \"UserData\":\"userData1\", \"SourceHost\":\"localhost\"}}"
+	return mysql.NewAuthServerStatic("", jsonConfig, 0)
 }

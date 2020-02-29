@@ -126,6 +126,7 @@ import (
 	replicationdatapb "vitess.io/vitess/go/vt/proto/replicationdata"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 	vschemapb "vitess.io/vitess/go/vt/proto/vschema"
+	vtctldatapb "vitess.io/vitess/go/vt/proto/vtctldata"
 	vtrpcpb "vitess.io/vitess/go/vt/proto/vtrpc"
 	"vitess.io/vitess/go/vt/proto/vttime"
 )
@@ -307,12 +308,30 @@ var commands = []commandGroup{
 			{"ValidateKeyspace", commandValidateKeyspace,
 				"[-ping-tablets] <keyspace name>",
 				"Validates that all nodes reachable from the specified keyspace are consistent."},
+			{"Reshard", commandReshard,
+				"[-skip_schema_copy] <keyspace.workflow> <source_shards> <target_shards>",
+				"Start a Resharding process. Example: Reshard ks.workflow001 '0' '-80,80-'"},
+			{"Migrate", commandMigrate,
+				"[-cell=<cell>] [-tablet_types=<source_tablet_types>] -workflow=<workflow> <source_keyspace> <target_keyspace> <table_specs>",
+				`Start a table(s) migration, table_specs is a list of tables or the tables section of the vschema for the target keyspace. Example: '{"t1":{"column_vindexes": [{""column": "id1", "name": "hash"}]}, "t2":{"column_vindexes": [{""column": "id2", "name": "hash"}]}}`},
+			{"CreateLookupVindex", commandCreateLookupVindex,
+				"[-cell=<cell>] [-tablet_types=<source_tablet_types>] <keyspace> <json_spec>",
+				`Create and backfill a lookup vindex. the json_spec must contain the vindex and colvindex specs for the new lookup.`},
+			{"ExternalizeVindex", commandExternalizeVindex,
+				"<keyspace>.<vindex>",
+				`Externalize a backfilled vindex.`},
+			{"Materialize", commandMaterialize,
+				`<json_spec>, example : '{"workflow": "aaa", "source_keyspace": "source", "target_keyspace": "target", "table_settings": [{"target_table": "customer", "source_expression": "select * from customer", "create_ddl": "copy"}]}'`,
+				"Performs materialization based on the json spec."},
 			{"SplitClone", commandSplitClone,
 				"<keyspace> <from_shards> <to_shards>",
 				"Start the SplitClone process to perform horizontal resharding. Example: SplitClone ks '0' '-80,80-'"},
 			{"VerticalSplitClone", commandVerticalSplitClone,
 				"<from_keyspace> <to_keyspace> <tables>",
 				"Start the VerticalSplitClone process to perform vertical resharding. Example: SplitClone from_ks to_ks 'a,/b.*/'"},
+			{"VDiff", commandVDiff,
+				"[-source_cell=<cell>] [-target_cell=<cell>] [-tablet_types=replica] [-filtered_replication_wait_time=30s] <keyspace.workflow>",
+				"Perform a diff of all tables in the workflow"},
 			{"MigrateServedTypes", commandMigrateServedTypes,
 				"[-cells=c1,c2,...] [-reverse] [-skip-refresh-state] <keyspace/shard> <served tablet type>",
 				"Migrates a serving type from the source shard to the shards that it replicates to. This command also rebuilds the serving graph. The <keyspace/shard> argument can specify any of the shards involved in the migration."},
@@ -320,10 +339,10 @@ var commands = []commandGroup{
 				"[-cells=c1,c2,...] [-reverse] <destination keyspace/shard> <served tablet type>",
 				"Makes the <destination keyspace/shard> serve the given type. This command also rebuilds the serving graph."},
 			{"MigrateReads", commandMigrateReads,
-				"[-cells=c1,c2,...] [-reverse] -workflow=workflow <target keyspace> <tablet type>",
+				"[-cells=c1,c2,...] [-reverse] -tablet_type={replica|rdonly} <keyspace.workflow>",
 				"Migrate read traffic for the specified workflow."},
 			{"MigrateWrites", commandMigrateWrites,
-				"[-filtered_replication_wait_time=30s] [-cancel] [-reverse_replication=false] -workflow=workflow <target keyspace>",
+				"[-filtered_replication_wait_time=30s] [-cancel] [-reverse_replication=false] <keyspace.workflow>",
 				"Migrate write traffic for the specified workflow."},
 			{"CancelResharding", commandCancelResharding,
 				"<keyspace/shard>",
@@ -1781,6 +1800,83 @@ func commandValidateKeyspace(ctx context.Context, wr *wrangler.Wrangler, subFlag
 	return wr.ValidateKeyspace(ctx, keyspace, *pingTablets)
 }
 
+func commandReshard(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	skipSchemaCopy := subFlags.Bool("skip_schema_copy", false, "Skip copying of schema to targets")
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 3 {
+		return fmt.Errorf("three arguments are required: <keyspace.workflow>, source_shards, target_shards")
+	}
+	keyspace, workflow, err := splitKeyspaceWorkflow(subFlags.Arg(0))
+	if err != nil {
+		return err
+	}
+	source := strings.Split(subFlags.Arg(1), ",")
+	target := strings.Split(subFlags.Arg(2), ",")
+	return wr.Reshard(ctx, keyspace, workflow, source, target, *skipSchemaCopy)
+}
+
+func commandMigrate(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	workflow := subFlags.String("workflow", "", "Workflow name. Will be used to later migrate traffic.")
+	cell := subFlags.String("cell", "", "Cell to replicate from.")
+	tabletTypes := subFlags.String("tablet_types", "", "Source tablet types to replicate from.")
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if *workflow == "" {
+		return fmt.Errorf("a workflow name must be specified")
+	}
+	if subFlags.NArg() != 3 {
+		return fmt.Errorf("three arguments are required: source_keyspace, target_keyspace, tableSpecs")
+	}
+	source := subFlags.Arg(0)
+	target := subFlags.Arg(1)
+	tableSpecs := subFlags.Arg(2)
+	return wr.Migrate(ctx, *workflow, source, target, tableSpecs, *cell, *tabletTypes)
+}
+
+func commandCreateLookupVindex(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	cell := subFlags.String("cell", "", "Cell to replicate from.")
+	tabletTypes := subFlags.String("tablet_types", "", "Source tablet types to replicate from.")
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 2 {
+		return fmt.Errorf("two arguments are required: keyspace and json_spec")
+	}
+	keyspace := subFlags.Arg(0)
+	specs := &vschemapb.Keyspace{}
+	if err := json2.Unmarshal([]byte(subFlags.Arg(1)), specs); err != nil {
+		return err
+	}
+	return wr.CreateLookupVindex(ctx, keyspace, specs, *cell, *tabletTypes)
+}
+
+func commandExternalizeVindex(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 1 {
+		return fmt.Errorf("one argument is required: keyspace.vindex")
+	}
+	return wr.ExternalizeVindex(ctx, subFlags.Arg(0))
+}
+
+func commandMaterialize(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+	if subFlags.NArg() != 1 {
+		return fmt.Errorf("a single argument is required: <json_spec>")
+	}
+	ms := &vtctldatapb.MaterializeSettings{}
+	if err := json2.Unmarshal([]byte(subFlags.Arg(0)), ms); err != nil {
+		return err
+	}
+	return wr.Materialize(ctx, ms)
+}
+
 func commandSplitClone(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
 	if err := subFlags.Parse(args); err != nil {
 		return err
@@ -1805,6 +1901,36 @@ func commandVerticalSplitClone(ctx context.Context, wr *wrangler.Wrangler, subFl
 	toKeyspace := subFlags.Arg(1)
 	tables := strings.Split(subFlags.Arg(2), ",")
 	return wr.VerticalSplitClone(ctx, fromKeyspace, toKeyspace, tables)
+}
+
+func commandVDiff(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
+	sourceCell := subFlags.String("source_cell", "", "The source cell to compare from")
+	targetCell := subFlags.String("target_cell", "", "The target cell to compare with")
+	tabletTypes := subFlags.String("tablet_types", "", "Tablet types for source and target")
+	filteredReplicationWaitTime := subFlags.Duration("filtered_replication_wait_time", 30*time.Second, "Specifies the maximum time to wait, in seconds, for filtered replication to catch up on master migrations. The migration will be aborted on timeout.")
+	if err := subFlags.Parse(args); err != nil {
+		return err
+	}
+
+	if subFlags.NArg() != 1 {
+		return fmt.Errorf("<keyspace.workflow> is required")
+	}
+	keyspace, workflow, err := splitKeyspaceWorkflow(subFlags.Arg(0))
+	if err != nil {
+		return err
+	}
+
+	_, err = wr.VDiff(ctx, keyspace, workflow, *sourceCell, *targetCell, *tabletTypes, *filteredReplicationWaitTime,
+		*HealthCheckTopologyRefresh, *HealthcheckRetryDelay, *HealthCheckTimeout)
+	return err
+}
+
+func splitKeyspaceWorkflow(in string) (keyspace, workflow string, err error) {
+	splits := strings.Split(in, ".")
+	if len(splits) != 2 {
+		return "", "", fmt.Errorf("invalid format for <keyspace.workflow>: %s", in)
+	}
+	return splits[0], splits[1], nil
 }
 
 func commandMigrateServedTypes(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
@@ -1867,16 +1993,15 @@ func commandMigrateServedFrom(ctx context.Context, wr *wrangler.Wrangler, subFla
 func commandMigrateReads(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
 	reverse := subFlags.Bool("reverse", false, "Moves the served tablet type backward instead of forward.")
 	cellsStr := subFlags.String("cells", "", "Specifies a comma-separated list of cells to update")
-	workflow := subFlags.String("workflow", "", "Specifies the workflow name")
+	tabletType := subFlags.String("tablet_type", "", "Tablet type (replica or rdonly)")
 	if err := subFlags.Parse(args); err != nil {
 		return err
 	}
-	if subFlags.NArg() != 2 {
-		return fmt.Errorf("the <target keyspace> and <tablet type> arguments are required for the MigrateReads command")
-	}
 
-	keyspace := subFlags.Arg(0)
-	servedType, err := parseTabletType(subFlags.Arg(2), []topodatapb.TabletType{topodatapb.TabletType_REPLICA, topodatapb.TabletType_RDONLY})
+	if *tabletType == "" {
+		return fmt.Errorf("-tablet_type must be specified")
+	}
+	servedType, err := parseTabletType(*tabletType, []topodatapb.TabletType{topodatapb.TabletType_REPLICA, topodatapb.TabletType_RDONLY})
 	if err != nil {
 		return err
 	}
@@ -1888,29 +2013,34 @@ func commandMigrateReads(ctx context.Context, wr *wrangler.Wrangler, subFlags *f
 	if *reverse {
 		direction = wrangler.DirectionBackward
 	}
-	if *workflow == "" {
-		return fmt.Errorf("a -workflow=workflow argument is required")
+	if subFlags.NArg() != 1 {
+		return fmt.Errorf("<keyspace.workflow> is required")
 	}
-	return wr.MigrateReads(ctx, keyspace, *workflow, servedType, cells, direction)
+	keyspace, workflow, err := splitKeyspaceWorkflow(subFlags.Arg(0))
+	if err != nil {
+		return err
+	}
+
+	return wr.MigrateReads(ctx, keyspace, workflow, servedType, cells, direction)
 }
 
 func commandMigrateWrites(ctx context.Context, wr *wrangler.Wrangler, subFlags *flag.FlagSet, args []string) error {
 	filteredReplicationWaitTime := subFlags.Duration("filtered_replication_wait_time", 30*time.Second, "Specifies the maximum time to wait, in seconds, for filtered replication to catch up on master migrations. The migration will be aborted on timeout.")
 	reverseReplication := subFlags.Bool("reverse_replication", true, "Also reverse the replication")
 	cancelMigrate := subFlags.Bool("cancel", false, "Cancel the failed migration and serve from source")
-	workflow := subFlags.String("workflow", "", "Specifies the workflow name")
 	if err := subFlags.Parse(args); err != nil {
 		return err
 	}
+
 	if subFlags.NArg() != 1 {
-		return fmt.Errorf("the <target keyspace> argument is required for the MigrateWrites command")
+		return fmt.Errorf("<keyspace.workflow> is required")
+	}
+	keyspace, workflow, err := splitKeyspaceWorkflow(subFlags.Arg(0))
+	if err != nil {
+		return err
 	}
 
-	keyspace := subFlags.Arg(0)
-	if *workflow == "" {
-		return fmt.Errorf("a -workflow=workflow argument is required")
-	}
-	journalID, err := wr.MigrateWrites(ctx, keyspace, *workflow, *filteredReplicationWaitTime, *cancelMigrate, *reverseReplication)
+	journalID, err := wr.MigrateWrites(ctx, keyspace, workflow, *filteredReplicationWaitTime, *cancelMigrate, *reverseReplication)
 	if err != nil {
 		return err
 	}
