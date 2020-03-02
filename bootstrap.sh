@@ -106,6 +106,7 @@ function install_grpc() {
   $VIRTUALENV -v "$grpc_virtualenv"
   PIP=$grpc_virtualenv/bin/pip
   $PIP install --upgrade pip
+  $PIP install --upgrade 'setuptools<45.0.0'
   $PIP install --upgrade --ignore-installed virtualenv
   $PIP install mysql-connector-python
 
@@ -288,6 +289,7 @@ if [ "$BUILD_PYTHON" == 1 ] ; then
 fi
 
 if [ "$BUILD_PYTHON" == 1 ] ; then
+  $PIP install --upgrade 'setuptools<45.0.0'
   PYTHONPATH='' $PIP install mysql-connector-python
 fi
 
