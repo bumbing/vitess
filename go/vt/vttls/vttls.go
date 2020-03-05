@@ -20,8 +20,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"vitess.io/vitess/go/vt/proto/vtrpc"
 	"vitess.io/vitess/go/vt/vterrors"
@@ -57,6 +59,33 @@ func newTLSConfig() *tls.Config {
 }
 
 var onceByKeys = sync.Map{}
+var serverConfigLock, clientConfigLock sync.Mutex
+var certTimeMap = make(map[string]time.Time)
+var keyTimeMap = make(map[string]time.Time)
+var caTimeMap = make(map[string]time.Time)
+
+func getModTime(filePath string) (time.Time, error) {
+	fileStat, err := os.Stat(filePath)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return fileStat.ModTime(), nil
+}
+
+func isFileModified(file string, timeMap map[string]time.Time, lock *sync.Mutex) bool {
+	t, err := getModTime(file)
+	if err != nil {
+		return false
+	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	if lastTime, ok := timeMap[file]; !ok || t.After(lastTime) {
+		timeMap[file] = lastTime
+		return true
+	}
+	return false
+}
 
 // ClientConfig returns the TLS config to use for a client to
 // connect to a server with the provided parameters.
@@ -65,7 +94,7 @@ func ClientConfig(cert, key, ca, name string) (*tls.Config, error) {
 
 	// Load the client-side cert & key if any.
 	if cert != "" && key != "" {
-		certificates, err := loadTLSCertificate(cert, key)
+		certificates, err := loadTLSCertificate(cert, key, &clientConfigLock)
 
 		if err != nil {
 			return nil, err
@@ -76,7 +105,7 @@ func ClientConfig(cert, key, ca, name string) (*tls.Config, error) {
 
 	// Load the server CA if any.
 	if ca != "" {
-		certificatePool, err := loadx509CertPool(ca)
+		certificatePool, err := loadx509CertPool(ca, &clientConfigLock)
 
 		if err != nil {
 			return nil, err
@@ -98,7 +127,7 @@ func ClientConfig(cert, key, ca, name string) (*tls.Config, error) {
 func ServerConfig(cert, key, ca string) (*tls.Config, error) {
 	config := newTLSConfig()
 
-	certificates, err := loadTLSCertificate(cert, key)
+	certificates, err := loadTLSCertificate(cert, key, &serverConfigLock)
 
 	if err != nil {
 		return nil, err
@@ -109,7 +138,7 @@ func ServerConfig(cert, key, ca string) (*tls.Config, error) {
 	// if specified, load ca to validate client,
 	// and enforce clients present valid certs.
 	if ca != "" {
-		certificatePool, err := loadx509CertPool(ca)
+		certificatePool, err := loadx509CertPool(ca, &serverConfigLock)
 
 		if err != nil {
 			return nil, err
@@ -124,7 +153,7 @@ func ServerConfig(cert, key, ca string) (*tls.Config, error) {
 
 var certPools = sync.Map{}
 
-func loadx509CertPool(ca string) (*x509.CertPool, error) {
+func loadx509CertPool(ca string, lock *sync.Mutex) (*x509.CertPool, error) {
 	once, _ := onceByKeys.LoadOrStore(ca, &sync.Once{})
 
 	var err error
@@ -133,6 +162,13 @@ func loadx509CertPool(ca string) (*x509.CertPool, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if isFileModified(ca, caTimeMap, lock) {
+		err = doLoadx509CertPool(ca)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	result, ok := certPools.Load(ca)
@@ -166,7 +202,7 @@ func tlsCertificatesIdentifier(cert, key string) string {
 	return strings.Join([]string{cert, key}, ";")
 }
 
-func loadTLSCertificate(cert, key string) (*[]tls.Certificate, error) {
+func loadTLSCertificate(cert, key string, lock *sync.Mutex) (*[]tls.Certificate, error) {
 	tlsIdentifier := tlsCertificatesIdentifier(cert, key)
 	once, _ := onceByKeys.LoadOrStore(tlsIdentifier, &sync.Once{})
 
@@ -177,6 +213,13 @@ func loadTLSCertificate(cert, key string) (*[]tls.Certificate, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if isFileModified(cert, certTimeMap, lock) || isFileModified(key, keyTimeMap, lock) {
+		err = doLoadTLSCertificate(cert, key)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	result, ok := tlsCertificates.Load(tlsIdentifier)
