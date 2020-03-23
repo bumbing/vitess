@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=vitess/base:latest
 FROM $BASE_IMAGE AS build
 
-FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/python2.7.11:latest
+FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/python3-ubuntu18.04:latest
 RUN pip install vitess_utils~=0.2
 
 # netcat's nc command is used to write stats to statsboard from the vtctld cron script
