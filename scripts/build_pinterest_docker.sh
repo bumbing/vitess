@@ -12,12 +12,12 @@ set -o pipefail
 # TARBALL_GZ: Output location of the build artifact
 # GIT_COMMIT: Label to use for docker images and the build artifact
 # PACKAGE_DEB: "true" or "1" to build a .deb file and upload it
+# PUSH_CONFIG: "true" or "1" to push managed config to zk (/config/pinterest/*)
 # BUILD_DIR: Directory where the built .deb file should be placed.
 
 REGISTRY="998131032990.dkr.ecr.us-east-1.amazonaws.com"
 
-if [ "$REBUILD_COMMON" == 'true' ] || [ "$REBUILD_COMMON" == '1' ]
-then
+if [ "$REBUILD_COMMON" == 'true' ] || [ "$REBUILD_COMMON" == '1' ]; then
   ./docker/bootstrap/build.sh common
   ./docker/bootstrap/build.sh percona
 
@@ -32,8 +32,7 @@ then
 fi
 
 # SKIP_BUILD can be set to use pre-built images from the repo at the provided git commit version
-if [ "$SKIP_BUILD" != 'true' ] && [ "$PUSH_IMAGES" != '1' ]
-then
+if [ "$SKIP_BUILD" != 'true' ] && [ "$PUSH_IMAGES" != '1' ]; then
   # Copy the most recent files into the bootstrap image to create a base image
   docker build --no-cache -f docker/base/Dockerfile.percona --build-arg BASE_IMAGE=$REGISTRY/vitess/bootstrap:percona -t $REGISTRY/vitess/base:"$GIT_COMMIT" .
 
@@ -45,8 +44,7 @@ then
 fi
 
 # Unit tests pass, making the build artifact succeeded. Let's push the base and vtgate images out!
-if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]
-then
+if [ "$PUSH_IMAGES" == 'true' ] || [ "$PUSH_IMAGES" == '1' ]; then
   docker push $REGISTRY/vitess/base:"$GIT_COMMIT"
   docker push $REGISTRY/vitess:"$GIT_COMMIT"
   docker push $REGISTRY/vitess/vtctld:"$GIT_COMMIT"
@@ -56,8 +54,7 @@ then
   docker push $REGISTRY/vitess:latest
 fi
 
-if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]
-then
+if [ "$PACKAGE_DEB" == 'true' ] || [ "$PACKAGE_DEB" == '1' ]; then
   docker run -i $REGISTRY/vitess:"$GIT_COMMIT" /vt/scripts/write_build_artifact_to_stdout.sh > "$TARBALL_GZ"
 # Package a .deb file where /vt/* has the contents of the build artifact
   DATE=$(date +%Y%m%d.%H%M)
@@ -108,4 +105,16 @@ UPLOAD_METADATA_DEB_COMPONENT=main
 UPLOAD_METADATA_DEB_ARCHITECTURE=amd64
 EOF
 
+fi
+
+# SKIP_BUILD can be set to use pre-built images from the repo at the provided git commit version
+if [ "$PUSH_CONFIG" == 'true' ] || [ "$PUSH_CONFIG" == '1' ]; then
+  # Build managed config publish specific image
+  docker build --no-cache -f Dockerfile.configv3.pinterest --build-arg BASE_IMAGE=$REGISTRY/vitess/base:"$GIT_COMMIT" -t vitess/config:"$GIT_COMMIT" .
+  files=$(git diff-tree --no-commit-id --name-only -r "$GIT_COMMIT")
+  if [[ "$files" =~ '/pinterest/vitess_pinterest_acls' ]]; then
+    docker run -i --rm vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_pinterest_acls --managed_config_file /vt/config/pinterest/vitess_pinterest_acls
+  fi
+  # docker run -i vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_databases --managed_config_file /vt/config/pinterest/vitess_databases
+  # docker run -i vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_environments --managed_config_file /vt/config/pinterest/vitess_environments
 fi
