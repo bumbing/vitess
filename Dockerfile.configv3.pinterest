@@ -5,3 +5,4 @@ FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/python3-ubuntu18.04:latest
 COPY --from=build /vt/src/vitess.io/vitess/config/ /vt/config/
 
 RUN pip install --upgrade vitess_utils
+VOLUME ["/etc/zookeeper_hosts.conf"]

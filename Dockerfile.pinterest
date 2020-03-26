@@ -5,13 +5,13 @@ FROM $BASE_IMAGE AS build
 RUN make build && ./tools/unit_test_runner.sh
 
 FROM 998131032990.dkr.ecr.us-east-1.amazonaws.com/ubuntu18.04:latest
-COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
-COPY --from=build /vt/src/vitess.io/vitess/config /vt/config
-COPY --from=build /vt/src/vitess.io/vitess/hooks /vt/vthook
 COPY --from=build /vt/src/vitess.io/vitess/bin/vt* /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/mysql* /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/zkc* /vt/bin/
-COPY --from=build /vt/src/vitess.io/vitess/bin/pinschema /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/zk /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/query_analyzer /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/topo2topo /vt/bin/
+COPY --from=build /vt/src/vitess.io/vitess/bin/pinschema /vt/bin/
+COPY --from=build /vt/src/vitess.io/vitess/hooks /vt/vthook
+COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
+COPY --from=build /vt/src/vitess.io/vitess/config /vt/config

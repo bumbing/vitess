@@ -10,14 +10,14 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     netcat jq \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
-COPY --from=build /vt/src/vitess.io/vitess/config /vt/config
-COPY --from=build /vt/src/vitess.io/vitess/web /vt/web
-COPY --from=build /vt/src/vitess.io/vitess/hooks /vt/vthook
 COPY --from=build /vt/src/vitess.io/vitess/bin/vt* /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/mysql* /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/zkc* /vt/bin/
-COPY --from=build /vt/src/vitess.io/vitess/bin/pinschema /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/zk /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/query_analyzer /vt/bin/
 COPY --from=build /vt/src/vitess.io/vitess/bin/topo2topo /vt/bin/
+COPY --from=build /vt/src/vitess.io/vitess/bin/pinschema /vt/bin/
+COPY --from=build /vt/src/vitess.io/vitess/web /vt/web
+COPY --from=build /vt/src/vitess.io/vitess/hooks /vt/vthook
+COPY --from=build /vt/src/vitess.io/vitess/scripts /vt/scripts
+COPY --from=build /vt/src/vitess.io/vitess/config /vt/config
