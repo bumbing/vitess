@@ -1,0 +1,238 @@
+{
+    "patiogeneraldb001": {
+        "env_type": "prod",
+        "cell": "aws_us_east_1",
+        "zk_addrs": "vitess-infra-zookeeper-prod1e01-001:2181,vitess-infra-zookeeper-prod1e01-002:2181,vitess-infra-zookeeper-prod1e01-003:2181,vitess-infra-zookeeper-prod1e01-004:2181,vitess-infra-zookeeper-prod1e01-005:2181",
+        "zk_path": "/vitess/m10n/prod/global",
+        "keyspace": "patiogeneral",
+        "shard": "0",
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        },
+        "maxwell_whitelisted": false,
+        "db_name": "patiogeneral",
+        "opentsdb": "vttablet"
+    },
+    "narcosnotifydb001": {
+        "env_type": "prod",
+        "cell": "aws_us_east_1",
+        "keyspace": "narcos",
+        "shard": "0",
+        "serving_tablet_types": {},
+        "maxwell_whitelisted": true,
+        "db_name": "narcos",
+        "opentsdb": "vttablet"
+    },
+    "patiodb003": {
+        "env_type": "prod",
+        "cell": "aws_us_east_1",
+        "keyspace": "patio",
+        "shard": "80-",
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        },
+        "maxwell_whitelisted": true,
+        "db_name": "patio",
+        "opentsdb": "vttablet"
+    },
+    "patiodb002": {
+        "cell": "aws_us_east_1",
+        "shard": "-80",
+        "env_type": "prod",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "opentsdb": "vttablet",
+        "maxwell_whitelisted": true,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        }
+    },
+    "devpatiogeneraldb001": {
+        "cell": "test",
+        "shard": "0",
+        "env_type": "latest",
+        "keyspace": "patiogeneral",
+        "db_name": "patiogeneral",
+        "opentsdb": "vttablet_dev",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        }
+    },
+    "devnarcosnotifydb001": {
+        "cell": "test",
+        "shard": "0",
+        "env_type": "latest",
+        "keyspace": "narcos",
+        "db_name": "narcos",
+        "opentsdb": "vttablet_dev",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        }
+    },
+    "devpatiodb003": {
+        "env_type": "latest",
+        "shard": "80-",
+        "cell": "test",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        },
+        "maxwell_whitelisted": false,
+        "opentsdb": "vttablet_dev"
+    },
+    "adsnarcospostsubmitdb001": {
+        "cell": "test",
+        "shard": "0",
+        "env_type": "postsubmit",
+        "keyspace": "narcos",
+        "db_name": "narcos",
+        "opentsdb": "vttablet_postsubmit",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {},
+        "rolling_restarts": [
+            "adsnarcospostsubmitdb-1-63",
+            "adsnarcospostsubmitdb-1-57"
+        ]
+    },
+    "testpatiodb001": {
+        "cell": "test",
+        "shard": "-80",
+        "env_type": "test",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "opentsdb": "vttablet_test",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        }
+    },
+    "testpatiodb002": {
+        "cell": "test",
+        "shard": "80-",
+        "env_type": "test",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "opentsdb": "vttablet_test",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        }
+    },
+    "colatestdb002": {
+        "cell": "aws_us_east_1",
+        "shard": "-80",
+        "env_type": "shadow",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "serving_tablet_types": {
+            "rdonly": true
+        },
+        "opentsdb": "vttablet_shadow"
+    },
+    "patiodb001": {
+        "decommissioning": true,
+        "shard": "0",
+        "cell": "aws_us_east_1",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "opentsdb": "vttablet",
+        "serving_tablet_types": {},
+        "env_type": "prod"
+    },
+    "colatestdb003": {
+        "cell": "aws_us_east_1",
+        "shard": "80-",
+        "env_type": "shadow",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "serving_tablet_types": {
+            "rdonly": true
+        },
+        "opentsdb": "vttablet_shadow"
+    },
+    "devpatiodb002": {
+        "cell": "test",
+        "shard": "-80",
+        "env_type": "latest",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "opentsdb": "vttablet_dev",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        },
+        "rolling_restarts": [
+            "\"\""
+        ]
+    },
+    "testpatiogeneraldb001": {
+        "cell": "test",
+        "shard": "0",
+        "env_type": "test",
+        "keyspace": "patiogeneral",
+        "db_name": "patiogeneral",
+        "opentsdb": "vttablet_test",
+        "maxwell_whitelisted": false,
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true,
+            "rdonly": true
+        }
+    },
+    "adspatiogeneralpostsubmitdb001": {
+        "env_type": "postsubmit",
+        "shard": "0",
+        "cell": "test",
+        "keyspace": "patiogeneral",
+        "db_name": "patiogeneral",
+        "serving_tablet_types": {},
+        "maxwell_whitelisted": false,
+        "opentsdb": "vttablet_postsubmit"
+    },
+    "adspatiopostsubmitdb001": {
+        "env_type": "postsubmit",
+        "shard": "0",
+        "cell": "test",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "serving_tablet_types": {},
+        "maxwell_whitelisted": false,
+        "opentsdb": "vttablet_postsubmit",
+        "rolling_restarts": [
+            "adspatiopostsubmitdb-1-11"
+        ]
+    },
+    "colatestdb001": {
+        "cell": "aws_us_east_1",
+        "shard": "0",
+        "env_type": "shadow",
+        "keyspace": "patio",
+        "db_name": "patio",
+        "serving_tablet_types": {
+            "replica": true,
+            "master": true
+        },
+        "opentsdb": "vttablet_shadow"
+    }
+}

@@ -1,0 +1,178 @@
+{
+  "latest": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-latest-1154837456.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-latest-1154837456.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/dev/global",
+      "hosts": [
+        "vitess-infra-zookeeper-dev-001:2181",
+        "vitess-infra-zookeeper-dev-002:2181",
+        "vitess-infra-zookeeper-dev-003:2181",
+        "vitess-infra-zookeeper-dev-004:2181",
+        "vitess-infra-zookeeper-dev-005:2181"
+      ]
+    }
+  },
+  "postsubmit": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-postsubmit-453758652.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-postsubmit-453758652.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/postsubmit/global",
+      "hosts": [
+        "vitess-infra-zookeeper-dev-001:2181",
+        "vitess-infra-zookeeper-dev-002:2181",
+        "vitess-infra-zookeeper-dev-003:2181",
+        "vitess-infra-zookeeper-dev-004:2181",
+        "vitess-infra-zookeeper-dev-005:2181"
+      ]
+    }
+  },
+  "postsubmit-noelb": {
+    "gates": {
+      "master": {
+        "host": "vtgate-postsubmit-0a03ed97",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "vtgate-postsubmit-0a03ed97",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/postsubmit/global",
+      "hosts": [
+        "vitess-infra-zookeeper-dev-001:2181",
+        "vitess-infra-zookeeper-dev-002:2181",
+        "vitess-infra-zookeeper-dev-003:2181",
+        "vitess-infra-zookeeper-dev-004:2181",
+        "vitess-infra-zookeeper-dev-005:2181"
+      ]
+    }
+  },
+  "prod": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-prod-942133676.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-prod-rdonly-1793342410.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/prod/global",
+      "hosts": [
+        "vitess-infra-zookeeper-prod1e01-001:2181",
+        "vitess-infra-zookeeper-prod1e01-002:2181",
+        "vitess-infra-zookeeper-prod1e01-003:2181",
+        "vitess-infra-zookeeper-prod1e01-004:2181",
+        "vitess-infra-zookeeper-prod1e01-005:2181"
+      ]
+    }
+  },
+  "prod-adhoc": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-prod-adhoc-1843314642.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-prod-adhoc-1843314642.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/prod/global",
+      "hosts": [
+        "vitess-infra-zookeeper-prod1e01-001:2181",
+        "vitess-infra-zookeeper-prod1e01-002:2181",
+        "vitess-infra-zookeeper-prod1e01-003:2181",
+        "vitess-infra-zookeeper-prod1e01-004:2181",
+        "vitess-infra-zookeeper-prod1e01-005:2181"
+      ]
+    }
+  },
+  "prod-rdonly": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-prod-rdonly-1793342410.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-prod-rdonly-1793342410.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/prod/global",
+      "hosts": [
+        "vitess-infra-zookeeper-prod1e01-001:2181",
+        "vitess-infra-zookeeper-prod1e01-002:2181",
+        "vitess-infra-zookeeper-prod1e01-003:2181",
+        "vitess-infra-zookeeper-prod1e01-004:2181",
+        "vitess-infra-zookeeper-prod1e01-005:2181"
+      ]
+    }
+  },
+  "shadow": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-patio-shadow-1099864763.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-rdonly-patio-shadow-1655497329.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/m10n/shadow/global",
+      "hosts": [
+        "vitess-infra-zookeeper-prod1e01-001:2181",
+        "vitess-infra-zookeeper-prod1e01-002:2181",
+        "vitess-infra-zookeeper-prod1e01-003:2181",
+        "vitess-infra-zookeeper-prod1e01-004:2181",
+        "vitess-infra-zookeeper-prod1e01-005:2181"
+      ]
+    }
+  },
+  "test": {
+    "gates": {
+      "master": {
+        "host": "internal-vtgate-test-1211564209.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      },
+      "rdonly": {
+        "host": "internal-vtgate-test-1211564209.us-east-1.elb.amazonaws.com",
+        "port": 3306
+      }
+    },
+    "zk": {
+      "global_root": "/vitess/global",
+      "hosts": [
+        "vitess-infra-zookeeper-dev-001:2181",
+        "vitess-infra-zookeeper-dev-002:2181",
+        "vitess-infra-zookeeper-dev-003:2181",
+        "vitess-infra-zookeeper-dev-004:2181",
+        "vitess-infra-zookeeper-dev-005:2181"
+      ]
+    }
+  }
+}

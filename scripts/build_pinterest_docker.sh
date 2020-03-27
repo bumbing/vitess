@@ -115,6 +115,10 @@ if [ "$PUSH_CONFIG" == 'true' ] || [ "$PUSH_CONFIG" == '1' ]; then
   if [[ "$files" =~ '/pinterest/vitess_pinterest_acls' ]]; then
     docker run -i -v /etc/zookeeper_hosts.conf:/etc/zookeeper_hosts.conf --rm vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_pinterest_acls --managed_config_file /vt/config/pinterest/vitess_pinterest_acls
   fi
-  # docker run -i -v /etc/zookeeper_hosts.conf:/etc/zookeeper_hosts.conf vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_databases --managed_config_file /vt/config/pinterest/vitess_databases
-  # docker run -i -v /etc/zookeeper_hosts.conf:/etc/zookeeper_hosts.conf vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_environments --managed_config_file /vt/config/pinterest/vitess_environments
+  if [[ "$files" =~ '/pinterest/vitess_databases' ]]; then
+    docker run -i -v /etc/zookeeper_hosts.conf:/etc/zookeeper_hosts.conf --rm vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_databases --managed_config_file /vt/config/pinterest/vitess_databases
+  fi
+  if [[ "$files" =~ '/pinterest/vitess_environments' ]]; then
+    docker run -i -v /etc/zookeeper_hosts.conf:/etc/zookeeper_hosts.conf --rm vitess/config:"$GIT_COMMIT" python -m vitess_utils.vitess --action updatemanagedconfig --managed_config_name vitess_environments --managed_config_file /vt/config/pinterest/vitess_environments
+  fi
 fi
