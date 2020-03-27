@@ -2,9 +2,7 @@
   "table_groups": [
     {
       "name": "all_tables",
-      "table_names_or_prefixes": [
-        "%"
-      ],
+      "table_names_or_prefixes": ["%"],
       "readers": [
         "reader",
         "writer",
