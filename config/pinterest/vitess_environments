@@ -131,28 +131,6 @@
       ]
     }
   },
-  "shadow": {
-    "gates": {
-      "master": {
-        "host": "internal-vtgate-patio-shadow-1099864763.us-east-1.elb.amazonaws.com",
-        "port": 3306
-      },
-      "rdonly": {
-        "host": "internal-vtgate-rdonly-patio-shadow-1655497329.us-east-1.elb.amazonaws.com",
-        "port": 3306
-      }
-    },
-    "zk": {
-      "global_root": "/vitess/m10n/shadow/global",
-      "hosts": [
-        "vitess-infra-zookeeper-prod1e01-001:2181",
-        "vitess-infra-zookeeper-prod1e01-002:2181",
-        "vitess-infra-zookeeper-prod1e01-003:2181",
-        "vitess-infra-zookeeper-prod1e01-004:2181",
-        "vitess-infra-zookeeper-prod1e01-005:2181"
-      ]
-    }
-  },
   "test": {
     "gates": {
       "master": {

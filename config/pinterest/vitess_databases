@@ -2,8 +2,6 @@
     "patiogeneraldb001": {
         "env_type": "prod",
         "cell": "aws_us_east_1",
-        "zk_addrs": "vitess-infra-zookeeper-prod1e01-001:2181,vitess-infra-zookeeper-prod1e01-002:2181,vitess-infra-zookeeper-prod1e01-003:2181,vitess-infra-zookeeper-prod1e01-004:2181,vitess-infra-zookeeper-prod1e01-005:2181",
-        "zk_path": "/vitess/m10n/prod/global",
         "keyspace": "patiogeneral",
         "shard": "0",
         "serving_tablet_types": {
@@ -103,11 +101,7 @@
         "db_name": "narcos",
         "opentsdb": "vttablet_postsubmit",
         "maxwell_whitelisted": false,
-        "serving_tablet_types": {},
-        "rolling_restarts": [
-            "adsnarcospostsubmitdb-1-63",
-            "adsnarcospostsubmitdb-1-57"
-        ]
+        "serving_tablet_types": {}
     },
     "testpatiodb001": {
         "cell": "test",
@@ -148,16 +142,6 @@
         },
         "opentsdb": "vttablet_shadow"
     },
-    "patiodb001": {
-        "decommissioning": true,
-        "shard": "0",
-        "cell": "aws_us_east_1",
-        "keyspace": "patio",
-        "db_name": "patio",
-        "opentsdb": "vttablet",
-        "serving_tablet_types": {},
-        "env_type": "prod"
-    },
     "colatestdb003": {
         "cell": "aws_us_east_1",
         "shard": "80-",
@@ -181,10 +165,7 @@
             "replica": true,
             "master": true,
             "rdonly": true
-        },
-        "rolling_restarts": [
-            "\"\""
-        ]
+        }
     },
     "testpatiogeneraldb001": {
         "cell": "test",
@@ -218,21 +199,6 @@
         "db_name": "patio",
         "serving_tablet_types": {},
         "maxwell_whitelisted": false,
-        "opentsdb": "vttablet_postsubmit",
-        "rolling_restarts": [
-            "adspatiopostsubmitdb-1-11"
-        ]
-    },
-    "colatestdb001": {
-        "cell": "aws_us_east_1",
-        "shard": "0",
-        "env_type": "shadow",
-        "keyspace": "patio",
-        "db_name": "patio",
-        "serving_tablet_types": {
-            "replica": true,
-            "master": true
-        },
-        "opentsdb": "vttablet_shadow"
+        "opentsdb": "vttablet_postsubmit"
     }
 }
