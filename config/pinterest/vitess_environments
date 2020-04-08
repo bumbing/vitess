@@ -13,6 +13,7 @@
     "serversets": [
       "/var/serverset/discovery.vtgate.latest"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/m10n/dev/global",
       "hosts": [
@@ -38,6 +39,7 @@
     "serversets": [
       "/var/serverset/discovery.vtgate.postsubmit"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/m10n/postsubmit/global",
       "hosts": [
@@ -63,6 +65,7 @@
     "serversets": [
       "/var/serverset/discovery.vtgate.postsubmit"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/m10n/postsubmit/global",
       "hosts": [
@@ -89,6 +92,7 @@
       "/var/serverset/discovery.vtgate.prod", 
       "/var/serverset/discovery.vtgate.canary"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/m10n/prod/global",
       "hosts": [
@@ -114,6 +118,7 @@
     "serversets": [
       "/var/serverset/discovery.vtgate.prod-adhoc"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/m10n/prod/global",
       "hosts": [
@@ -139,6 +144,7 @@
     "serversets": [
       "/var/serverset/discovery.vtgate.prod-rdonly"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/m10n/prod/global",
       "hosts": [
@@ -164,6 +170,7 @@
     "serversets": [
       "/var/serverset/discovery.vtgate.test"
     ],
+    "sameAzProbability": -1.0,
     "zk": {
       "global_root": "/vitess/global",
       "hosts": [
