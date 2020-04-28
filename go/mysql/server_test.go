@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"vitess.io/vitess/go/sqltypes"
 	vtenv "vitess.io/vitess/go/vt/env"
@@ -183,6 +185,19 @@ func (th *testHandler) ComQuery(c *Conn, query string, callback func(*sqltypes.R
 					sqltypes.MakeTrusted(querypb.Type_VARCHAR, []byte(c.UserData.Get().Username)),
 				},
 			},
+		})
+	case "50ms delay":
+		callback(&sqltypes.Result{
+			Fields: []*querypb.Field{{
+				Name: "result",
+				Type: querypb.Type_VARCHAR,
+			}},
+		})
+		time.Sleep(50 * time.Millisecond)
+		callback(&sqltypes.Result{
+			Rows: [][]sqltypes.Value{{
+				sqltypes.MakeTrusted(querypb.Type_VARCHAR, []byte("delayed")),
+			}},
 		})
 	default:
 		if strings.HasPrefix(query, benchmarkQueryPrefix) {
@@ -585,6 +600,7 @@ func TestServer(t *testing.T) {
 	initialTimingCounts := timings.Counts()
 	initialConnAccept := connAccept.Get()
 	initialConnSlow := connSlow.Get()
+	initialconnRefuse := connRefuse.Get()
 
 	// Run an 'error' command.
 	th.SetErr(NewSQLError(ERUnknownComError, SSUnknownComError, "forced query error"))
@@ -604,6 +620,9 @@ func TestServer(t *testing.T) {
 	}
 	if connSlow.Get()-initialConnSlow != 1 {
 		t.Errorf("Expected ConnSlow delta=1, got %d", connSlow.Get()-initialConnSlow)
+	}
+	if connRefuse.Get()-initialconnRefuse != 0 {
+		t.Errorf("Expected connRefuse delta=0, got %d", connRefuse.Get()-initialconnRefuse)
 	}
 
 	expectedTimingDeltas := map[string]int64{
@@ -641,6 +660,9 @@ func TestServer(t *testing.T) {
 	}
 	if connSlow.Get()-initialConnSlow != 1 {
 		t.Errorf("Expected ConnSlow delta=1, got %d", connSlow.Get()-initialConnSlow)
+	}
+	if connRefuse.Get()-initialconnRefuse != 0 {
+		t.Errorf("Expected connRefuse delta=0, got %d", connRefuse.Get()-initialconnRefuse)
 	}
 
 	// Run a 'select rows' command with results.
@@ -1297,6 +1319,7 @@ func TestListenerShutdown(t *testing.T) {
 		Uname: "user1",
 		Pass:  "password1",
 	}
+	initialconnRefuse := connRefuse.Get()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1311,6 +1334,10 @@ func TestListenerShutdown(t *testing.T) {
 	}
 
 	l.Shutdown()
+
+	if connRefuse.Get()-initialconnRefuse != 1 {
+		t.Errorf("Expected connRefuse delta=1, got %d", connRefuse.Get()-initialconnRefuse)
+	}
 
 	if err := conn.Ping(); err != nil {
 		sqlErr, ok := err.(*SQLError)
@@ -1365,4 +1392,53 @@ func TestParseConnAttrs(t *testing.T) {
 			t.Fatalf("Error reading key %s from connection attributes: attrs: %-v", k, attrs)
 		}
 	}
+}
+
+func TestServerFlush(t *testing.T) {
+	defer func(saved time.Duration) { *mysqlServerFlushDelay = saved }(*mysqlServerFlushDelay)
+	*mysqlServerFlushDelay = 10 * time.Millisecond
+
+	th := &testHandler{}
+
+	l, err := NewListener("tcp", ":0", &AuthServerNone{}, th, 0, 0, false)
+	require.NoError(t, err)
+	defer l.Close()
+	go l.Accept()
+
+	host, port := getHostPort(t, l.Addr())
+	params := &ConnParams{
+		Host: host,
+		Port: port,
+	}
+
+	c, err := Connect(context.Background(), params)
+	require.NoError(t, err)
+	defer c.Close()
+
+	start := time.Now()
+	err = c.ExecuteStreamFetch("50ms delay")
+	require.NoError(t, err)
+
+	flds, err := c.Fields()
+	require.NoError(t, err)
+	if duration, want := time.Since(start), 20*time.Millisecond; duration < *mysqlServerFlushDelay || duration > want {
+		t.Errorf("duration: %v, want between %v and %v", duration, *mysqlServerFlushDelay, want)
+	}
+	want1 := []*querypb.Field{{
+		Name: "result",
+		Type: querypb.Type_VARCHAR,
+	}}
+	assert.Equal(t, want1, flds)
+
+	row, err := c.FetchNext()
+	require.NoError(t, err)
+	if duration, want := time.Since(start), 50*time.Millisecond; duration < want {
+		t.Errorf("duration: %v, want > %v", duration, want)
+	}
+	want2 := []sqltypes.Value{sqltypes.MakeTrusted(querypb.Type_VARCHAR, []byte("delayed"))}
+	assert.Equal(t, want2, row)
+
+	row, err = c.FetchNext()
+	require.NoError(t, err)
+	assert.Nil(t, row)
 }

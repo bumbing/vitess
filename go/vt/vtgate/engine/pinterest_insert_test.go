@@ -120,8 +120,8 @@ func TestInsertShardedUnownedNullSuccess(t *testing.T) {
 		`Execute insert into lkp1(from, toc) values(:from0, :toc0) from0: type:INT64 value:"2" toc0: type:UINT64 ` +
 			`value:"1"  true`,
 		`ResolveDestinations sharded [value:"0" ] Destinations:DestinationKeyspaceID(166b40b44aba4bd6)`,
-		`ExecuteMultiShard sharded.-20: prefix mid1 suffix /* vtgate:: keyspace_id:166b40b44aba4bd6 */ ` +
-			`{_c30: type:INT64 value:"2" _c40: _id0: type:INT64 value:"1" } true true`,
+		`ExecuteMultiShard sharded.-20: prefix mid1 suffix {_c30: type:INT64 value:"2" _c40: _id0: type:INT64 ` +
+			`value:"1" } true true`,
 	})
 }
 
@@ -261,7 +261,7 @@ func TestInsertShardedOwnedSuccess(t *testing.T) {
 			`value:"1"  true`,
 		`Execute select from from lkp2 where from = :from and toc = :toc from: type:INT64 value:"3" toc: type:UINT64 value:"1"  false`,
 		`ResolveDestinations sharded [value:"0" ] Destinations:DestinationKeyspaceID(166b40b44aba4bd6)`,
-		`ExecuteMultiShard sharded.-20: prefix mid1 suffix /* vtgate:: keyspace_id:166b40b44aba4bd6 */ ` +
+		`ExecuteMultiShard sharded.-20: prefix mid1 suffix ` +
 			`{__seq0: type:INT64 value:"1" _c40: type:INT64 value:"3" _id0: type:INT64 value:"2" } true true`,
 	})
 }

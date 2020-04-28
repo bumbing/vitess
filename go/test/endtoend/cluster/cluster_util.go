@@ -68,7 +68,7 @@ func GetMasterPosition(t *testing.T, vttablet Vttablet, hostname string) (string
 	ctx := context.Background()
 	vtablet := getTablet(vttablet.GrpcPort, hostname)
 	pos, err := tmClient.MasterPosition(ctx, vtablet)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	gtID := strings.SplitAfter(pos, "/")[1]
 	return pos, gtID
 }
@@ -87,10 +87,19 @@ func VerifyRowsInTablet(t *testing.T, vttablet *Vttablet, ksName string, expecte
 	assert.Fail(t, "expected rows not found.")
 }
 
+// PanicHandler handles the panic in the testcase.
+func PanicHandler(t *testing.T) {
+	err := recover()
+	if t == nil {
+		return
+	}
+	require.Nilf(t, err, "panic occured in testcase %v", t.Name())
+}
+
 // VerifyLocalMetadata Verify Local Metadata of a tablet
 func VerifyLocalMetadata(t *testing.T, tablet *Vttablet, ksName string, shardName string, cell string) {
 	qr, err := tablet.VttabletProcess.QueryTablet("select * from _vt.local_metadata", ksName, false)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	assert.Equal(t, fmt.Sprintf("%v", qr.Rows[0][1]), fmt.Sprintf(`BLOB("%s")`, tablet.Alias))
 	assert.Equal(t, fmt.Sprintf("%v", qr.Rows[1][1]), fmt.Sprintf(`BLOB("%s.%s")`, ksName, shardName))
 	assert.Equal(t, fmt.Sprintf("%v", qr.Rows[2][1]), fmt.Sprintf(`BLOB("%s")`, cell))
@@ -120,7 +129,7 @@ func (cluster LocalProcessCluster) ListBackups(shardKsName string) ([]string, er
 // VerifyBackupCount compares the backup count with expected count.
 func (cluster LocalProcessCluster) VerifyBackupCount(t *testing.T, shardKsName string, expected int) []string {
 	backups, err := cluster.ListBackups(shardKsName)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	assert.Equalf(t, expected, len(backups), "invalid number of backups")
 	return backups
 }
@@ -128,7 +137,7 @@ func (cluster LocalProcessCluster) VerifyBackupCount(t *testing.T, shardKsName s
 // RemoveAllBackups removes all the backup corresponds to list backup.
 func (cluster LocalProcessCluster) RemoveAllBackups(t *testing.T, shardKsName string) {
 	backups, err := cluster.ListBackups(shardKsName)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	for _, backup := range backups {
 		cluster.VtctlclientProcess.ExecuteCommand("RemoveBackup", shardKsName, backup)
 	}
@@ -149,10 +158,60 @@ func getTablet(tabletGrpcPort int, hostname string) *tabletpb.Tablet {
 	return &tabletpb.Tablet{Hostname: hostname, PortMap: portMap}
 }
 
+func filterResultWhenRunsForCoverage(input string) string {
+	if !*isCoverage {
+		return input
+	}
+	lines := strings.Split(input, "\n")
+	var result string
+	for _, line := range lines {
+		if strings.Contains(line, "=== RUN") {
+			continue
+		}
+		if strings.Contains(line, "--- PASS:") || strings.Contains(line, "PASS") {
+			break
+		}
+		result = result + line + "\n"
+	}
+	return result
+}
+
+// WaitForReplicationPos will wait for replication position to catch-up
+func WaitForReplicationPos(t *testing.T, tabletA *Vttablet, tabletB *Vttablet, hostname string, timeout float64) {
+	replicationPosA, _ := GetMasterPosition(t, *tabletA, hostname)
+	for {
+		replicationPosB, _ := GetMasterPosition(t, *tabletB, hostname)
+		if positionAtLeast(t, tabletA, replicationPosB, replicationPosA) {
+			break
+		}
+		msg := fmt.Sprintf("%s's replication position to catch up to %s's;currently at: %s, waiting to catch up to: %s", tabletB.Alias, tabletA.Alias, replicationPosB, replicationPosA)
+		waitStep(t, msg, timeout, 0.01)
+	}
+}
+
+func waitStep(t *testing.T, msg string, timeout float64, sleepTime float64) float64 {
+	timeout = timeout - sleepTime
+	if timeout < 0.0 {
+		t.Errorf("timeout waiting for condition '%s'", msg)
+	}
+	time.Sleep(time.Duration(sleepTime) * time.Second)
+	return timeout
+}
+
+func positionAtLeast(t *testing.T, tablet *Vttablet, a string, b string) bool {
+	isAtleast := false
+	val, err := tablet.MysqlctlProcess.ExecuteCommandWithOutput("position", "at_least", a, b)
+	require.NoError(t, err)
+	if strings.Contains(val, "true") {
+		isAtleast = true
+	}
+	return isAtleast
+}
+
 // ExecuteQueriesUsingVtgate sends query to vtgate using vtgate session.
 func ExecuteQueriesUsingVtgate(t *testing.T, session *vtgateconn.VTGateSession, query string) {
 	_, err := session.Execute(context.Background(), query, nil)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 }
 
 // NewConnParams creates ConnParams corresponds to given arguments.
@@ -172,4 +231,5 @@ func NewConnParams(port int, password, socketPath, keyspace string) mysql.ConnPa
 	}
 
 	return cp
+
 }

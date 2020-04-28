@@ -65,21 +65,24 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 	}
 	ks := vs.Keyspaces["sharded"]
 	upd := &Update{
-		Opcode:   UpdateEqual,
-		Keyspace: ks.Keyspace,
-		Query:    "dummy_update",
-		Vindex:   ks.Vindexes["hash"].(vindexes.SingleColumn),
-		Values:   []sqltypes.PlanValue{{Value: sqltypes.NewInt64(1)}},
-		ChangedVindexValues: map[string][]sqltypes.PlanValue{
-			"ownvindex": {{
-				Value: sqltypes.NewInt64(1),
-			}},
-			"unownvindex": {{
-				Value: sqltypes.NewInt64(2),
-			}},
+		DML: DML{
+			Opcode:           Equal,
+			Keyspace:         ks.Keyspace,
+			Query:            "dummy_update",
+			Vindex:           ks.Vindexes["hash"].(vindexes.SingleColumn),
+			Values:           []sqltypes.PlanValue{{Value: sqltypes.NewInt64(1)}},
+			Table:            ks.Tables["t1"],
+			OwnedVindexQuery: "dummy_subquery",
+			KsidVindex:       ks.Vindexes["hash"].(vindexes.SingleColumn),
 		},
-		Table:            ks.Tables["t1"],
-		OwnedVindexQuery: "dummy_subquery",
+		ChangedVindexValues: map[string]VindexValues{
+			"ownvindex": {
+				"c1": {Value: sqltypes.NewInt64(1)},
+			},
+			"unownvindex": {
+				"c2": {Value: sqltypes.NewInt64(2)},
+			},
+		},
 	}
 
 	results := []*sqltypes.Result{sqltypes.MakeTestResult(
@@ -105,10 +108,10 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 		`ExecuteMultiShard sharded.-20: dummy_subquery {} false false`,
 		// Those values are returned as 4,5 for ownvindex and 6 for unownvindex.
 		// 4,5 have to be replaced by 1,2 (the new values).
-		`Execute delete from lkp2 where from1 = :from1 and toc = :toc from1: type:INT64 value:"4" toc: type:UINT64 value:"1"  true`,
-		`Execute insert into lkp2(from1, toc) values(:from10, :toc0) from10: type:INT64 value:"1" toc0: type:UINT64 value:"1"  true`,
+		`Execute delete from lkp2 where from1 = :from1 and toc = :toc from1: type:INT64 value:"4" toc: type:UINT64 value:"4"  true`,
+		`Execute insert into lkp2(from1, toc) values(:from10, :toc0) from10: type:INT64 value:"1" toc0: type:UINT64 value:"4"  true`,
 		// Finally, the actual update, which is also sent to -20, same route as the subquery.
-		`ExecuteMultiShard sharded.-20: dummy_update /* vtgate:: keyspace_id:166b40b44aba4bd6 */ {} true true`,
+		`ExecuteMultiShard sharded.-20: dummy_update {} true true`,
 	})
 
 	// No rows changing
@@ -125,6 +128,6 @@ func TestUpdateEqualChangedUnownedVindex(t *testing.T) {
 		// It gets used to perform the subquery to fetch the changing column values.
 		`ExecuteMultiShard sharded.-20: dummy_subquery {} false false`,
 		// Subquery returns no rows. So, no vindexes are updated. We still pass-through the original update.
-		`ExecuteMultiShard sharded.-20: dummy_update /* vtgate:: keyspace_id:166b40b44aba4bd6 */ {} true true`,
+		`ExecuteMultiShard sharded.-20: dummy_update {} true true`,
 	})
 }

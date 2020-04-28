@@ -220,7 +220,7 @@ func parseSchema(sqlSchema string) ([]*sqlparser.DDL, error) {
 		if sql == "" {
 			break
 		}
-		sql = sqlparser.StripComments(sql)
+		sql, _ = sqlparser.SplitMarginComments(sql)
 		if sql == "" {
 			continue
 		}

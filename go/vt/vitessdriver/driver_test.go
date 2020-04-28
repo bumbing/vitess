@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
@@ -79,7 +81,8 @@ func TestOpen(t *testing.T) {
 			connStr: fmt.Sprintf(`{"address": "%s", "target": "@replica", "timeout": %d}`, testAddress, int64(30*time.Second)),
 			conn: &conn{
 				Configuration: Configuration{
-					Target: "@replica",
+					Protocol: "grpc",
+					Target:   "@replica",
 				},
 				convert: &converter{
 					location: time.UTC,
@@ -90,7 +93,9 @@ func TestOpen(t *testing.T) {
 			desc:    "Open() (defaults omitted)",
 			connStr: fmt.Sprintf(`{"address": "%s", "timeout": %d}`, testAddress, int64(30*time.Second)),
 			conn: &conn{
-				Configuration: Configuration{},
+				Configuration: Configuration{
+					Protocol: "grpc",
+				},
 				convert: &converter{
 					location: time.UTC,
 				},
@@ -116,6 +121,7 @@ func TestOpen(t *testing.T) {
 				testAddress, int64(30*time.Second)),
 			conn: &conn{
 				Configuration: Configuration{
+					Protocol:        "grpc",
 					DefaultLocation: "America/Los_Angeles",
 				},
 				convert: &converter{
@@ -416,16 +422,16 @@ func TestBindVars(t *testing.T) {
 	converter := &converter{}
 
 	for _, tc := range testcases {
-		bv, err := converter.bindVarsFromNamedValues(tc.in)
-		if bv != nil {
-			if !reflect.DeepEqual(bv, tc.out) {
-				t.Errorf("%s: %v, want %v", tc.desc, bv, tc.out)
+		t.Run(tc.desc, func(t *testing.T) {
+			bv, err := converter.bindVarsFromNamedValues(tc.in)
+			if tc.outErr != "" {
+				assert.EqualError(t, err, tc.outErr)
+			} else {
+				if !reflect.DeepEqual(bv, tc.out) {
+					t.Errorf("%s: %v, want %v", tc.desc, bv, tc.out)
+				}
 			}
-		} else {
-			if err == nil || err.Error() != tc.outErr {
-				t.Errorf("%s: %v, want %v", tc.desc, err, tc.outErr)
-			}
-		}
+		})
 	}
 }
 

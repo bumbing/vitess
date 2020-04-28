@@ -156,30 +156,6 @@ func TestStaticConfigHUP(t *testing.T) {
 	}
 }
 
-func TestStaticConfigHUPWithRotation(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "mysql_auth_server_static_file.json")
-	if err != nil {
-		t.Fatalf("couldn't create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	oldStr := "str1"
-	jsonConfig := fmt.Sprintf("{\"%s\":[{\"Password\":\"%s\"}]}", oldStr, oldStr)
-	if err := ioutil.WriteFile(tmpFile.Name(), []byte(jsonConfig), 0600); err != nil {
-		t.Fatalf("couldn't write temp file: %v", err)
-	}
-
-	aStatic := NewAuthServerStatic(tmpFile.Name(), "", 10*time.Millisecond)
-	defer aStatic.close()
-
-	if aStatic.getEntries()[oldStr][0].Password != oldStr {
-		t.Fatalf("%s's Password should still be '%s'", oldStr, oldStr)
-	}
-
-	hupTestWithRotation(t, aStatic, tmpFile, oldStr, "str4")
-	hupTestWithRotation(t, aStatic, tmpFile, "str4", "str5")
-}
-
 func hupTest(t *testing.T, aStatic *AuthServerStatic, tmpFile *os.File, oldStr, newStr string) {
 	jsonConfig := fmt.Sprintf("{\"%s\":[{\"Password\":\"%s\"}]}", newStr, newStr)
 	if err := ioutil.WriteFile(tmpFile.Name(), []byte(jsonConfig), 0600); err != nil {

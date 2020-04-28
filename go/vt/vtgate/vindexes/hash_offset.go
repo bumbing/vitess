@@ -8,6 +8,7 @@ import (
 
 	"vitess.io/vitess/go/sqltypes"
 	"vitess.io/vitess/go/vt/key"
+	"vitess.io/vitess/go/vt/vtgate/evalengine"
 )
 
 var (
@@ -66,7 +67,7 @@ func (vind *HashOffset) IsFunctional() bool {
 func applyOffset(offset uint64, ids []sqltypes.Value) []sqltypes.Value {
 	translated := make([]sqltypes.Value, 0, len(ids))
 	for _, id := range ids {
-		num, err := sqltypes.ToUint64(id)
+		num, err := evalengine.ToUint64(id)
 		if err != nil {
 			// Not a unint64, so leave it alone.
 			// The underlying Hash implementation will ignore nulls or report bad types.

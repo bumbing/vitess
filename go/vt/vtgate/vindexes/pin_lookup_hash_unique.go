@@ -14,6 +14,7 @@ import (
 	"vitess.io/vitess/go/sync2"
 	"vitess.io/vitess/go/vt/key"
 	"vitess.io/vitess/go/vt/log"
+	"vitess.io/vitess/go/vt/vtgate/evalengine"
 
 	querypb "vitess.io/vitess/go/vt/proto/query"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
@@ -207,7 +208,7 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 		val, ok := plhu.keyspaceIDCache.Get(id.ToString())
 		if ok {
 			plhu.cacheHits.Add(1)
-			k, err := sqltypes.ToUint64(id)
+			k, err := evalengine.ToUint64(id)
 			if err != nil {
 				return nil, fmt.Errorf("PinLookupHashUnique.Map: failed to convert key %v", id.ToString())
 			}
@@ -261,13 +262,13 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 					return nil, fmt.Errorf("PinLookupHashUnique.Map: Internal error. Expected %v columns. Got %v", 2, len(row))
 				}
 
-				fromColKey, err := sqltypes.ToUint64(row[0])
+				fromColKey, err := evalengine.ToUint64(row[0])
 				if err != nil {
 					failToLookupVindex.Add([]string{plhu.lkp.Table, "key_parsing_error"}, 1)
 					return nil, fmt.Errorf("PinLookupHashUnique.Map: Result key parsing error. %v", err)
 				}
 
-				toColValue, err := sqltypes.ToUint64(row[1])
+				toColValue, err := evalengine.ToUint64(row[1])
 				if err != nil {
 					failToLookupVindex.Add([]string{plhu.lkp.Table, "value_parsing_error"}, 1)
 					return nil, fmt.Errorf("PinLookupHashUnique.Map: Result value parsing error. %v", err)
@@ -283,7 +284,7 @@ func (plhu *PinLookupHashUnique) Map(cursor VCursor, ids []sqltypes.Value) ([]ke
 
 	out := make([]key.Destination, 0, len(ids))
 	for _, id := range ids {
-		idToInt, _ := sqltypes.ToUint64(id)
+		idToInt, _ := evalengine.ToUint64(id)
 		val, ok := m[idToInt]
 		if !ok {
 			// NOTE: Zeros aren't expected to map to an ID. The query probably shouldn't
@@ -320,7 +321,7 @@ func getSourceTable(name string) string {
 func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Value, dests []key.Destination) {
 	expected := make(map[uint64]string, len(ids))
 	for i, id := range ids {
-		val, _ := sqltypes.ToUint64(id)
+		val, _ := evalengine.ToUint64(id)
 		expected[val] = dests[i].String()
 	}
 	sel := fmt.Sprintf(
@@ -352,12 +353,12 @@ func (plhu *PinLookupHashUnique) checkSample(vcursor VCursor, ids []sqltypes.Val
 			continue
 		}
 
-		idColValue, err := sqltypes.ToUint64(row[0])
+		idColValue, err := evalengine.ToUint64(row[0])
 		if err != nil {
 			vindexServingVerification.Add([]string{plhu.name, "fail_to_parse_id"}, 1)
 		}
 
-		toColValue, err := sqltypes.ToUint64(row[1])
+		toColValue, err := evalengine.ToUint64(row[1])
 		if err != nil {
 			vindexServingVerification.Add([]string{plhu.name, "fail_to_parse_result"}, 1)
 			continue
@@ -394,7 +395,7 @@ func getThingsToVerify(ids []sqltypes.Value, ksids [][]byte) ([]sqltypes.Value, 
 			continue
 		}
 
-		val, err := sqltypes.ToUint64(id)
+		val, err := evalengine.ToUint64(id)
 		// This failure should most like due to Patio-latest DML query pass in negative value for unowned Vindex.
 		// We bypass the verification for to not abort the DML and print a warning instead.
 		if err != nil {
